@@ -1,6 +1,5 @@
 # evaluation_engine.py
 import chess
-import numpy as np
 
 class EvaluationEngine:
     # Set depth for eval

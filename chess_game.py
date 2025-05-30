@@ -1,22 +1,13 @@
 # chess_game.py
-import sys
 import os
-from functools import lru_cache
-from chess_core import ChessAI, ChessDataset
-from evaluation_engine import EvaluationEngine
+import sys
+import pygame
 import chess
 import chess.pgn
-import torch
-import numpy as np
-import pygame
+from evaluation_engine import EvaluationEngine
 import random
 import yaml
 import datetime
-import time
-from threading import Thread
-from concurrent.futures import ThreadPoolExecutor
-
-torch.set_float32_matmul_precision('high')  # Improve GPU performance
 
 # Pygame constants
 WIDTH, HEIGHT = 640, 640
@@ -32,14 +23,13 @@ def resource_path(relative_path):
     return os.path.join(os.path.abspath("."), relative_path)
 
 class ChessGame:
-    def __init__(self, model_path, username="User"):
+    def __init__(self):
         
         # Initialize Pygame
         pygame.init()
         self.screen = pygame.display.set_mode((WIDTH, HEIGHT))
-        pygame.display.set_caption('v7p3r Chess AI')
+        pygame.display.set_caption('v7p3r Chess Bot')
         self.clock = pygame.time.Clock()
-        self.device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
         
         # Initialize chess components
         self.board = chess.Board()
@@ -50,26 +40,6 @@ class ChessGame:
         # Load configuration
         with open("config.yaml") as f:
             self.config = yaml.safe_load(f)
-            
-         # Load move vocabulary
-        import pickle
-        with open("move_vocab.pkl", "rb") as f:
-            self.move_to_index = pickle.load(f)
-        
-        # Initialize model
-        torch.backends.cudnn.benchmark = True
-        torch.backends.cuda.matmul.allow_tf32 = True
-        # Initialize model WITHOUT compilation first
-        self.model = ChessAI(num_classes=len(self.move_to_index), config=self.config).to(self.device)
-        # Load state_dict into base model
-        self.load_model_weights(model_path)
-        # Compile model AFTER loading weights
-        # missing cl at the moment
-        #self.model = torch.compile(self.model)
-        
-        # Add AI thread status
-        self.ai_thinking = False
-        self.current_ai_move = None
         
         # Set up game config
         self.ai_vs_ai = self.config['game']['ai_vs_ai']
@@ -77,13 +47,15 @@ class ChessGame:
         
         # Game recording
         self.game = chess.pgn.Game()
-        self.username = username
         self.ai_color = None  # Will be set in run()
         self.human_color = None
         self.game_node = self.game
         
         # Initialize PGN headers
-        self.game.headers["Event"] = "Human vs. AI Testing"
+        if self.ai_vs_ai:
+            self.game.headers["Event"] = "AI vs. AI Testing"
+        else:
+            self.game.headers["Event"] = "Human vs. AI Testing"
         self.game.headers["Date"] = datetime.datetime.now().strftime("%Y.%m.%d")
         self.game.headers["Site"] = "Local Computer"
         self.game.headers["Round"] = "#"
@@ -92,31 +64,14 @@ class ChessGame:
         self.last_ai_move = None  # Track AI's last move
         
         # Game eval config
+        self.evaluator = EvaluationEngine(self.board, depth=3)
         self.current_eval = None
         self.font = pygame.font.SysFont('Arial', 24)
         
         # Set colors
         self._set_colors()
     
-    def load_model_weights(self, path):
-        """Handle compiled/non-compiled weight loading"""
-        try:
-            # First try direct load
-            self.model.load_state_dict(torch.load(path, map_location=self.device))
-        except RuntimeError:
-            # Fallback: Remove '_orig_mod.' prefix if present
-            self.model.load_state_dict(
-                {k.replace('_orig_mod.', ''): v 
-                 for k, v in torch.load(path, map_location=self.device).items()}
-            )
-                
-    def ai_move_async(self):
-        self.ai_thinking = True
-        try:
-            self.current_ai_move = self.ai_move()
-        finally:
-            self.ai_thinking = False
-            
+    
     def _set_colors(self):
         if self.ai_vs_ai:
             self.flip_board = False  # White on bottom for AI vs AI
@@ -140,11 +95,11 @@ class ChessGame:
 
         # Set PGN headers
         if self.ai_vs_ai:
-            self.game.headers["White"] = "v7p3r_chess_ai"
-            self.game.headers["Black"] = "v7p3r_chess_ai"
+            self.game.headers["White"] = "v7p3r_chess_bot"
+            self.game.headers["Black"] = "v7p3r_chess_bot"
         else:
-            self.game.headers["White"] = "v7p3r_chess_ai" if self.ai_color == chess.WHITE else self.username
-            self.game.headers["Black"] = self.username if self.ai_color == chess.WHITE else "v7p3r_chess_ai"
+            self.game.headers["White"] = "v7p3r_chess_bot" if self.ai_color == chess.WHITE else "Human"
+            self.game.headers["Black"] = "Human" if self.ai_color == chess.WHITE else "v7p3r_chess_bot"
         
     def load_images(self):
         pieces = ['wp', 'wN', 'wb', 'wr', 'wq', 'wk', 
@@ -168,94 +123,6 @@ class ChessGame:
             # Render text
             text = self.font.render(f"Eval: {eval_str}", True, color)
             self.screen.blit(text, (WIDTH-150, 10))
-
-    @lru_cache(maxsize=128)
-    def board_to_tensor(self, fen):
-        board = chess.Board(fen)
-        tensor = torch.zeros(13, 8, 8, dtype=torch.float32, device=self.device)  # Changed from 12 to 13
-        for square in chess.SQUARES:
-            piece = board.piece_at(square)
-            if piece:
-                channel = piece.piece_type - 1 + (6 if piece.color == chess.BLACK else 0)
-                tensor[channel][7 - square//8][square%8] = 1
-        # Add promotion flag
-        for square in chess.SQUARES:
-            piece = board.piece_at(square)
-            if piece and piece.piece_type == chess.PAWN:
-                rank = chess.square_rank(square)
-                if rank in [1, 6]:
-                    tensor[12][7 - square//8][square%8] = 1
-        return tensor.unsqueeze(0)
-    
-    def ai_move(self):
-        """Enhanced AI move selection with capture prioritization"""
-        legal_moves = list(self.board.legal_moves)
-        if not legal_moves:
-            return None
-        
-        # Step 1: Prioritize profitable captures
-        profitable_captures = []
-        for move in legal_moves:
-            if self.board.is_capture(move):
-                see_score = self.static_exchange_evaluation(move)
-                if see_score >= 0:
-                    profitable_captures.append((move, see_score + 100))
-        
-        # Step 2: If profitable captures exist, prefer them
-        if profitable_captures:
-            profitable_captures.sort(key=lambda x: -x[1])
-            for move, score in profitable_captures[:3]:
-                if move.uci() in self.move_to_index:
-                    self.current_eval = score
-                    self._record_evaluation(score)
-                    return move.uci()
-        
-        # Step 3: Neural network + rule evaluation fallback
-        vocab_moves = [m for m in legal_moves if m.uci() in self.move_to_index]
-        non_vocab_moves = [m for m in legal_moves if m.uci() not in self.move_to_index]
-        
-        best_move = None
-        best_score = -float('inf')
-        
-        # Get neural network suggestions
-        nn_moves = self._get_top_nn_moves(vocab_moves, top_n=5)
-        
-        # Always include rule-based evaluation
-        rule_based_moves = self._evaluate_with_rules(non_vocab_moves[:5])
-        
-        # Combine and select best
-        all_candidates = nn_moves + rule_based_moves
-        for move, score in all_candidates:
-            if score > best_score:
-                best_score = score
-                best_move = move
-        
-        # Store and record evaluation
-        self.current_eval = best_score
-        self._record_evaluation(best_score)
-        
-        return best_move.uci() if best_move else None
-
-
-    def _get_top_nn_moves(self, moves, top_n=3):
-        """Get top moves using neural network predictions"""
-        scores = []
-        for move in moves:
-            tensor = self.board_to_tensor(self.board.fen())
-            with torch.no_grad():
-                logits = self.model(tensor)
-                idx = self.move_to_index[move.uci()]
-                scores.append((move, logits[0][idx].item()))
-        return sorted(scores, key=lambda x: -x[1])[:top_n]
-
-    def _evaluate_with_rules(self, moves):
-        """Evaluate moves using rule-based system"""
-        evaluator = EvaluationEngine(self.board)
-        return [(m, evaluator.evaluate_move(m)) for m in moves]
-
-    def _are_moves_strong(self, moves, threshold=0.5):
-        """Check if any NN move exceeds confidence threshold"""
-        return any(score > threshold for _, score in moves)
 
     def highlight_last_move(self):
         """Highlight AI's last move on the board"""
@@ -400,6 +267,23 @@ class ChessGame:
         s.fill(pygame.Color('blue'))
         self.screen.blit(s, (screen_x, screen_y))
     
+    def ai_move(self):
+        """Pure evaluation-based move selection"""
+        best_move = None
+        best_score = -float('inf') if self.board.turn == chess.WHITE else float('inf')
+        
+        for move in self.board.legal_moves:
+            self.board.push(move)
+            current_eval = self.evaluator.evaluate_position_with_lookahead()
+            self.board.pop()
+            
+            if (self.board.turn == chess.WHITE and current_eval > best_score) or \
+               (self.board.turn == chess.BLACK and current_eval < best_score):
+                best_score = current_eval
+                best_move = move
+                
+        return best_move.uci() if best_move else None
+    
     def run(self):
         running = True
         clock = pygame.time.Clock()
@@ -418,14 +302,6 @@ class ChessGame:
                 elif self.ai_vs_ai and event.type == pygame.USEREVENT:
                     if not self.board.is_game_over():
                         self.process_ai_move()
-
-            # Handle AI moves in human vs AI mode
-            if not self.ai_vs_ai and self.board.turn == self.ai_color and not self.ai_thinking:
-                self.ai_thinking = True
-                try:
-                    self.process_ai_move()
-                finally:
-                    self.ai_thinking = False
 
             # Update display
             self.update_display()
@@ -507,5 +383,5 @@ class ChessGame:
             self.game.accept(exporter)
 
 if __name__ == "__main__":
-    game = ChessGame("v7p3r_chess_ai_model.pth")
+    game = ChessGame()
     game.run()

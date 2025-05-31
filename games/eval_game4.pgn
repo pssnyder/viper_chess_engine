@@ -1,0 +1,30 @@
+[Event "AI vs. AI Testing (Pure Evaluation)"]
+[Site "Local Computer"]
+[Date "2025.05.31"]
+[Round "#"]
+[White "v7p3r_eval_bot"]
+[Black "v7p3r_eval_bot"]
+[Result "1/2-1/2"]
+
+{ Initial Eval: 1.70 } 1. Nf3 { Eval: 0.10 } 1... Nf6 { Eval: 0.93 } 2. Nc3
+{ Eval: -0.13 } 2... Nc6 { Eval: 1.16 } 3. e4 { Eval: -0.04 } 3... e5
+{ Eval: 2.70 } 4. Bb5 { Eval: -0.53 } 4... Bc5 { Eval: 3.89 } 5. d4
+{ Eval: -1.14 } 5... exd4 { Eval: 0.94 } 6. Nxd4 { Eval: -4.46 } 6... Bxd4
+{ Eval: 0.33 } 7. Bxc6 { Eval: -6.43 } 7... dxc6 { Eval: -0.05 } 8. O-O
+{ Eval: -8.79 } 8... Bxf2+ { Eval: -0.95 } 9. Kxf2 { Eval: -6.30 } 9... Nxe4+
+{ Eval: 2.50 } 10. Nxe4 { Eval: -1.16 } 10... Qh4+ { Eval: 2.00 } 11. Ke3
+{ Eval: -1.99 } 11... Qe7 { Eval: 2.66 } 12. Bd2 { Eval: -2.23 } 12... O-O
+{ Eval: 2.37 } 13. Bc3 { Eval: -1.86 } 13... Rd8 { Eval: 3.24 } 14. Rxf7
+{ Eval: -1.50 } 14... Kxf7 { Eval: -0.45 } 15. Qf3+ { Eval: -5.10 } 15... Kg8
+{ Eval: -1.37 } 16. b3 { Eval: -5.60 } 16... Bd7 { Eval: 2.42 } 17. Rd1
+{ Eval: -5.74 } 17... Rf8 { Eval: -0.99 } 18. Qg3 { Eval: -5.86 } 18... Bf5
+{ Eval: -1.01 } 19. Qxg7+ { Eval: -5.70 } 19... Qxg7 { Eval: -5.38 } 20. Bxg7
+{ Eval: -6.50 } 20... Kxg7 { Eval: -5.59 } 21. Rf1 { Eval: -10.39 } 21... Bxe4
+{ Eval: -5.76 } 22. Rxf8 { Eval: -5.98 } 22... Rxf8 { Eval: -5.94 } 23. Kxe4
+{ Eval: -6.56 } 23... Rf2 { Eval: -6.58 } 24. Kd3 { Eval: -7.38 } 24... Rxg2
+{ Eval: -6.98 } 25. Kc3 { Eval: -7.96 } 25... Rxh2 { Eval: -6.98 } 26. Kb2
+{ Eval: -8.08 } 26... Kg8 { Eval: -7.22 } 27. a3 { Eval: -8.20 } 27... c5
+{ Eval: -7.28 } 28. Kc3 { Eval: -8.20 } 28... Rh3+ { Eval: -7.22 } 29. Kb2
+{ Eval: -8.20 } 29... Rh2 { Eval: -7.28 } 30. Kc3 { Eval: -8.20 } 30... Rh3+
+{ Eval: -7.22 } 31. Kb2 1/2-1/2
+

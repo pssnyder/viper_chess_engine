@@ -18,7 +18,7 @@ class PieceSquareTables:
         """Create all piece-square tables"""
         
         # Pawn table - encourages advancement and center control
-        pawn_table = [
+        self.PAWN_TABLE = [
             [  0,  0,  0,  0,  0,  0,  0,  0],  # 8th rank (promotion)
             [ 50, 50, 50, 50, 50, 50, 50, 50],  # 7th rank 
             [ 10, 10, 20, 30, 30, 20, 10, 10],  # 6th rank
@@ -30,7 +30,7 @@ class PieceSquareTables:
         ]
         
         # Knight table - heavily penalizes rim placement
-        knight_table = [
+        self.KNIGHT_TABLE = [
             [-50,-40,-30,-30,-30,-30,-40,-50],
             [-40,-20,  0,  0,  0,  0,-20,-40],
             [-30,  0, 10, 15, 15, 10,  0,-30],
@@ -42,7 +42,7 @@ class PieceSquareTables:
         ]
         
         # Bishop table - encourages long diagonals
-        bishop_table = [
+        self.BISHOP_TABLE = [
             [-20,-10,-10,-10,-10,-10,-10,-20],
             [-10,  0,  0,  0,  0,  0,  0,-10],
             [-10,  0,  5, 10, 10,  5,  0,-10],
@@ -54,7 +54,7 @@ class PieceSquareTables:
         ]
         
         # Rook table - encourages 7th rank and center files
-        rook_table = [
+        self.ROOK_TABLE = [
             [  0,  0,  0,  0,  0,  0,  0,  0],
             [  5, 10, 10, 10, 10, 10, 10,  5],
             [ -5,  0,  0,  0,  0,  0,  0, -5],
@@ -66,7 +66,7 @@ class PieceSquareTables:
         ]
         
         # Queen table - discourages early development
-        queen_table = [
+        self.QUEEN_TABLE = [
             [-20,-10,-10, -5, -5,-10,-10,-20],
             [-10,  0,  0,  0,  0,  0,  0,-10],
             [-10,  0,  5,  5,  5,  5,  0,-10],
@@ -78,7 +78,7 @@ class PieceSquareTables:
         ]
         
         # King table - encourages castling and safety
-        king_table = [
+        self.KING_TABLE = [
             [-30,-40,-40,-50,-50,-40,-40,-30],
             [-30,-40,-40,-50,-50,-40,-40,-30],
             [-30,-40,-40,-50,-50,-40,-40,-30],
@@ -89,16 +89,30 @@ class PieceSquareTables:
             [ 20, 30, 10,  0,  0, 10, 30, 20]
         ]
         
-        return {
-            chess.PAWN: pawn_table,
-            chess.KNIGHT: knight_table,
-            chess.BISHOP: bishop_table,
-            chess.ROOK: rook_table,
-            chess.QUEEN: queen_table,
-            chess.KING: king_table
-        }
+        self.KING_MG_TABLE = [
+            [-30, -40, -40, -50, -50, -40, -40, -30],
+            [-30, -40, -40, -50, -50, -40, -40, -30],
+            [-30, -40, -40, -50, -50, -40, -40, -30],
+            [-30, -40, -40, -50, -50, -40, -40, -30],
+            [-20, -30, -30, -40, -40, -30, -30, -20],
+            [-10, -20, -20, -20, -20, -20, -20, -10],
+            [ 20,  20,   0,   0,   0,   0,  20,  20],
+            [ 20,  30,  10,   0,   0,  10,  30,  20]
+        ]
+
+        # King endgame table (encourages activity)
+        self.KING_EG_TABLE = [
+            [-50, -40, -30, -20, -20, -30, -40, -50],
+            [-30, -20, -10,   0,   0, -10, -20, -30],
+            [-30, -10,  20,  30,  30,  20, -10, -30],
+            [-30, -10,  30,  40,  40,  30, -10, -30],
+            [-30, -10,  30,  40,  40,  30, -10, -30],
+            [-30, -10,  20,  30,  30,  20, -10, -30],
+            [-30, -30,   0,   0,   0,   0, -30, -30],
+            [-50, -30, -30, -30, -30, -30, -30, -50]
+        ]
     
-    def get_piece_value(self, piece_type, square, color):
+    def get_piece_value(self, piece, square, color, endgame_factor=0.0):
         """
         Get the piece-square table value for a piece on a specific square.
         
@@ -110,17 +124,32 @@ class PieceSquareTables:
         Returns:
             Value in centipawns (positive is good for the piece's color)
         """
-        if piece_type not in self.tables:
-            return 0
-            
+
         file = chess.square_file(square)  # 0-7 (a-h)
         rank = chess.square_rank(square)  # 0-7 (1-8)
         
         # For black pieces, flip the rank (black's perspective)
         if color == chess.BLACK:
             rank = 7 - rank
-            
-        return self.tables[piece_type][7 - rank][file]  # Flip rank for table indexing
+        
+        if piece.piece_type == chess.PAWN:
+            return self.PAWN_TABLE[rank][file]
+        elif piece.piece_type == chess.KNIGHT:
+            return self.KNIGHT_TABLE[rank][file]
+        elif piece.piece_type == chess.BISHOP:
+            return self.BISHOP_TABLE[rank][file]
+        elif piece.piece_type == chess.ROOK:
+            return self.ROOK_TABLE[rank][file]
+        elif piece.piece_type == chess.QUEEN:
+            return self.QUEEN_TABLE[rank][file]
+        elif piece.piece_type == chess.KING:
+            return self.KING_TABLE[rank][file]
+            # Interpolate between middle game and endgame tables
+            #mg_value = self.KING_MG_TABLE[rank][file]
+            #eg_value = self.KING_EG_TABLE[rank][file]
+            #return mg_value * (1 - endgame_factor) + eg_value * endgame_factor
+        else:
+            return 0
     
     def evaluate_board_position(self, board):
         """

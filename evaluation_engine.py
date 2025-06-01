@@ -1,14 +1,25 @@
-# improved_evaluation_engine.py
+# evaluation_engine.py
 
 import chess
 import yaml
+import random
 from piece_square_tables import PieceSquareTables
+from typing import Optional, Callable, Dict, Any, List, Tuple
+from time_manager import TimeManager
 
 class ImprovedEvaluationEngine:
     def __init__(self, board, depth):
         self.board = board.copy()
         self.depth = depth
-
+        self.time_manager = TimeManager()
+        self.max_depth = 8
+        self.hash_size = 64  # MB
+        self.threads = 1
+        self.nodes_searched = 0
+        self.transposition_table = {}
+        self.killer_moves = [[None, None] for _ in range(50)]  # 2 killer moves per ply
+        self.history_table = {}
+        self.counter_moves = {}
         self.piece_values = {
             chess.KING: 0.0,
             chess.QUEEN: 9.0,
@@ -28,11 +39,47 @@ class ImprovedEvaluationEngine:
         with open("config.yaml") as f:
             self.config = yaml.safe_load(f)
 
+    # =================================
+    # ======== SCORING HANDLER ========
+    
+    def _calculate_score(self, color):
+        """IMPROVED scoring with piece-square tables (UNCHANGED)"""
+        score = 0.0
+
+        # Rules included in scoring
+        score += 1.0 * (self._piece_square_table_evaluation(color) or 0.0)
+        score += 1.0 * (self._improved_mobility(color) or 0.0)
+        score += 1.0 * (self._tempo_bonus(color) or 0.0)
+        score += 1.0 * (self._checkmate_threats() or 0.0)
+        score += 1.0 * (self._repeating_positions() or 0.0)
+        score += 1.0 * (self._material_score(color) or 0.0)
+        score += 1.0 * (self._center_control() or 0.0)
+        score += 1.0 * (self._piece_activity(color) or 0.0)
+        score += 1.0 * (self._king_safety(color) or 0.0)
+        score += 1.0 * (self._king_threat() or 0.0)
+        score += 1.0 * (self._undeveloped_pieces(color) or 0.0)
+        score += 1.0 * (self._special_moves() or 0.0)
+        score += 1.0 * (self._tactical_evaluation() or 0.0)
+        score += 1.0 * (self._castling_evaluation() or 0.0)
+        score += 1.0 * (self._pawn_structure() or 0.0)
+        score += 1.0 * (self._knight_pair() or 0.0)
+        score += 1.0 * (self._bishiop_vision() or 0.0)
+        score += 1.0 * (self._rook_coordination(color) or 0.0)
+
+        return score
+    
+    # =================================
+    # ===== EVALUATION FUNCTIONS ======
+    
     def evaluate_position(self):
         """Calculate position evaluation from white's perspective (UNCHANGED)"""
-        white_score = self._calculate_score(chess.WHITE)
-        black_score = self._calculate_score(chess.BLACK)
-        return white_score - black_score
+        try:
+            white_score = self._calculate_score(chess.WHITE)
+            black_score = self._calculate_score(chess.BLACK)
+            return white_score - black_score
+        except Exception:
+            # Fallback to simple material evaluation
+            return self._material_score(self.board.turn)
 
     def evaluate_position_from_perspective(self, player_color):
         """NEW: Calculate position evaluation from specified player's perspective"""
@@ -48,6 +95,12 @@ class ImprovedEvaluationEngine:
         """Minimax with proper perspective handling"""
         return self._minimax(self.depth, -float('inf'), float('inf'), self.board.turn == chess.WHITE)
 
+    def evaluate_position_with_deepsearch(self):
+        if self.config['ai']['move_time_limit'] == 0:
+            time_control = {"infinite": True}
+        else:
+            time_control = {"movetime": self.config['ai']['move_time_limit']}
+        return self._search(self.board,time_control,stop_callback=0)
     
     def evaluate_move(self, move):
         """Quick evaluation of individual move"""
@@ -56,17 +109,160 @@ class ImprovedEvaluationEngine:
         self.board.pop()
         return score
 
+    # ===================================
+    # ======= HELPER FUNCTIONS ==========
+    
+    def order_moves(self, board, moves, hash_move=None, depth=0):
+        """
+        Order moves for better alpha-beta pruning efficiency
 
+        Args:
+            board: The current chess board state
+            moves: List of legal moves to order
+            hash_move: Move from transposition table if available
+            depth: Current search depth
+
+        Returns:
+            Ordered list of moves
+        """
+        # Store move scores for later sorting
+        move_scores = []
+
+        for move in moves:
+            # Calculate score for move
+            score = self._score_move(board, move, hash_move, depth)
+            move_scores.append((move, score))
+
+        # Sort moves by score in descending order
+        move_scores.sort(key=lambda x: x[1], reverse=True)
+
+        # Return just the moves, not the scores
+        return [move for move, _ in move_scores]
+    
+    def new_game(self):
+        """Reset engine for new game"""
+        self.transposition_table.clear()
+        self.killer_moves = [[None, None] for _ in range(50)]
+        self.history_table.clear()
+        self.nodes_searched = 0
+
+    def set_max_depth(self, depth: int):
+        """Set maximum search depth"""
+        self.max_depth = max(1, min(depth, 20))
+        self.depth = self.max_depth
+
+    def set_hash_size(self, size_mb: int):
+        """Set transposition table size"""
+        self.hash_size = max(1, min(size_mb, 1024))
+        # Clear table when resizing
+        self.transposition_table.clear()
+
+    def set_threads(self, threads: int):
+        """Set number of search threads"""
+        self.threads = max(1, min(threads, 8))
+    
+    def _score_move(self, board, move, hash_move, depth):
+        """Score a move for ordering"""
+        # Base score
+        score = 0.0
+
+        # 1. Hash move gets highest priority
+        if hash_move and move == hash_move:
+            return 10000000
+
+        # 2. Captures scored by MVV-LVA (Most Valuable Victim - Least Valuable Aggressor)
+        if board.is_capture(move):
+            victim_type = board.piece_at(move.to_square).piece_type
+            aggressor_type = board.piece_at(move.from_square).piece_type
+
+            # Most valuable victim (queen=9, rook=5, etc.) minus least valuable aggressor
+            victim_value = self.piece_values.get(victim_type, 0)
+            aggressor_value = self.piece_values.get(aggressor_type, 0)
+
+            # MVV-LVA formula: 10 * victim_value - aggressor_value
+            score = 1000000 + 10 * victim_value - aggressor_value
+
+            # Bonus for promotions
+            if move.promotion:
+                score += 900000  # High score for promotions
+
+            return score
+
+        # 3. Killer moves (non-capture moves that caused a beta cutoff)
+        if depth in self.killer_moves and move in self.killer_moves[depth]:
+            return 900000
+
+        # 4. Counter moves (moves that are good responses to the previous move)
+        last_move = board.peek() if board.move_stack else None
+        if last_move:
+            counter_key = (last_move.from_square, last_move.to_square)
+            if counter_key in self.counter_moves and self.counter_moves[counter_key] == move:
+                return 800000
+
+        # 5. History heuristic (moves that have caused cutoffs in similar positions)
+        piece_type = board.piece_at(move.from_square).piece_type
+        history_key = (piece_type, move.from_square, move.to_square)
+        history_score = self.history_table.get(history_key, 0)
+
+        # 6. Promotions (already handled in captures, but add for non-capture promotions)
+        if move.promotion:
+            score += 700000
+
+        # 7. Checks
+        board.push(move)
+        gives_check = board.is_check()
+        board.pop()
+
+        if gives_check:
+            score += 600000
+
+        # Add history score
+        score += history_score
+
+        return score
+
+    def update_killer_move(self, move, depth):
+        """Update killer move table with a move that caused a beta cutoff"""
+        if depth not in self.killer_moves:
+            self.killer_moves[depth] = [move]
+        elif move not in self.killer_moves[depth]:
+            self.killer_moves[depth].insert(0, move)
+            # Keep only the best 2 killer moves per depth
+            self.killer_moves[depth] = self.killer_moves[depth][:2]
+
+    def update_history_score(self, board, move, depth):
+        """Update history heuristic score for a move that caused a beta cutoff"""
+        piece_type = board.piece_at(move.from_square).piece_type
+        history_key = (piece_type, move.from_square, move.to_square)
+
+        # Update history score using depth-squared bonus
+        self.history_table[history_key] += depth * depth
+
+    def update_counter_move(self, last_move, current_move):
+        """Update counter move table"""
+        if last_move:
+            counter_key = (last_move.from_square, last_move.to_square)
+            self.counter_moves[counter_key] = current_move
+          
+    # =======================================
+    # ========== SEARCH ALGORITHMS ==========
+    
     def _minimax(self, depth, alpha, beta, maximizing_player):
         """Minimax that properly handles perspectives"""
         if depth == 0 or self.board.is_game_over():
             # Always return from White's perspective, then adjust in the calling function
             base_eval = self.evaluate_position()
             return base_eval
-
+        # Get list of available moves
+        legal_moves = list(self.board.legal_moves)
+        
+        # Ordering of legal moves for faster pruning
+        if self.config['ai']['move_ordering']:
+            legal_moves = self.order_moves(self.board, legal_moves)
+            
         if maximizing_player:
             max_eval = -float('inf')
-            for move in self.board.legal_moves:
+            for move in legal_moves:
                 self.board.push(move)
                 eval = self._minimax(depth-1, alpha, beta, False)
                 self.board.pop()
@@ -77,7 +273,7 @@ class ImprovedEvaluationEngine:
             return max_eval
         else:
             min_eval = float('inf')
-            for move in self.board.legal_moves:
+            for move in legal_moves:
                 self.board.push(move)
                 eval = self._minimax(depth-1, alpha, beta, True)
                 self.board.pop()
@@ -87,31 +283,293 @@ class ImprovedEvaluationEngine:
                     break
             return min_eval
 
-    def _calculate_score(self, color):
-        """IMPROVED scoring with piece-square tables (UNCHANGED)"""
-        score = 0.0
+    def _search(self, board: chess.Board, time_control: Dict[str, Any], 
+               stop_callback: Callable[[], bool] = None) -> Optional[chess.Move]:
+        """
+        Main search function
 
-        # EVALUATION FUNCTIONS
-        score += 1.0 * (self._piece_square_table_evaluation(color) or 0.00)
-        score += 1.0 * (self._improved_mobility(color) or 0.00)
-        score += 1.0 * (self._tempo_bonus(color) or 0.00)
-        score += 1.0 * (self._checkmate_threats() or 0.0)
-        score += 1.0 * (self._repeating_positions() or 0.0)
-        score += 1.0 * (self._material_score(color) or 0.0)
-        score += 1.0 * (self._center_control() or 0.0)
-        score += 1.0 * (self._piece_activity(color) or 0.0)
-        score += 1.0 * (self._king_safety(color) or 0.0)
-        score += 1.0 * (self._king_threat() or 0.0)
-        score += 1.0 * (self._undeveloped_pieces(color) or 0.0)
-        score += 1.0 * (self._special_moves() or 0.0)
-        score += 1.0 * (self._tactical_evaluation() or 0.0)
-        score += 1.0 * (self._castling_evaluation() or 0.0)
-        score += 1.0 * (self._pawn_structure() or 0.0)
-        score += 1.0 * (self._knight_pair() or 0.00)
-        score += 1.0 * (self._bishiop_vision() or 0.00)
+        Args:
+            board: Current position
+            time_control: Time control parameters
+            stop_callback: Function to check if search should stop
 
-        return score
+        Returns:
+            Best move found
+        """
+        self.nodes_searched = 0
 
+        # Set up evaluation engine with current board
+        self.board = board
+
+        # Allocate time for this move
+        allocated_time = self.time_manager.allocate_time(time_control, board)
+        self.time_manager.start_timer(allocated_time)
+
+        # Handle special cases
+        legal_moves = list(board.legal_moves)
+        if not legal_moves:
+            return None
+
+        if len(legal_moves) == 1:
+            return legal_moves[0]  # Only one legal move
+
+        # Determine search depth
+        max_depth = self.max_depth
+        if time_control.get('depth'):
+            max_depth = time_control['depth']
+
+        best_move = None
+        best_score = float('-inf')
+
+        try:
+            # Iterative deepening search
+            for depth in range(1, max_depth + 1):
+                if stop_callback and stop_callback():
+                    break
+                if self.time_manager.should_stop(depth, self.nodes_searched):
+                    break
+
+                move, score = self._search_depth(board, depth, stop_callback)
+
+                if move:
+                    best_move = move
+                    best_score = score
+
+                    # Print UCI info
+                    elapsed = self.time_manager.time_elapsed()
+                    nps = int(self.nodes_searched / max(elapsed, 0.001))
+
+                    print(f"info depth {depth} score cp {int(score * 100)} "
+                          f"nodes {self.nodes_searched} time {int(elapsed * 1000)} "
+                          f"nps {nps} pv {move.uci()}")
+
+                # Don't continue if we found a mate
+                if abs(score) > 900:  # Mate score threshold
+                    break
+
+        except Exception as e:
+            print(f"info string Search error: {e}")
+
+        return best_score  # Fallback to first legal move
+
+    def _search_depth(self, board: chess.Board, depth: int, 
+                    stop_callback: Callable[[], bool] = None) -> Tuple[Optional[chess.Move], float]:
+        """
+        Search to a specific depth
+
+        Args:
+            board: Current position
+            depth: Search depth
+            stop_callback: Function to check if search should stop
+
+        Returns:
+            Tuple of (best_move, best_score)
+        """
+        alpha = float('-inf')
+        beta = float('inf')
+        best_move = None
+        best_score = float('-inf')
+
+        # Get ordered moves for better alpha-beta pruning
+        moves = self.order_moves(board, depth)
+
+        for move in moves:
+            if stop_callback and stop_callback():
+                break
+            if self.time_manager.should_stop(depth, self.nodes_searched):
+                break
+
+            board.push(move)
+            self.nodes_searched += 1
+
+            # Search the position after this move
+            score = -self._negamax(board, depth - 1, -beta, -alpha, stop_callback)
+
+            board.pop()
+
+            if score > best_score:
+                best_score = score
+                best_move = move
+                alpha = max(alpha, score)
+
+                # Update killer moves
+                if depth < len(self.killer_moves):
+                    if self.killer_moves[depth][0] != move:
+                        self.killer_moves[depth][1] = self.killer_moves[depth][0]
+                        self.killer_moves[depth][0] = move
+
+        return best_move, best_score
+    
+    def _negamax(self, board: chess.Board, depth: int, alpha: float, beta: float,
+                stop_callback: Callable[[], bool] = None) -> float:
+        """
+        Negamax search with alpha-beta pruning
+
+        Args:
+            board: Current position
+            depth: Remaining search depth
+            alpha: Alpha value for pruning
+            beta: Beta value for pruning
+            stop_callback: Function to check if search should stop
+
+        Returns:
+            Position evaluation score
+        """
+        if stop_callback and stop_callback():
+            return 0.0
+        if self.time_manager.should_stop(depth, self.nodes_searched):
+            return 0.0
+
+        # Terminal node evaluation
+        if depth == 0:
+            return self._quiescence_search(board, alpha, beta, stop_callback)
+
+        # Check for game over
+        if board.is_game_over():
+            if board.is_checkmate():
+                return -1000 + (self.max_depth - depth)  # Prefer faster mates
+            else:
+                return 0  # Draw
+
+        # Transposition table lookup
+        board_hash = chess.polyglot.zobrist_hash(board)
+        if board_hash in self.transposition_table:
+            entry = self.transposition_table[board_hash]
+            if entry['depth'] >= depth:
+                if entry['flag'] == 'EXACT':
+                    return entry['score']
+                elif entry['flag'] == 'LOWERBOUND' and entry['score'] >= beta:
+                    return entry['score']
+                elif entry['flag'] == 'UPPERBOUND' and entry['score'] <= alpha:
+                    return entry['score']
+
+        original_alpha = alpha
+        best_score = float('-inf')
+        best_move = None
+
+        # Get ordered moves
+        moves = self.order_moves(board, depth)
+
+        for move in moves:
+            if stop_callback and stop_callback():
+                break
+            if self.time_manager.should_stop(depth, self.nodes_searched):
+                break
+
+            board.push(move)
+            self.nodes_searched += 1
+
+            score = -self._negamax(board, depth - 1, -beta, -alpha, stop_callback)
+
+            board.pop()
+
+            if score > best_score:
+                best_score = score
+                best_move = move
+
+            alpha = max(alpha, score)
+            if alpha >= beta:
+                # Update killer moves for cutoff
+                if depth < len(self.killer_moves) and not board.is_capture(move):
+                    if self.killer_moves[depth][0] != move:
+                        self.killer_moves[depth][1] = self.killer_moves[depth][0]
+                        self.killer_moves[depth][0] = move
+                break  # Beta cutoff
+
+        # Store in transposition table
+        flag = 'EXACT'
+        if best_score <= original_alpha:
+            flag = 'UPPERBOUND'
+        elif best_score >= beta:
+            flag = 'LOWERBOUND'
+
+        self.transposition_table[board_hash] = {
+            'score': best_score,
+            'depth': depth,
+            'flag': flag,
+            'move': best_move
+        }
+
+        # Limit transposition table size
+        if len(self.transposition_table) > self.hash_size * 1000:
+            # Remove random entries to free space
+            keys_to_remove = random.sample(list(self.transposition_table.keys()), 
+                                         len(self.transposition_table) // 4)
+            for key in keys_to_remove:
+                del self.transposition_table[key]
+
+        return best_score
+    
+    def _quiescence_search(self, board: chess.Board, alpha: float, beta: float,
+                         stop_callback: Callable[[], bool] = None, depth: int = 0) -> float:
+        """
+        Quiescence search to avoid horizon effect
+
+        Args:
+            board: Current position
+            alpha: Alpha value for pruning
+            beta: Beta value for pruning
+            stop_callback: Function to check if search should stop
+            depth: Current quiescence depth
+
+        Returns:
+            Position evaluation score
+        """
+        if stop_callback and stop_callback():
+            return 0.0
+        if depth > 10:  # Limit quiescence depth
+            return self.evaluate_position(board)
+
+        # Stand pat score
+        stand_pat = self.evaluate_position(board)
+
+        if stand_pat >= beta:
+            return beta
+        if stand_pat > alpha:
+            alpha = stand_pat
+
+        # Only search captures in quiescence
+        captures = [move for move in board.legal_moves if board.is_capture(move)]
+
+        # Order captures by MVV-LVA (Most Valuable Victim - Least Valuable Attacker)
+        captures.sort(key=lambda move: self._mvv_lva_score(board, move), reverse=True)
+
+        for move in captures:
+            if stop_callback and stop_callback():
+                break
+
+            board.push(move)
+            self.nodes_searched += 1
+
+            score = -self._quiescence_search(board, -beta, -alpha, stop_callback, depth + 1)
+
+            board.pop()
+
+            if score >= beta:
+                return beta
+            if score > alpha:
+                alpha = score
+
+        return alpha
+
+    def _mvv_lva_score(self, board: chess.Board, move: chess.Move) -> int:
+        """Most Valuable Victim - Least Valuable Attacker score"""
+        piece_values = [0, 1, 3, 3, 5, 9, 10]  # None, P, N, B, R, Q, K
+
+        victim = board.piece_at(move.to_square)
+        attacker = board.piece_at(move.from_square)
+
+        if victim is None:
+            return 0
+
+        victim_value = piece_values[victim.piece_type]
+        attacker_value = piece_values[attacker.piece_type]
+
+        return victim_value * 100 - attacker_value
+    
+    # ==========================================
+    # ============= RULE FUNCTIONS =============
+    
     def _piece_square_table_evaluation(self, color):
         pst_score = 0.0
 
@@ -119,7 +577,7 @@ class ImprovedEvaluationEngine:
             piece = self.board.piece_at(square)
             if piece and piece.color == color:
                 # Get piece-square table value for this piece on this square
-                pst_value = self.pst.get_piece_value(piece.piece_type, square, color)
+                pst_value = self.pst.get_piece_value(piece, square, color)
                 pst_score += pst_value / 100.0  # Convert centipawns to pawn units
 
         # Weight the piece-square table evaluation
@@ -128,9 +586,9 @@ class ImprovedEvaluationEngine:
 
     def _improved_mobility(self, color):
         """
-        NEW FUNCTION: Better mobility calculation with safe squares
+        Mobility calculation with safe squares
         """
-        mobility_score = 0.0
+        score = 0.0
 
         for square in self.board.pieces(chess.KNIGHT, color):
             # Count safe moves (not attacked by enemy pawns)
@@ -138,16 +596,16 @@ class ImprovedEvaluationEngine:
             for target in self.board.attacks(square):
                 if not self._is_attacked_by_pawn(target, not color):
                     safe_moves += 1
-            mobility_score += safe_moves * self.config['evaluation']['knight_activity_bonus']
+            score += safe_moves * self.config['evaluation']['knight_activity_bonus']
 
         for square in self.board.pieces(chess.BISHOP, color):
             safe_moves = 0
             for target in self.board.attacks(square):
                 if not self._is_attacked_by_pawn(target, not color):
                     safe_moves += 1
-            mobility_score += safe_moves * self.config['evaluation']['bishop_activity_bonus']
+            score += safe_moves * self.config['evaluation']['bishop_activity_bonus']
 
-        return mobility_score
+        return score
 
     def _tempo_bonus(self, color):
         if self.board.turn == color:
@@ -174,8 +632,8 @@ class ImprovedEvaluationEngine:
         score = 0.0
         for move in self.board.legal_moves:
             self.board.push(move)
-            if self.board.is_checkmate():
-                score += self.config['evaluation']['checkmate_bonus'] if self.board.turn else -1.0 * self.config['evaluation']['checkmate_bonus']
+            if self.board.is_checkmate() and self.board.turn:
+                score += self.config['evaluation']['checkmate_bonus']
             self.board.pop()
         return score
 
@@ -262,7 +720,7 @@ class ImprovedEvaluationEngine:
 
     def _special_moves(self):
         """Evaluate special moves and opportunities"""
-        score = 0
+        score = 0.0
         
         # En passant
         if self.board.ep_square:
@@ -277,7 +735,7 @@ class ImprovedEvaluationEngine:
 
     def _tactical_evaluation(self):
         """Evaluate tactical elements"""
-        score = 0
+        score = 0.0
         
         # Captures
         for move in self.board.legal_moves:
@@ -295,7 +753,7 @@ class ImprovedEvaluationEngine:
 
     def _castling_evaluation(self):
         """Evaluate castling rights and opportunities"""
-        score = 0
+        score = 0.0
         
         if self.board.has_castling_rights(chess.WHITE):
             score += self.config['evaluation']['castling_protection_bonus']
@@ -306,7 +764,7 @@ class ImprovedEvaluationEngine:
 
     def _pawn_structure(self):
         """Basic pawn structure evaluation"""
-        score = 0
+        score = 0.0
         
         # Check for passed pawns
         for color in [chess.WHITE, chess.BLACK]:
@@ -341,7 +799,7 @@ class ImprovedEvaluationEngine:
         return score
     
     def _knight_pair(self):
-        score = 0
+        score = 0.0
         knights = []
         for square in chess.SQUARES:
             piece = self.board.piece_at(square)
@@ -354,11 +812,32 @@ class ImprovedEvaluationEngine:
         return score
 
     def _bishiop_vision(self):
-        score = 0
+        score = 0.0
         for square in chess.SQUARES:
             piece = self.board.piece_at(square)
             if piece and piece.color == self.board.turn:
                 if piece.piece_type == chess.BISHOP:
                     if len(self.board.attacks(square)) > 3:
                         score += self.config['evaluation']['bishop_vision_bonus']
+        return score
+    
+    def _rook_coordination(self, color):
+        """Calculate bonus for rook pairs on same file/rank"""
+        score = 0.0
+        rooks = [sq for sq in chess.SQUARES 
+                if self.board.piece_at(sq) == chess.Piece(chess.ROOK, color)]
+        
+        # Check all unique rook pairs
+        for i in range(len(rooks)):
+            for j in range(i+1, len(rooks)):
+                sq1, sq2 = rooks[i], rooks[j]
+                
+                # Same file bonus (15 centipawns)
+                if chess.square_file(sq1) == chess.square_file(sq2):
+                    score += self.config['evaluation']['stacked_rooks_bonus']
+                    
+                # Same rank bonus (10 centipawns)
+                if chess.square_rank(sq1) == chess.square_rank(sq2):
+                    score += self.config['evaluation']['coordinated_rooks_bonus']
+        
         return score

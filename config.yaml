@@ -2,62 +2,67 @@
 # Configuration for pure evaluation-based chess AI
 
 game:
-  ai_vs_ai: true              # Set to true for AI vs AI matches
+  ai_vs_ai: true                # Set to true for AI vs AI matches
+  ai_watch_mode: false          # Set to true to watch the AI play on a UI board (terminal and pgn output only otherwise)
   human_color: random           # Options: white, black, random
 
 ai:
-  search_depth: 5              # Minimax search depth (1-5 recommended)
-  use_quiescence: true         # 
+  search_depth: 3              # TODO Minimax search depth (1-5 recommended) (verify all search depths controlled by config)
+  async_mode: false            # TODO Enables faster parallel processing of eval functions
+  move_ordering: true          # TODO Enable move ordering for better pruning (verify)
   use_lookahead: true          # Enable minimax with alpha-beta pruning
-  move_time_limit: 5.0         # Maximum time per move in seconds
-  move_ordering: true          # Enable move ordering for better pruning
+  use_deepsearch: false         # Enable deep search algorithms including negamax, quiescence, mvv-lva
+  use_quiescence: true         # TODO Enable 'quiet' move depth search (enable control via config)
+  move_time_limit: 0           # TODO Maximum time per move in milliseconds, 0 for no limit i.e. time_control = {"infinite": True} (verify)
 
 evaluation:
-  # Material values and bonuses
-  checkmate_bonus: 1000        # Bonus for checkmate threats
-  check_bonus: 10              # Bonus for giving check
-  in_check_penalty: -10        # Penalty for being in check
-  king_threat_penalty: -5      # Penalty for being checked
-  capture_bonus: 3             # Base bonus for captures
-  center_control_bonus: 1      # Bonus per center square controlled
-  castling_bonus: 5            # Bonus for castling rights
-  king_safety_bonus: 0.5       # Bonus per pawn in king shield
-  en_passant_bonus: 1          # Bonus for en passant opportunity
-  pawn_promotion_bonus: 5      # Bonus for pawn promotion
-  passed_pawn_bonus: 0.25
-  hanging_piece_bonus: 2       # Bonus for attacking hanging pieces
-  trapped_piece_penalty: -5    # Penalty for trapped pieces
-  piece_development_bonus: 2   # Bonus for developing minor pieces
-  piece_development_penalty: -0.5  # Penalty for under-developed minor pieces
-  piece_activity_bonus: 0.1
-  knight_pair_bonus: 1         # Bonus for having knight pair
-  knight_vision_penalty: -0.25
-  pawn_advancement_bonus: 0.25
-  rook_development_penalty: 0.2
-  castling_protection_bonus: 3
-  castling_protection_penalty: -6
-  repetition_penalty: -100     # Penalty for threefold repetition
-  pst_weight: 1.2
-  material_weight: 0.8
-  bishop_vision_bonus: 1
-  
-  # Piece activity multipliers
-  knight_activity_multiplier: 0.1    # Multiplier per square attacked by knight
-  bishop_activity_multiplier: 0.15   # Multiplier per square attacked by bishop
+  # Eval modifiers and score values
+  checkmate_bonus: 10000.0          # Bonus for checkmate threats
+  repetition_penalty: -1000.0       # Penalty for threefold repetition
+  center_control_bonus: 0.25        # Bonus per center square controlled
+  knight_activity_bonus: 0.1        # Multiplier per square attacked by knight
+  bishop_activity_bonus: 0.15       # Multiplier per square attacked by bishop
+  king_safety_bonus: 1.5            # Bonus per pawn in king shield
+  king_threat_penalty: -0.5         # Penalty for being checked
+  undeveloped_penalty: -0.2         # Penalty for having under-developed minor pieces
+  check_bonus: 10.0                 # Bonus for giving check
+  in_check_penalty: -10.0           # Penalty for being in check
+  capture_bonus: 3.0                # Base bonus for captures
+  castling_bonus: 5.0               # Bonus for castling rights
+  en_passant_bonus: 1.0             # Bonus for en passant opportunity
+  pawn_promotion_bonus: 5.0         # Bonus for pawn promotion
+  passed_pawn_bonus: 0.25           # Bonus for having an un-opposed pawn
+  hanging_piece_bonus: 2.0          # Bonus for attacking hanging pieces
+  trapped_piece_penalty: -5.0       # Penalty for trapped pieces
+  piece_development_bonus: 2.0      # Bonus for developing minor pieces
+  piece_activity_bonus: 0.1         # Bonus for activating minor pieces
+  knight_pair_bonus: 1.0            # Bonus for having knight pair
+  knight_vision_penalty: -0.25      # Penalty for having the knight on a less active square
+  pawn_advancement_bonus: 0.25      # Bonus for advancing pawns
+  rook_development_penalty: 0.2     # Penalty for not developing rooks
+  castling_protection_bonus: 3.0    # Bonus for keeping the right to castle
+  castling_protection_penalty: -6.0 # Penalty for giving up castling rights without castling
+  material_weight: 0.8              # Material calculation impact on eval
+  bishop_vision_bonus: 1.0          # Bonus for the bishops having good board vision
+  tempo_bonus: 0.1                  # Bonus for having the right to move
+  stacked_rooks_bonus: 0.5          # Bonus for having the rooks on the same file
+  coordinated_rooks_bonus: 0.25     # Bonus for having the rooks on the same rank
   
   # Advanced evaluation features
-  enable_piece_square_tables: true  # Use piece-square tables for positional eval
-  enable_pawn_structure: true        # Evaluate pawn structure
-  enable_king_safety_detailed: true  # Detailed king safety evaluation
+  enable_piece_square_tables: true   # TODO Use piece-square tables for positional eval (enable control via config)
+  pst_weight: 1.1                    # TODO Piece Square Table weights (ensure weights in calculation)
+  enable_pawn_structure: true        # TODO Evaluate pawn structure
+  enable_king_safety_detailed: true  # TODO Detailed king safety evaluation (verify)
   
 # Performance settings
 performance:
-  max_moves_evaluated: 50      # Limit moves evaluated per position
-  use_transposition_table: false  # Cache evaluations (not implemented yet)
-  parallel_evaluation: false      # Parallel move evaluation (not implemented yet)
+  max_moves_evaluated: 50         # TODO Limit moves evaluated per position (verify)
+  use_transposition_table: false  # TODO Cache evaluations
+  parallel_evaluation: false      # TODO Parallel move evaluation
 
 # Debug settings
 debug:
-  print_evaluations: false     # Print evaluation details to console
-  save_evaluation_log: false   # Save detailed evaluation log
-  show_thinking_time: true     # Display time taken for move calculation
+  print_evaluations: true     # TODO Print evaluation details to console (enable control via config)
+  save_evaluation_log: true    # TODO Save detailed evaluation log
+  show_thinking: true          # Show what the AI is thinking during the game
+  show_thinking_time: true     # TODO Display time taken for move calculation

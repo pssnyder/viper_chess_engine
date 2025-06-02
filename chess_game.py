@@ -359,7 +359,7 @@ class ChessGame:
     
     def record_evaluation(self):
         """Record evaluation score in PGN comments"""
-        score = self.evaluator.evaluate_position()
+        score = self.evaluator.evaluate_position(self.board)
         self.current_eval = score
         if self.game_node.move:
             self.game_node.comment = f"Eval: {score:.2f}"
@@ -401,20 +401,46 @@ class ChessGame:
     def import_fen(self, fen_string):
         """Import a position from FEN notation"""
         try:
-            self.board = chess.Board(fen_string)
-            if self.engine:
-                self.engine.board = self.board.copy()
-            self.selected_square = None
-            self.legal_moves = []
-            self.game_over = self.board.is_game_over()
-            return True
-        except ValueError:
-            print("Error: Could not import FEN starting position!")
-            return False
+            # Create a new board from the FEN
+            new_board = chess.Board(fen_string)
             
-    def export_fen(self):
-        """Export current position as FEN string"""
-        return self.board.fen()
+            # Validate the board is legal
+            if not new_board.is_valid():
+                print(f"Error: Invalid FEN position: {fen_string}")
+                return False
+            
+            # Update the main board
+            self.board = new_board
+            
+            # CRITICAL FIX: Reset PGN game with custom starting position
+            self.game = chess.pgn.Game()
+            self.game.setup(new_board)  # This line fixes everything!
+            
+            # Reset the game node pointer
+            self.game_node = self.game
+            
+            # Update evaluator if it exists
+            if self.evaluator:
+                self.evaluator.board = self.board
+            
+            # Reset game state
+            self.selected_square = None
+            
+            # Update PGN headers for custom position
+            self.game.headers["Event"] = "Custom Position Game"
+            self.game.headers["SetUp"] = "1"
+            self.game.headers["FEN"] = fen_string
+            
+            print(f"Successfully imported FEN: {fen_string}")
+            return True
+            
+        except ValueError as e:
+            print(f"Error: Could not import FEN starting position: {e}")
+            return False
+        except Exception as e:
+            print(f"Unexpected error importing FEN: {e}")
+            return False
+
 
     # =============================================
     # ============ MAIN GAME LOOP =================

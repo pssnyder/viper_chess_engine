@@ -7,35 +7,36 @@ game:
   human_color: random           # Options: white, black, random
 
 ai:
-  ai_type: lookahead           # move search type for random human vs ai play
-  search_depth: 2               # TODO Minimax search depth (1-5 recommended) (verify all search depths controlled by config)
-  use_pst: true                 # TODO Use piece-square tables for positional eval (enable control via config)
-  pst_weight: 1.0               # TODO Piece Square Table weights (ensure weights in calculation)
-  move_ordering: false          # TODO Enable move ordering for better pruning (verify)
-  use_quiescence: false         # TODO Enable 'quiet' move depth search (enable control via config)
-  move_time_limit: 0            # TODO Maximum time per move in milliseconds, 0 for no limit i.e. time_control = {"infinite": True} (verify)
+  ai_type: lookahead            # move search type defaults for human vs ai play
+  search_depth: 1               # Minimax search depth (1-5 recommended)
+  use_pst: false                # Use piece-square tables for positional eval
+  pst_weight: 1.0               # Piece Square Table weights (ensure weights in calculation)
+  move_ordering: false          # Enable move ordering for better pruning
+  use_quiescence: false         # Enable 'quiet' move depth search
+  move_time_limit: 0            # Maximum time per move in milliseconds, 0 for no limit i.e. time_control = {"infinite": True}
   async_mode: false             # TODO Enables faster parallel processing of eval functions
 
+# AI vs AI settings
 white_ai_config:
-  white_ai: lookahead          # move search type for White
-  white_depth: 2                # TODO 
-  white_pst: false              # TODO 
-  white_pst_weight: 1.0         # TODO 
-  white_move_ordering: false    # TODO 
-  white_quiescence: false       # TODO 
-  white_time_limit: 0           # TODO 
-  white_engine: viper           # TODO 
-  white_ruleset: default        # TODO 
-  white_scoring: evaluation     # TODO 
+  white_ai: lookahead           # move search type for White
+  white_depth: 3                
+  white_pst: true               
+  white_pst_weight: 1.5         
+  white_move_ordering: true     
+  white_quiescence: true       
+  white_time_limit: 0           
+  white_engine: viper           # TODO
+  white_ruleset: default        # TODO
+  white_scoring: evaluation     # TODO
 
 black_ai_config:
-  black_ai: simple_eval           # move search type for Black
-  black_depth: 1                # TODO
-  black_pst: false              # TODO
-  black_pst_weight: 1.0         # TODO   
-  black_move_ordering: false    # TODO 
-  black_quiescence: false       # TODO 
-  black_time_limit: 0           # TODO 
+  black_ai: simple_eval         # move search type for Black
+  black_depth: 1                
+  black_pst: false              
+  black_pst_weight: 1.0            
+  black_move_ordering: false     
+  black_quiescence: false       
+  black_time_limit: 0           
   black_engine: viper           # TODO
   black_ruleset: default        # TODO 
   black_scoring: evaluation     # TODO
@@ -43,15 +44,15 @@ black_ai_config:
 
 evaluation:
   # Eval modifiers and score values
-  checkmate_bonus: 10000.0          # Bonus for checkmate threats
-  repetition_penalty: -1000.0       # Penalty for threefold repetition
+  checkmate_bonus: 1000000.0        # Bonus for checkmate threats
+  repetition_penalty: -10000.0      # Penalty for threefold repetition
   center_control_bonus: 0.25        # Bonus per center square controlled
   knight_activity_bonus: 0.1        # Multiplier per square attacked by knight
   bishop_activity_bonus: 0.15       # Multiplier per square attacked by bishop
-  king_safety_bonus: 1.5            # Bonus per pawn in king shield
-  king_threat_penalty: -0.5         # Penalty for being checked
+  king_safety_bonus: 15.0           # Bonus per pawn in king shield (was 1.5)
+  king_threat_penalty: -25.0        # Penalty for being checked (was -0.5)
   undeveloped_penalty: -0.2         # Penalty for having under-developed minor pieces
-  check_bonus: 10.0                 # Bonus for giving check
+  check_bonus: 5000.0               # Bonus for giving check
   in_check_penalty: -10.0           # Penalty for being in check
   capture_bonus: 3.0                # Base bonus for captures
   castling_bonus: 5.0               # Bonus for castling rights
@@ -75,10 +76,14 @@ evaluation:
   coordinated_rooks_bonus: 0.25     # Bonus for having the rooks on the same rank
   pawn_structure_bonus: 0.1         # TODO Evaluate pawn structure
   enable_king_safety_detailed: true # TODO Detailed king safety evaluation based on game phase
+  hash_move_bonus: 10000            # Bonus for finding a hash move during move ordering scoring
+  counter_move_bonus: 1000           # Bonus for a strong countermove during move ordering scoring
+  killer_move_bonus: 10000          # Bonus for killer moves during move ordering scoring
+  aggressive_move_bonus: 100        # Bonus for aggressive MVV-LVA calculations during move ordering scoring
 
 # Performance settings
 performance:
-  max_moves_evaluated: 50         # TODO Limit moves evaluated per position (verify)
+  max_moves_evaluated: 50         # TODO Limit moves evaluated per position
   use_transposition_table: false  # TODO Cache evaluations
   parallel_evaluation: false      # TODO Parallel move evaluation
 

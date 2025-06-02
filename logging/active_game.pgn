@@ -1,0 +1,11 @@
+[Event "AIv.AI Pure Evaluation Engine"]
+[Site "Local Computer"]
+[Date "2025.06.01"]
+[Round "#"]
+[White "AI: viper via lookahead"]
+[Black "AI: viper via simple_eval"]
+[Result "*"]
+
+1. f4 { Eval: -2.00 } 1... f5 { Eval: 0.10 } 2. e3 { Eval: -0.75 } 2... Kf7
+{ Eval: 1.55 } 3. Qh5+ { Eval: 1.35 } 3... Ke6 { Eval: 0.15 } *
+

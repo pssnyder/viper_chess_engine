@@ -1,4 +1,6 @@
 # evaluation_engine.py
+#  This module implements the EvaluationEngine class, which is responsible for evaluating chess positions and making decisions based on various algorithms.
+# Evaluator Name: Viper 0.1 Beta
 
 import chess
 import yaml
@@ -8,12 +10,14 @@ import logging.handlers
 from piece_square_tables import PieceSquareTables
 from typing import Optional, Callable, Dict, Any, List, Tuple
 from time_manager import TimeManager
+from chess_puzzles import ChessPuzzles
 
 class EvaluationEngine:
     def __init__(self, board, player):
         self.board = board
         self.current_player = player
         self.time_manager = TimeManager()
+        self.puzzles = ChessPuzzles()
 
         # Variable init
         self.nodes_searched = 0
@@ -32,16 +36,6 @@ class EvaluationEngine:
             chess.PAWN: 1.0
         }
 
-        # Initialize piece-square tables
-        try:
-            self.pst = PieceSquareTables()
-        except Exception as e:
-            print(f"Warning: Could not initialize PST: {e}")
-            self.pst = None
-
-        # Cache for performance
-        self._position_cache = {}
-
         # Load configuration with error handling
         try:
             with open("config.yaml") as f:
@@ -52,6 +46,11 @@ class EvaluationEngine:
         # Performance settings
         self.hash_size = self.config['performance']['hash_size']
         self.threads = self.config['performance']['thread_limit']
+
+        # Reset engine for new game
+        self.history_table.clear()
+        self.transposition_table.clear()
+        self.nodes_searched = 0
         
         # Initialize AI settings
         self.ai_config = {
@@ -80,6 +79,14 @@ class EvaluationEngine:
         self.engine = self.ai_config.get('engine','viper')
         self.ruleset = self.ai_config.get('ruleset','evaluation')
         
+        # Initialize piece-square tables
+        if self.pst_enabled:
+            try:
+                self.pst = PieceSquareTables()
+            except Exception as e:
+                print(f"Warning: Could not initialize PST: {e}")
+                self.pst = None
+
         # Enable logging
         self.logging_enabled = self.config['debug']['enable_logging']
         self.show_thoughts = self.config['debug']['show_thinking']
@@ -91,6 +98,22 @@ class EvaluationEngine:
     
     # =================================
     # ==== EVALUATOR CONFIGURATION ====   
+    
+    def _get_ai_config(self, player_color):
+        """Extract this bots AI configuration"""
+        return {
+            'ai_color': player_color,
+            'ai_type': self.config[f'{player_color}_ai_config']['ai_type'],
+            'depth': self.config[f'{player_color}_ai_config']['depth'],
+            'max_depth': self.config['performance']['max_depth'],
+            'move_ordering_enabled': self.config[f'{player_color}_ai_config']['move_ordering'],
+            'quiescence_enabled': self.config[f'{player_color}_ai_config']['quiescence'],
+            'move_time_limit': self.config[f'{player_color}_ai_config']['time_limit'],
+            'pst_enabled': self.config[f'{player_color}_ai_config']['pst'],
+            'pst_weight': self.config[f'{player_color}_ai_config']['pst_weight'],
+            'engine': self.config[f'{player_color}_ai_config']['engine'],
+            'ruleset': self.config[f'{player_color}_ai_config']['ruleset']
+        }
       
     def configure_for_side(self, ai_config):
         """Configure evaluation engine with side-specific settings"""
@@ -144,24 +167,38 @@ class EvaluationEngine:
         
         # AI Selection
         if ai_type == 'deepsearch':
+            # Use deep search with time control
             best_move = self._deepsearch(self.board.copy(), self.depth, self.time_control)
         elif ai_type == 'minimax':
+            # Use minimax algorithm with alpha-beta pruning
             best_move = self._minimax(self.board.copy(), self.depth, -float('inf'), float('inf'), self.player)
         elif ai_type == 'negamax':
+            # Use negamax algorithm with alpha-beta pruning
             best_move = self._negamax(self.board.copy(), self.depth, -float('inf'), float('inf'))
         elif ai_type == 'lookahead':
+            # Use lookahead search with static depth
             best_move = self._lookahead_search(self.board.copy(), self.depth)
         elif ai_type == 'simple_search':
+            # Use simple 1-ply search algorithm with special features available
             best_move = self._simple_search()
         elif ai_type == 'evaluation_only':
+            # Use evaluation only with no special features (no depth, no quiescence, no move ordering)
             best_move = self._evaluation_only()
+        elif ai_type == 'positional_solutions':
+            # Use positional solutions only if available
+            best_move = self.puzzles.find_puzzle_solution(self.board.fen())
+            if best_move is None:
+                # If the position can't be found then fall back to random search
+                best_move = self._random_search()
         elif ai_type == 'random':
+            # Select a random move from the available moves
             best_move = self._random_search()
-        else: # make a random move if other
+        else: 
+            # make a random move if no AI type is specified
             best_move = self._random_search()
 
         if self.show_thoughts:
-            self.logger.debug(f"AI is strongly considering the move: {best_move} | Evaluation: {self.evaluate_position(board):.3f} | FEN: {board.fen()}")
+            self.logger.debug(f"AI is strongly considering the move: {best_move} | Evaluation: {self.evaluate_move(board, best_move):.3f} | FEN: {board.fen()}")
         
         return best_move if best_move else None
     
@@ -248,7 +285,10 @@ class EvaluationEngine:
             
         # Sort moves by score in descending order
         move_scores.sort(key=lambda x: x[1], reverse=True)
-
+        
+        if self.show_thoughts and self.logger:
+            self.logger.debug(f"Ordered moves at depth {depth}: {[f'{move} ({score:.2f})' for move, score in move_scores]}")
+        
         # Return just the moves, not the scores
         return [move for move, _ in move_scores]
     
@@ -377,6 +417,7 @@ class EvaluationEngine:
 
         stand_pat = self.evaluate_position_from_perspective(board, board.turn)
         if stand_pat >= beta:
+            self.update_killer_move(m, depth)
             return beta
         if stand_pat > alpha:
             alpha = stand_pat
@@ -401,10 +442,14 @@ class EvaluationEngine:
                 score = -self._quiescence_search(board, -beta, -alpha, stop_callback, depth + 1)
             board.pop()
             if score >= beta:
+                self.update_killer_move(m, depth)
                 return beta
             if score > alpha:
                 alpha = score
-
+        
+        if self.show_thoughts and self.logger:
+            self.logger.debug(f"Quiescence search at depth {depth} | Alpha: {alpha} Beta: {beta} | Nodes searched: {self.nodes_searched}")
+        
         return alpha
     
     def _mvv_lva_score(self, board: chess.Board, move: chess.Move):
@@ -421,27 +466,24 @@ class EvaluationEngine:
         score = victim_value * 100 - attacker_value
         return score if score is not None else 0.0
     
-    def new_game(self):
-        """Reset engine for new game"""
-        self.transposition_table.clear()
-        self.killer_moves = [[None, None] for _ in range(50)]
-        self.history_table.clear()
-        self.nodes_searched = 0
-
-    def set_max_depth(self, depth: int):
-        """Set maximum search depth"""
-        self.max_depth = max(1, min(depth, 10)) # bounding depth to 1-10
-        self.depth = self.max_depth
-
-    def set_hash_size(self, size_mb: int):
-        """Set transposition table size"""
-        self.hash_size = max(1, min(size_mb, 1024))
-        # Clear table when resizing
-        self.transposition_table.clear()
-
-    def set_threads(self, threads: int):
-        """Set number of search threads"""
-        self.threads = max(1, min(threads, 8))
+    def _get_transposition_move(self, board: chess.Board, depth: int):
+        """Get the best move from the transposition table for the current position"""
+        key = board.fen()
+        if key in self.transposition_table:
+            entry = self.transposition_table[key]
+            if entry['depth'] >= depth:
+                return entry['best_move']
+        return None
+    
+    def update_transposition_table(self, board: chess.Board, depth: int, best_move: Optional[chess.Move], score: float):
+        """Update the transposition table with the best move and score for the current position"""
+        key = board.fen()
+        if best_move is not None:
+            self.transposition_table[key] = {
+                'best_move': best_move,
+                'depth': depth,
+                'score': score
+            }
 
     def update_killer_move(self, move, depth):
         """Update killer move table with a move that caused a beta cutoff"""
@@ -596,6 +638,7 @@ class EvaluationEngine:
                     best_move = move
                 alpha = max(alpha, score)
                 if beta <= alpha:
+                    self.update_killer_move(move, depth)
                     break
             if depth == self.depth:
                 return best_move

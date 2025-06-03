@@ -1,0 +1,14 @@
+[Event "AIv.AI Pure Evaluation Engine"]
+[Site "Local Computer"]
+[Date "2025.06.02"]
+[Round "#"]
+[White "AI: viper via lookahead"]
+[Black "AI: viper via simple_eval"]
+[Result "1/2-1/2"]
+
+1. Nh3 { Eval: 1.67 } 1... f5 { Eval: 3.77 } 2. Ng5 { Eval: 4.22 } 2... d5
+{ Eval: 5.67 } 3. Nxh7 { Eval: 5.77 } 3... Kd7 { Eval: 7.27 } 4. Nxf8+
+{ Eval: 11.27 } 4... Ke8 { Eval: 9.37 } 5. Nh7 { Eval: 8.72 } 5... Kd7
+{ Eval: 11.02 } 6. Nf8+ { Eval: 11.28 } 6... Ke8 { Eval: 9.38 } 7. Nh7
+{ Eval: 8.72 } 7... Kd7 { Eval: 11.02 } 1/2-1/2
+

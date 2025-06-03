@@ -1,0 +1,19 @@
+[Event "AIv.AI Pure Evaluation Engine"]
+[Site "Local Computer"]
+[Date "2025.06.02"]
+[Round "#"]
+[White "AI: viper via lookahead"]
+[Black "AI: viper via simple_eval"]
+[Result "1/2-1/2"]
+
+1. f4 { Eval: -0.98 } 1... f5 { Eval: 1.12 } 2. h4 { Eval: 0.35 } 2... Kf7
+{ Eval: 2.65 } 3. d4 { Eval: 1.17 } 3... h5 { Eval: 1.83 } 4. e3 { Eval: 0.58 }
+4... c5 { Eval: 1.18 } 5. c4 { Eval: -0.08 } 5... a6 { Eval: 0.52 } 6. a4
+{ Eval: -0.35 } 6... Rh6 { Eval: 0.15 } 7. b4 { Eval: -0.42 } 7... b6
+{ Eval: 0.02 } 8. g3 { Eval: -0.47 } 8... g5 { Eval: -0.12 } 9. Ra3
+{ Eval: -0.65 } 9... Kg7 { Eval: -0.15 } 10. Qe2 { Eval: -0.88 } 10... b5
+{ Eval: -0.62 } 11. a5 { Eval: -0.90 } 11... Qe8 { Eval: -0.70 } 12. g4
+{ Eval: -0.97 } 12... Qd8 { Eval: -0.78 } 13. Ra4 { Eval: -0.97 } 13... Qe8
+{ Eval: -0.78 } 14. Ra3 { Eval: -0.98 } 14... Qd8 { Eval: -0.77 } 15. Ra4
+{ Eval: -0.98 } 15... Qe8 { Eval: -0.77 } 1/2-1/2
+

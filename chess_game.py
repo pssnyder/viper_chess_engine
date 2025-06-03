@@ -38,10 +38,11 @@ class ChessGame:
         self.human_color_pref = self.config['game']['human_color']
         self.watch_mode = self.config['game']['ai_watch_mode']
         self.show_eval = self.config['debug']['print_evaluation']
-        self.white_bot_type = self.config['white_ai_config']['white_ai']
-        self.black_bot_type = self.config['black_ai_config']['black_ai']
+        self.white_bot_type = self.config['white_ai_config']['white_ai_type']
+        self.black_bot_type = self.config['black_ai_config']['black_ai_type']
         self.white_engine = self.config['white_ai_config']['white_engine']
         self.black_engine = self.config['black_ai_config']['black_engine']
+        self.ai_types = self.config['ai_types']
         
         
         self.clock = pygame.time.Clock()
@@ -91,7 +92,7 @@ class ChessGame:
         self.last_ai_move = None # Track AI's last move
 
         # Set up evaluation
-        self.evaluator = EvaluationEngine(self.board)
+        self.evaluator = EvaluationEngine(self.board, self.board.turn)
         self.current_eval = None
 
         # Set colors
@@ -245,7 +246,7 @@ class ChessGame:
             self.screen.blit(text, (WIDTH-150, 10))
 
             # Also show depth
-            depth_text = self.font.render(f"Depth: {self.config['ai']['search_depth']}", True, (0, 0, 0))
+            depth_text = self.font.render(f"Depth: {self.evaluator.depth}", True, (0, 0, 0))
             self.screen.blit(depth_text, (WIDTH-150, 35))
             
             # Show current turn in AI vs AI mode
@@ -615,45 +616,44 @@ class ChessGame:
 
     def ai_move(self):
         """AI MOVE SELECTION"""
+        ai_config = {}
+        chosen_move = None
         # Validate current board state
         if not self.board.is_valid():
-            print("ERROR: Invalid board state detected!")
-            self.board = chess.Board(self.board.fen())
+            print(f"ERROR: Invalid board state detected! | FEN: {self.board.fen()}")
             return None
-
         if not self.board.legal_moves: return None
-
         # Store the current player before making moves
-        current_player = self.board.turn
-
-        # Valid bot types:
-        #  - simple_eval
-        #  - deepsearch
-        #  - lookahead
-        #  - random
-        # TODO - v7p3r_chess_model (not integrated, need to integrate)
-        # TODO - openings_model (not integrated, need to integrate)
-        
+        self.current_player = self.board.turn
+        current_player = self.current_player
         if current_player == chess.WHITE:
-            # Select search type based on white bot selection
             # create engine for white
-            ai_type = self.config['white_ai_config']['white_ai']
+            ai_type = self.config['white_ai_config']['white_ai_type']
             ai_config = self._get_white_ai_config()
         else:
             # create engine for black
-            ai_type = self.config['black_ai_config']['black_ai']
+            ai_type = self.config['black_ai_config']['black_ai_type']
             ai_config = self._get_black_ai_config()
         
-        return self._execute_ai_brain(ai_type, ai_config, current_player)
+        # Route to the evaluator with correct settings
+        if ai_type in self.ai_types:
+            chosen_move = self.evaluator._search_for_move(self.board, current_player, ai_type, ai_config)
+        else: # move is random
+            legal_moves = list(self.board.legal_moves)
+            chosen_move = random.choice(legal_moves) if legal_moves else None
+        return chosen_move.uci() if chosen_move else None
     
+    # AI Configuration setups
     def _get_white_ai_config(self):
         """Extract White's AI configuration"""
         return {
-            'ai_type': self.config['white_ai_config']['white_ai'],
+            'ai_color': chess.WHITE,
+            'ai_type': self.config['white_ai_config']['white_ai_type'],
             'depth': self.config['white_ai_config']['white_depth'],
-            'move_ordering': self.config['white_ai_config']['white_move_ordering'],
-            'quiescence': self.config['white_ai_config']['white_quiescence'],
-            'time_limit': self.config['white_ai_config']['white_time_limit'],
+            'max_depth': self.config['performance']['max_depth'],
+            'move_ordering_enabled': self.config['white_ai_config']['white_move_ordering'],
+            'quiescence_enabled': self.config['white_ai_config']['white_quiescence'],
+            'move_time_limit': self.config['white_ai_config']['white_time_limit'],
             'pst_enabled': self.config['white_ai_config']['white_pst'],
             'pst_weight': self.config['white_ai_config']['white_pst_weight'],
             'engine': self.config['white_ai_config']['white_engine'],
@@ -663,38 +663,19 @@ class ChessGame:
     def _get_black_ai_config(self):
         """Extract Black's AI configuration"""
         return {
-            'ai_type': self.config['black_ai_config']['black_ai'],
+            'ai-color': chess.BLACK,
+            'ai_type': self.config['black_ai_config']['black_ai_type'],
             'depth': self.config['black_ai_config']['black_depth'],
-            'move_ordering': self.config['black_ai_config']['black_move_ordering'],
-            'quiescence': self.config['black_ai_config']['black_quiescence'],
-            'time_limit': self.config['black_ai_config']['black_time_limit'],
+            'max_depth': self.config['performance']['max_depth'],
+            'move_ordering_enabled': self.config['black_ai_config']['black_move_ordering'],
+            'quiescence_enabled': self.config['black_ai_config']['black_quiescence'],
+            'move_time_limit': self.config['black_ai_config']['black_time_limit'],
             'pst_enabled': self.config['black_ai_config']['black_pst'],
             'pst_weight': self.config['black_ai_config']['black_pst_weight'],
             'engine': self.config['black_ai_config']['black_engine'],
             'ruleset': self.config['black_ai_config']['black_ruleset']
         }
-
-    def _execute_ai_brain(self, ai_type, ai_config, player):
-        """Execute the appropriate AI brain with its specific configuration"""
-        
-        # Configure the evaluator with side-specific settings
-        self.evaluator.configure_for_side(ai_config)
-        
-        # Route to the appropriate evaluation method
-        if ai_type == 'deepsearch':
-            return self.evaluator._deepsearch_move(player)
-        elif ai_type == 'lookahead':
-            return self.evaluator._lookahead_move(player)
-        elif ai_type == 'simple_eval':
-            return self.evaluator._simple_eval_move(player)
-        elif ai_type == 'random':
-            import random
-            legal_moves = list(self.board.legal_moves)
-            return random.choice(legal_moves).uci() if legal_moves else None
-        else:
-            print(f"Warning: Unknown AI type '{ai_type}', using simple_eval")
-            return self.evaluator._simple_eval_move(player)
-        
+     
 if __name__ == "__main__":
     game = ChessGame()
     game.run()

@@ -140,7 +140,7 @@ class EvaluationEngine:
         self.configure_for_side(ai_config)
         # Start move evaluation
         if self.show_thoughts:
-            self.logger.debug(f"== EVALUATION (Player: {'White' if player == chess.WHITE else 'Black'}) ==")
+            self.logger.debug(f"== EVALUATION (Player: {'White' if player == chess.WHITE else 'Black'}) == | AI Type: {self.ai_type} | Depth: {self.depth} ==")
         
         # AI Selection
         if ai_type == 'deepsearch':
@@ -159,10 +159,7 @@ class EvaluationEngine:
             best_move = self._random_search()
         else: # make a random move if other
             best_move = self._random_search()
-        
-        if self.quiescence_enabled:
-            # Perform quiescence search if enabled
-            best_move = self._quiescence_search(self.board.copy(), best_move, -float('inf'), float('inf'))
+
         if self.show_thoughts:
             self.logger.debug(f"AI is strongly considering the move: {best_move} | Evaluation: {self.evaluate_position(board):.3f} | FEN: {board.fen()}")
         
@@ -176,7 +173,6 @@ class EvaluationEngine:
         score = 0.0
         white_score = 0.0
         black_score = 0.0
-        board = self.board.copy()
         try:
             white_score = self._calculate_score(board, chess.WHITE)
             black_score = self._calculate_score(board, chess.BLACK)
@@ -188,10 +184,9 @@ class EvaluationEngine:
             score = white_score - black_score            
         return score if score is not None else 0.0
 
-    def evaluate_position_from_perspective(self, board, player):
+    def evaluate_position_from_perspective(self, board: chess.Board, player: chess.Color):
         """Calculate position evaluation from specified player's perspective"""
         score = 0.0
-        board = self.board.copy()
         try:
             white_score = self._calculate_score(board, chess.WHITE)
             black_score = self._calculate_score(board, chess.BLACK)
@@ -200,7 +195,7 @@ class EvaluationEngine:
         except Exception as e:
             return 0.0  # Fallback to neutral score
     
-    def evaluate_move(self, move):
+    def evaluate_move(self, move: chess.Move):
         """Quick evaluation of individual move on overall eval"""
         score = 0.0
         board = self.board.copy()
@@ -369,23 +364,20 @@ class EvaluationEngine:
                         
         return best_move if best_move else None, best_score
     
-    def _quiescence_search(self, board: chess.Board, move, alpha: float, beta: float, stop_callback: Callable[[], bool] = None, depth: int = 0):
+    def _quiescence_search(self, board: chess.Board, alpha: float, beta: float, stop_callback: Callable[[], bool] = None, depth: int = 0):
         """
         Quiescence search to avoid horizon effect.
-        Returns the original move provided, or a better move if found.
+        Returns an evaluation score.
         """
         if stop_callback and stop_callback():
-            return move
+            return self.evaluate_position_from_perspective(board, board.turn)
 
         if depth > 2:  # Limit quiescence depth
-            return move
+            return self.evaluate_position_from_perspective(board, board.turn)
 
         stand_pat = self.evaluate_position_from_perspective(board, board.turn)
-        best_score = stand_pat
-        best_move = move
-
         if stand_pat >= beta:
-            return move
+            return beta
         if stand_pat > alpha:
             alpha = stand_pat
 
@@ -403,20 +395,17 @@ class EvaluationEngine:
                 continue
             board.push(m)
             if board.is_checkmate():
-                board.pop()
-                return m
-            self.nodes_searched += 1
-            score = -self._quiescence_search(board, m, -beta, -alpha, stop_callback, depth + 1)
+                score = self.config['evaluation']['checkmate_bonus']
+            else:
+                self.nodes_searched += 1
+                score = -self._quiescence_search(board, -beta, -alpha, stop_callback, depth + 1)
             board.pop()
-            if score > best_score:
-                best_score = score
-                best_move = m
             if score >= beta:
-                return best_move
+                return beta
             if score > alpha:
                 alpha = score
 
-        return best_move
+        return alpha
     
     def _mvv_lva_score(self, board: chess.Board, move: chess.Move):
         """Most Valuable Victim - Least Valuable Attacker score"""
@@ -471,7 +460,7 @@ class EvaluationEngine:
         history_key = (piece.piece_type, move.from_square, move.to_square)
 
         # Update history score using depth-squared bonus
-        self.history_table[history_key] += depth * depth
+        self.history_table[history_key] = self.history_table.get(history_key, 0) + depth * depth
 
     def update_counter_move(self, last_move, current_move):
         """Update counter move table"""
@@ -576,7 +565,10 @@ class EvaluationEngine:
         if stop_callback and stop_callback():
             return None
         if depth == 0 or board.is_game_over():
-            return None
+            if self.quiescence_enabled:
+                return self._quiescence_search(board, alpha, beta, stop_callback)
+            else:
+                return self.evaluate_position_from_perspective(board, board.turn)
         moves = list(board.legal_moves)
         if self.move_ordering_enabled:
             moves = self.order_moves(board.copy(), moves)
@@ -592,7 +584,9 @@ class EvaluationEngine:
                     score = 0.0
                 else:
                     result = self._minimax(new_board, depth-1, alpha, beta, False, stop_callback)
-                    if result is None:
+                    if isinstance(result, (int, float)):
+                        score = result
+                    elif result is None:
                         score = self.evaluate_position_from_perspective(new_board, board.turn)
                     else:
                         new_board.push(result)
@@ -603,6 +597,10 @@ class EvaluationEngine:
                 alpha = max(alpha, score)
                 if beta <= alpha:
                     break
+            if depth == self.depth:
+                return best_move
+            else:
+                return best_score
         else:
             best_score = float('inf')
             for move in moves:
@@ -614,7 +612,9 @@ class EvaluationEngine:
                     score = 0.0
                 else:
                     result = self._minimax(new_board, depth-1, alpha, beta, True, stop_callback)
-                    if result is None:
+                    if isinstance(result, (int, float)):
+                        score = result
+                    elif result is None:
                         score = self.evaluate_position_from_perspective(new_board, board.turn)
                     else:
                         new_board.push(result)
@@ -625,7 +625,10 @@ class EvaluationEngine:
                 beta = min(beta, score)
                 if beta <= alpha:
                     break
-        return best_move
+            if depth == self.depth:
+                return best_move
+            else:
+                return best_score
 
     def _negamax(self, board: chess.Board, depth: int, alpha: float, beta: float, stop_callback: Callable[[], bool] = None):
         """
@@ -636,7 +639,11 @@ class EvaluationEngine:
         if self.time_manager.should_stop(depth, self.nodes_searched):
             return None
         if depth == 0 or board.is_game_over():
-            return None
+            # Use quiescence search if enabled, otherwise static evaluation
+            if self.quiescence_enabled:
+                return self._quiescence_search(board, alpha, beta, stop_callback)
+            else:
+                return self.evaluate_position_from_perspective(board, board.turn)
         moves = list(board.legal_moves)
         if self.move_ordering_enabled:
             moves = self.order_moves(board.copy(), moves)
@@ -651,7 +658,9 @@ class EvaluationEngine:
             else:
                 # For negamax, recursively call and negate the result
                 result = self._negamax(board, depth-1, -beta, -alpha, stop_callback)
-                if result is None:
+                if isinstance(result, (int, float)):
+                    score = -result
+                elif result is None:
                     score = self.evaluate_position_from_perspective(board, board.turn)
                 else:
                     board.push(result)
@@ -664,7 +673,11 @@ class EvaluationEngine:
             alpha = max(alpha, score)
             if alpha >= beta:
                 break
-        return best_move
+        # If at root, return best move; otherwise, return best_score
+        if depth == self.depth:
+            return best_move
+        else:
+            return best_score
 
     def _deepsearch(self, board: chess.Board, depth: int, time_control: Dict[str, Any], stop_callback: Callable[[], bool] = None):
         """
@@ -712,7 +725,7 @@ class EvaluationEngine:
         
         # Rules included in scoring
         score += 1.0 * (self._checkmate_threats(board) or 0.0)
-        score += 1.0 * (self._piece_square_table_evaluation(board, color) or 0.0)
+        score += 1.0 * (self._piece_square_table_evaluation(color) or 0.0)
         score += 1.0 * (self._improved_mobility(board, color) or 0.0)
         score += 1.0 * (self._tempo_bonus(board, color) or 0.0)
         score += 1.0 * (self._repeating_positions(board) or 0.0)
@@ -742,7 +755,7 @@ class EvaluationEngine:
             if board.is_checkmate():
                 score += self.config['evaluation']['checkmate_bonus']
                 break
-        board.pop()
+            board.pop()
         return score
 
     def _repeating_positions(self, board):
@@ -753,7 +766,10 @@ class EvaluationEngine:
 
     def _material_score(self, board, color):
         """Simple material count for given color"""
-        return sum(len(board.pieces(p, color)) * v for p, v in self.piece_values.items())
+        score = 0.0
+        for piece_type, value in self.piece_values.items():
+            score += len(board.pieces(piece_type, color)) * value
+        return score
     
     def _piece_square_table_evaluation(self, color):
         pst_score = 0.0
@@ -856,13 +872,14 @@ class EvaluationEngine:
         return score
 
     def _king_threat(self, board):
+        """
+        Evaluate if the opponent's king is under threat (in check) in the current position.
+        Adds a penalty/bonus if the opponent's king is in check.
+        """
         score = 0.0
-        temp_board = board.copy()
-        temp_board.turn = not board.turn
-
-        if temp_board.is_check():
+        # Check if the opponent's king is in check in the current position
+        if board.is_check():
             score += self.config['evaluation']['king_threat_penalty']
-
         return score
 
     def _undeveloped_pieces(self, board, color):
@@ -922,8 +939,6 @@ class EvaluationEngine:
         score = 0.0
         if board.has_castling_rights(color):
             score += self.config['evaluation']['castling_protection_bonus']
-        if board.has_castling_rights(color):
-            score -= self.config['evaluation']['castling_protection_bonus']
         
         return score
 
@@ -1006,4 +1021,21 @@ class EvaluationEngine:
                     score += self.config['evaluation']['coordinated_rooks_bonus']
         
         return score
+    
+# Example usage and testing
+if __name__ == "__main__":
+    import logging
+    import logging.handlers
+    import random
+    from typing import Callable, Dict, Any, Optional, Tuple
 
+    # Run an evaluation on a sample position
+    evaluator = EvaluationEngine()
+    fen_position = input("Enter FEN position: ")
+    board = chess.Board(fen_position)
+    move = evaluator.evaluate_position(board)
+    if move:
+        print(f"Best move: {move.uci()} with score: {evaluator.evaluate_position_from_perspective(board, board.turn)}")
+    else:
+        print("No valid moves found.")
+    

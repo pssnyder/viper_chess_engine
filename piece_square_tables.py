@@ -1,7 +1,7 @@
 # piece_square_tables.py
-# Advanced piece-square table implementation for chess engine evaluation
 
 import chess
+
 
 class PieceSquareTables:
     """
@@ -62,7 +62,7 @@ class PieceSquareTables:
             [ -5,  0,  0,  0,  0,  0,  0, -5],
             [ -5,  0,  0,  0,  0,  0,  0, -5],
             [ -5,  0,  0,  0,  0,  0,  0, -5],
-            [ -1, -1, -1,  5,  5, -1, -1, -1]
+            [  0,  0,  0,  5,  5,  0,  0,  0]
         ]
         
         # Queen table - discourages early development
@@ -166,7 +166,7 @@ class PieceSquareTables:
         for square in chess.SQUARES:
             piece = board.piece_at(square)
             if piece:
-                value = self.get_piece_value(piece.piece_type, square, piece.color)
+                value = self.get_piece_value(piece, square, piece.color)
                 if piece.color == chess.WHITE:
                     total_score += value
                 else:
@@ -202,6 +202,6 @@ if __name__ == "__main__":
     print("Initial position PST evaluation:", pst.evaluate_board_position(board))
     
     # Test specific squares
-    print(f"Knight on h3 value: {pst.get_piece_value(chess.KNIGHT, chess.H3, chess.WHITE)}")
-    print(f"Knight on e4 value: {pst.get_piece_value(chess.KNIGHT, chess.E4, chess.WHITE)}")
-    print(f"Difference: {pst.get_piece_value(chess.KNIGHT, chess.E4, chess.WHITE) - pst.get_piece_value(chess.KNIGHT, chess.H3, chess.WHITE)} centipawns")
+    print(f"Knight on h3 value: {pst.get_piece_value(chess.Piece(chess.KNIGHT, chess.WHITE), chess.H3, chess.WHITE)}")
+    print(f"Knight on e4 value: {pst.get_piece_value(chess.Piece(chess.KNIGHT, chess.WHITE), chess.E4, chess.WHITE)}")
+    print(f"Difference: {pst.get_piece_value(chess.Piece(chess.KNIGHT, chess.WHITE), chess.E4, chess.WHITE) - pst.get_piece_value(chess.Piece(chess.KNIGHT, chess.WHITE), chess.H3, chess.WHITE)} centipawns")

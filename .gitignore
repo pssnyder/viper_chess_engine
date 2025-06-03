@@ -1,0 +1,41 @@
+# gitiggnore
+
+# ignore logging directory
+/logging/
+
+# ignore puzzles directory
+/puzzles/
+
+# ignore .log files
+*.log
+
+# ignore .csv files
+*.csv
+
+# ignore active_game.pgn file
+/logging/active_game.pgn
+
+# ignore error_dump.pgn file
+/logging/error_dump.pgn
+
+# ignore _pycache directory
+__pycache__/
+
+# ignore .pyc files
+*.pyc
+
+# ignore .pyo files
+*.pyo
+
+# ignore .pyd files
+*.pyd   
+
+# ignore .egg-info directory
+*.egg-info/
+
+# ignore .egg files
+*.egg
+
+# ignore .DS_Store files
+.DS_Store
+

@@ -9,6 +9,7 @@ import random
 import yaml
 import datetime
 from evaluation_engine import EvaluationEngine
+from chess_puzzles import ChessPuzzles
 
 # Pygame constants
 WIDTH, HEIGHT = 640, 640
@@ -24,8 +25,9 @@ def resource_path(relative_path):
     return os.path.join(os.path.abspath("."), relative_path)
 
 class ChessGame:
-    def __init__(self):
-        
+    def __init__(self, fen_position=None):
+        self.fen_position = fen_position
+
         # Load configuration
         with open("config.yaml") as f:
             self.config = yaml.safe_load(f)
@@ -34,22 +36,23 @@ class ChessGame:
         pygame.init()
         
         # Set up game config
-        self.ai_vs_ai = self.config['game']['ai_vs_ai']
-        self.human_color_pref = self.config['game']['human_color']
-        self.watch_mode = self.config['game']['ai_watch_mode']
+        self.puzzle_mode = self.config['game_config']['puzzle_mode']
+        self.ai_vs_ai = self.config['game_config']['ai_vs_ai']
+        self.human_color_pref = self.config['game_config']['human_color']
+        self.watch_mode = self.config['game_config']['ai_watch_mode']
         self.show_eval = self.config['debug']['print_evaluation']
-        self.white_bot_type = self.config['white_ai_config']['white_ai_type']
-        self.black_bot_type = self.config['black_ai_config']['black_ai_type']
-        self.white_engine = self.config['white_ai_config']['white_engine']
-        self.black_engine = self.config['black_ai_config']['black_engine']
+        self.white_bot_type = self.config['white_ai_config']['ai_type']
+        self.black_bot_type = self.config['black_ai_config']['ai_type']
+        self.white_engine = self.config['white_ai_config']['engine']
+        self.black_engine = self.config['black_ai_config']['engine']
         self.ai_types = self.config['ai_types']
-        
-        
+        self.white_ai_config = self.config['white_ai_config']
+        self.black_ai_config = self.config['black_ai_config']
         self.clock = pygame.time.Clock()
         self.font = pygame.font.SysFont('Arial', 24)
         
         # Only create screen and load images in visual mode
-        if not (self.ai_vs_ai and not self.watch_mode):
+        if self.watch_mode:
             self.screen = pygame.display.set_mode((WIDTH, HEIGHT))
             pygame.display.set_caption('v7p3r Chess Bot - Pure Evaluation Engine')
             self.load_images()
@@ -63,6 +66,8 @@ class ChessGame:
         self.selected_square = None
         self.player_clicks = []
         self.load_images()
+        
+        # Hard coded piece values for evaluation fallback
         self.piece_values = {
             chess.KING: 0,
             chess.QUEEN: 9,
@@ -80,9 +85,11 @@ class ChessGame:
         
         # Initialize PGN headers
         if self.ai_vs_ai:
-            self.game.headers["Event"] = "AIv.AI Pure Evaluation Engine"
+            self.game.headers["Event"] = "AI v. AI Pure Evaluation Engine"
+        elif self.puzzle_mode:
+            self.game.headers["Event"] = "Puzzle Mode"
         else:
-            self.game.headers["Event"] = "Humanv.AI Pure Evaluation Engine"
+            self.game.headers["Event"] = "Human v. AI Pure Evaluation Engine"
         self.game.headers["Date"] = datetime.datetime.now().strftime("%Y.%m.%d")
         self.game.headers["Site"] = "Local Computer"
         self.game.headers["Round"] = "#"
@@ -95,6 +102,11 @@ class ChessGame:
         self.evaluator = EvaluationEngine(self.board, self.board.turn)
         self.current_eval = None
 
+        # Set up puzzle mode if enabled
+        if self.puzzle_mode:
+            self.chess_puzzles = ChessPuzzles()
+            self.chess_puzzles.puzzle_config = self.config.get('puzzle_config', {})
+        
         # Set colors
         self._set_colors()
 
@@ -103,7 +115,11 @@ class ChessGame:
             self.flip_board = False # White on bottom for AI vs AI
             self.human_color = None
             self.ai_color = None
-        else:
+        elif self.puzzle_mode:
+            # Set up AI puzzle solving
+            self.human_color = None
+            self.ai_color = None         
+        else: # Human vs AI mode
             # Convert human_color_pref to 'w'/'b' format
             if self.human_color_pref.lower() in ['white', 'w']:
                 user_color = 'w'
@@ -123,6 +139,9 @@ class ChessGame:
         if self.ai_vs_ai:
             self.game.headers["White"] = f"AI: {self.white_engine} via {self.white_bot_type}"
             self.game.headers["Black"] = f"AI: {self.black_engine} via {self.black_bot_type}"
+        elif self.puzzle_mode:
+            self.game.headers["White"] = "Puzzle Solver"
+            self.game.headers["Black"] = "Puzzle Solver"
         else:
             self.game.headers["White"] = f"AI: {self.white_engine} via {self.white_bot_type}" if self.ai_color == chess.WHITE else "Human"
             self.game.headers["Black"] = "Human" if self.ai_color == chess.WHITE else f"AI: {self.black_engine} via {self.black_bot_type}"
@@ -140,7 +159,7 @@ class ChessGame:
                 print(f"Warning: Could not load image for {piece}")
 
     def draw_board(self):
-        if self.ai_vs_ai and not self.watch_mode:
+        if not self.watch_mode:
             return  # Skip drawing in headless mode
         colors = [pygame.Color("#a8a9a8"),pygame.Color("#d8d9d8")]
         for r in range(DIMENSION):
@@ -162,7 +181,7 @@ class ChessGame:
                 )
 
     def draw_pieces(self):
-        if self.ai_vs_ai and not self.watch_mode:
+        if not self.watch_mode:
             return  # Skip drawing in headless mode
         # Draw pieces
         for r in range(DIMENSION):
@@ -193,7 +212,7 @@ class ChessGame:
         return f"{color}N" if symbol == 'N' else f"{color}{symbol.lower()}"
 
     def draw_move_hints(self):
-        if self.ai_vs_ai and not self.watch_mode:
+        if not self.watch_mode:
             return  # Skip drawing in headless mode
         if self.selected_square:
             # Get all legal moves from selected square
@@ -224,7 +243,7 @@ class ChessGame:
             self.screen.blit(move_surface, (history_x, history_y + 40 + i*20))
             
     def draw_eval(self):
-        if self.ai_vs_ai and not self.watch_mode:
+        if not self.watch_mode:
             return  # Skip drawing in headless mode
         if self.current_eval is not None:
             # Display evaluation from current player's perspective
@@ -254,6 +273,10 @@ class ChessGame:
                 turn_text = f"Turn: {'White' if self.board.turn == chess.WHITE else 'Black'}"
                 turn_surface = self.font.render(turn_text, True, (0, 0, 0))
                 self.screen.blit(turn_surface, (WIDTH-150, 60))
+            elif self.puzzle_mode:
+                turn_text = f"{'White' if self.board.turn == chess.WHITE else 'Black'} to move"
+                turn_surface = self.font.render(turn_text, True, (0, 0, 0))
+                self.screen.blit(turn_surface, (WIDTH-150, 60))
 
     def chess_to_screen(self, square):
         """Convert chess board square to screen coordinates"""
@@ -270,7 +293,7 @@ class ChessGame:
         return (screen_file * SQ_SIZE, screen_rank * SQ_SIZE)
 
     def update_display(self):
-        if self.ai_vs_ai and not self.watch_mode:
+        if not self.watch_mode:
             return  # Skip drawing in headless mode
         """Optimized display update"""
         self.draw_board()
@@ -290,7 +313,7 @@ class ChessGame:
         pygame.display.flip()
 
     def highlight_selected_square(self):
-        if self.ai_vs_ai and not self.watch_mode:
+        if not self.watch_mode:
             return  # Skip drawing in headless mode
         if self.selected_square:
             screen_x, screen_y = self.chess_to_screen(self.selected_square)
@@ -300,7 +323,7 @@ class ChessGame:
             self.screen.blit(s, (screen_x, screen_y))
 
     def highlight_last_move(self):
-        if self.ai_vs_ai and not self.watch_mode:
+        if not self.watch_mode:
             return  # Skip drawing in headless mode
         """Highlight AI's last move on the board"""
         if self.last_ai_move:
@@ -449,10 +472,17 @@ class ChessGame:
     def run(self):
         running = True
         # Only create clock if we need visual display
-        if not (self.ai_vs_ai and not self.watch_mode):
+        if self.watch_mode:
             clock = pygame.time.Clock()
-        # Initialize AI move timer for AI vs AI mode
-        if self.ai_vs_ai:
+        # Initialize game mode
+        if self.puzzle_mode:
+            # Load puzzle from FEN if provided
+            if self.fen_position:
+                try:
+                    self.import_fen(self.fen_position)
+                except ValueError:
+                    print("Invalid FEN position provided, starting with default board.")
+        elif self.ai_vs_ai:
             starting_position = input("Custom FEN starting position: [Press Enter to skip]")
             if starting_position:
                 self.import_fen(starting_position)
@@ -463,13 +493,14 @@ class ChessGame:
             else:
                 # Visual mode - use timer events
                 pygame.time.set_timer(pygame.USEREVENT, 2000)  # 2 second intervals
+        
         while running:
             current_time = pygame.time.get_ticks()
             # Process events (even in headless mode for quit detection)
             for event in pygame.event.get():
                 if event.type == pygame.QUIT:
                     running = False
-                elif event.type == pygame.MOUSEBUTTONDOWN and not self.ai_vs_ai:
+                elif event.type == pygame.MOUSEBUTTONDOWN and not self.ai_vs_ai and not self.puzzle_mode:
                     self.handle_mouse_click(pygame.mouse.get_pos())
                 elif self.ai_vs_ai and self.watch_mode and event.type == pygame.USEREVENT:
                     if not self.board.is_game_over():
@@ -480,11 +511,32 @@ class ChessGame:
                     if current_time - last_ai_move_time >= ai_move_interval:
                         self.process_ai_move()
                         last_ai_move_time = current_time
-            # Handle AI moves in human vs AI mode
-            if not self.ai_vs_ai and self.board.turn == self.ai_color and not self.board.is_game_over():
+            elif self.puzzle_mode:
+                # Handle puzzle mode AI moves
+                if not self.board.is_game_over():
+                    if self.board.turn == chess.WHITE:
+                        ai_move = self.process_ai_move()
+                        if ai_move and self.push_move(ai_move):
+                            # Test the solution against the puzzle
+                            accurate_move = self.chess_puzzles.test_solution(self.board, ai_move)
+                            if self.show_eval:
+                                print(f"Puzzle AI plays: {ai_move} (Eval: {self.current_eval:.2f})")
+                            else:
+                                print(f"Puzzle AI plays: {ai_move}")
+                            if accurate_move:
+                                print("Puzzle AI found a valid move!")
+                            else:
+                                print("Puzzle AI failed to find a valid move!")
+                        else:
+                            print("Puzzle AI failed to find a valid move!")
+                    else:
+                        print("Waiting for human input in puzzle mode...")
+            elif not self.ai_vs_ai and not self.puzzle_mode and self.board.turn == self.ai_color and not self.board.is_game_over():
+                # Handle AI moves in human vs AI mode
                 self.process_ai_move()
+            
             # Only update display if we have a screen
-            if not (self.ai_vs_ai and not self.watch_mode):
+            if self.watch_mode:
                 self.update_display()
                 clock.tick(MAX_FPS)
             # Check game end conditions
@@ -494,7 +546,7 @@ class ChessGame:
         if not (self.ai_vs_ai and not self.watch_mode):
             pygame.quit()
         else:
-            print("\nHeadless AI vs AI game completed!")
+            print('Exiting headless mode - no visual display to quit.')
 
     # ===================================
     # ========= MOVE HANDLERS ===========
@@ -628,12 +680,12 @@ class ChessGame:
         current_player = self.current_player
         if current_player == chess.WHITE:
             # create engine for white
-            ai_type = self.config['white_ai_config']['white_ai_type']
-            ai_config = self._get_white_ai_config()
+            ai_type = self.config['white_ai_config']['ai_type']
+            ai_config = self._get_ai_config('white')
         else:
             # create engine for black
-            ai_type = self.config['black_ai_config']['black_ai_type']
-            ai_config = self._get_black_ai_config()
+            ai_type = self.config['black_ai_config']['ai_type']
+            ai_config = self._get_ai_config('black')
         
         # Route to the evaluator with correct settings
         if ai_type in self.ai_types:
@@ -644,36 +696,21 @@ class ChessGame:
         return chosen_move.uci() if chosen_move else None
     
     # AI Configuration setups
-    def _get_white_ai_config(self):
-        """Extract White's AI configuration"""
-        return {
-            'ai_color': chess.WHITE,
-            'ai_type': self.config['white_ai_config']['white_ai_type'],
-            'depth': self.config['white_ai_config']['white_depth'],
-            'max_depth': self.config['performance']['max_depth'],
-            'move_ordering_enabled': self.config['white_ai_config']['white_move_ordering'],
-            'quiescence_enabled': self.config['white_ai_config']['white_quiescence'],
-            'move_time_limit': self.config['white_ai_config']['white_time_limit'],
-            'pst_enabled': self.config['white_ai_config']['white_pst'],
-            'pst_weight': self.config['white_ai_config']['white_pst_weight'],
-            'engine': self.config['white_ai_config']['white_engine'],
-            'ruleset': self.config['white_ai_config']['white_ruleset']
-        }
 
-    def _get_black_ai_config(self):
-        """Extract Black's AI configuration"""
+    def _get_ai_config(self, player_color):
+        """Extract this bots AI configuration"""
         return {
-            'ai-color': chess.BLACK,
-            'ai_type': self.config['black_ai_config']['black_ai_type'],
-            'depth': self.config['black_ai_config']['black_depth'],
+            'ai-color': chess.WHITE if player_color == 'white' else chess.BLACK,
+            'ai_type': self.config[f'{player_color}_ai_config']['ai_type'],
+            'depth': self.config[f'{player_color}_ai_config']['depth'],
             'max_depth': self.config['performance']['max_depth'],
-            'move_ordering_enabled': self.config['black_ai_config']['black_move_ordering'],
-            'quiescence_enabled': self.config['black_ai_config']['black_quiescence'],
-            'move_time_limit': self.config['black_ai_config']['black_time_limit'],
-            'pst_enabled': self.config['black_ai_config']['black_pst'],
-            'pst_weight': self.config['black_ai_config']['black_pst_weight'],
-            'engine': self.config['black_ai_config']['black_engine'],
-            'ruleset': self.config['black_ai_config']['black_ruleset']
+            'move_ordering_enabled': self.config[f'{player_color}_ai_config']['move_ordering'],
+            'quiescence_enabled': self.config[f'{player_color}_ai_config']['quiescence'],
+            'move_time_limit': self.config[f'{player_color}_ai_config']['time_limit'],
+            'pst_enabled': self.config[f'{player_color}_ai_config']['pst'],
+            'pst_weight': self.config[f'{player_color}_ai_config']['pst_weight'],
+            'engine': self.config[f'{player_color}_ai_config']['engine'],
+            'ruleset': self.config[f'{player_color}_ai_config']['ruleset']
         }
      
 if __name__ == "__main__":

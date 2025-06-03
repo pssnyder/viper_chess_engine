@@ -1,10 +1,27 @@
 # config.yaml
 # Configuration for pure evaluation-based chess AI
 
-game:
-  ai_vs_ai: true                # Set to true for AI vs AI matches
+# Game settings
+game_config:
+  puzzle_mode: true              # Set to true for puzzle solving mode, false for regular matches
+  human_color: random            # Options: white, black, random
+  game_mode: match               # Options: match, puzzle, tournament
+  game_type: standard           # Options: standard, chess960, king_of_the_hill, three_check, antichess, atomic, racing_kings
+  game_time_control: classical   # Options: classical, rapid, blitz, bullet
+  game_clock: 300               # Time in seconds for each player, 0 for no clock
+  game_increment: 0             # Increment in seconds per move, 0 for no increment
+  ai_vs_ai: false                # Set to true for AI vs AI matches
   ai_watch_mode: false          # Set to true to watch the AI play on a UI board (terminal and pgn output only otherwise)
-  human_color: random           # Options: white, black, random
+
+# Puzzle settings
+puzzle_config:
+  puzzle_ai_config: white_ai_config # Color to solve puzzles for, options: false, white, black
+  puzzle_count: 100                 # Number of puzzles to solve
+  puzzle_difficulty: easy           # Difficulty level of puzzles, options: easy, medium, hard
+  puzzle_types: [                   # Type of puzzles, examples: advantage attraction fork middlegame checkmate sacrifice
+    checkmate,
+    fork
+  ]     
 
 # Performance settings
 performance:
@@ -37,33 +54,35 @@ ai_types: [
 
 # AI vs AI settings
 white_ai_config:
-  white_ai_type: lookahead      # move search type for White
-  white_depth: 4                # Depth of search for White AI, 1 for random, 2 for simple search, 3+ for more complex searches
-  white_dynamic_search: false   # TODO Enable dynamic search depth adjustment based on position complexity                
-  white_pst: true               # Use piece-square tables for evaluation               
-  white_pst_weight: 1.0         # Weight for piece-square table evaluation         
-  white_move_ordering: false    # Enable move ordering for better performance     
-  white_quiescence: false       # Enable quiescence search for tactical positions       
-  white_time_limit: 0           # Time limit for move calculation in milliseconds, 0 for no limit           
-  white_engine: viper           # TODO create optional evaluation engine selection
-  white_personality: default    # TODO create optional ruleset play types: default, simple, aggressive, conservative
-  white_ruleset: evaluation     # TODO create optional choice of evaluation rule settings from below
-  white_scoring_modifier: 1.0   # TODO create optional overall scoring multiplier/divider 
+  ai_color: chess.WHITE  # Color code for white AI identification
+  ai_type: lookahead      # move search type for White
+  depth: 3                # Depth of search for White AI, 1 for random, 2 for simple search, 3+ for more complex searches
+  dynamic_search: false   # TODO Enable dynamic search depth adjustment based on position complexity
+  pst: true               # Use piece-square tables for evaluation
+  pst_weight: 1.0         # Weight for piece-square table evaluation
+  move_ordering: true     # Enable move ordering for better performance
+  quiescence: true        # Enable quiescence search for tactical positions
+  time_limit: 0           # Time limit for move calculation in milliseconds, 0 for no limit
+  engine: viper           # TODO create optional evaluation engine selection
+  personality: default    # TODO create optional ruleset play types: default, simple, aggressive, conservative
+  ruleset: evaluation     # TODO create optional choice of evaluation rule settings from below
+  scoring_modifier: 1.0   # TODO create optional overall scoring multiplier/divider
 
 black_ai_config:
-  black_ai_type: random         # move search type for Black
-  black_depth: 1
-  black_dynamic_search: false                
-  black_pst: false              
-  black_pst_weight: 0.0            
-  black_move_ordering: false     
-  black_quiescence: false       
-  black_time_limit: 1000           
-  black_engine: None            
-  black_pesronality: default    
-  black_ruleset: None          
-  black_scoring_modifier: 1.0   
-  
+  ai_color: chess.BLACK  # Color for Black AI identification
+  ai_type: random         # move search type for Black
+  depth: 1
+  dynamic_search: false
+  pst: false
+  pst_weight: 0.0
+  move_ordering: false
+  quiescence: false
+  time_limit: 1000
+  engine: None
+  personality: default
+  ruleset: None
+  scoring_modifier: 1.0
+
 # Evaluation Rule settings
 evaluation:
   # Eval modifiers and score values

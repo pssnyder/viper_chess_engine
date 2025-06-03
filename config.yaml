@@ -6,26 +6,76 @@ game:
   ai_watch_mode: false          # Set to true to watch the AI play on a UI board (terminal and pgn output only otherwise)
   human_color: random           # Options: white, black, random
 
-ai:
-  search_depth: 3              # TODO Minimax search depth (1-5 recommended) (verify all search depths controlled by config)
-  async_mode: false            # TODO Enables faster parallel processing of eval functions
-  move_ordering: true          # TODO Enable move ordering for better pruning (verify)
-  use_lookahead: true          # Enable minimax with alpha-beta pruning
-  use_deepsearch: false         # Enable deep search algorithms including negamax, quiescence, mvv-lva
-  use_quiescence: true         # TODO Enable 'quiet' move depth search (enable control via config)
-  move_time_limit: 0           # TODO Maximum time per move in milliseconds, 0 for no limit i.e. time_control = {"infinite": True} (verify)
+# Performance settings
+performance:
+  max_moves_evaluated: 50         # TODO Limit moves evaluated per position, only if move ordering is on to prevent misses
+  use_transposition_table: false  # TODO Cache evaluations for faster processing (idea: export fen to cache with score for quick reference of board positions)
+  parallel_evaluation: false      # TODO Parallel move evaluation
+  async_mode: false               # TODO Enables thread processing of eval functions
+  thread_limit: 4                 # Enables an upper limit in thread count during async_mode
+  hash_size: 64                   # MB limit for hash tables
+  max_depth: 8                    # Max depth of search functions to prevent runaway
 
+# Debug settings
+debug:
+  enable_logging: true            # Turn logging on or off, auto-disables thoughts if false
+  print_evaluation: true          # Print evaluation details to console
+  save_evaluation_log: true       # TODO Save detailed evaluation log
+  show_thinking: true             # Show what the AI is thinking during the game
+  show_thinking_time: false       # TODO Display time taken for move calculation
+
+# AI Types
+ai_types: [
+  'deepsearch',
+  'lookahead', 
+  'iterative_deepening',
+  'minimax', 
+  'negamax', 
+  'simple_search', 
+  'random'
+  ]
+
+# AI vs AI settings
+white_ai_config:
+  white_ai_type: lookahead      # move search type for White
+  white_depth: 4                # Depth of search for White AI, 1 for random, 2 for simple search, 3+ for more complex searches
+  white_dynamic_search: false   # TODO Enable dynamic search depth adjustment based on position complexity                
+  white_pst: true               # Use piece-square tables for evaluation               
+  white_pst_weight: 1.0         # Weight for piece-square table evaluation         
+  white_move_ordering: false    # Enable move ordering for better performance     
+  white_quiescence: false       # Enable quiescence search for tactical positions       
+  white_time_limit: 0           # Time limit for move calculation in milliseconds, 0 for no limit           
+  white_engine: viper           # TODO create optional evaluation engine selection
+  white_personality: default    # TODO create optional ruleset play types: default, simple, aggressive, conservative
+  white_ruleset: evaluation     # TODO create optional choice of evaluation rule settings from below
+  white_scoring_modifier: 1.0   # TODO create optional overall scoring multiplier/divider 
+
+black_ai_config:
+  black_ai_type: random         # move search type for Black
+  black_depth: 1
+  black_dynamic_search: false                
+  black_pst: false              
+  black_pst_weight: 0.0            
+  black_move_ordering: false     
+  black_quiescence: false       
+  black_time_limit: 1000           
+  black_engine: None            
+  black_pesronality: default    
+  black_ruleset: None          
+  black_scoring_modifier: 1.0   
+  
+# Evaluation Rule settings
 evaluation:
   # Eval modifiers and score values
-  checkmate_bonus: 10000.0          # Bonus for checkmate threats
-  repetition_penalty: -1000.0       # Penalty for threefold repetition
+  checkmate_bonus: 1000000.0        # Bonus for checkmate threats
+  repetition_penalty: -100000.0     # Penalty for threefold repetition
   center_control_bonus: 0.25        # Bonus per center square controlled
   knight_activity_bonus: 0.1        # Multiplier per square attacked by knight
   bishop_activity_bonus: 0.15       # Multiplier per square attacked by bishop
   king_safety_bonus: 1.5            # Bonus per pawn in king shield
   king_threat_penalty: -0.5         # Penalty for being checked
   undeveloped_penalty: -0.2         # Penalty for having under-developed minor pieces
-  check_bonus: 10.0                 # Bonus for giving check
+  check_bonus: 500.0                # Bonus for giving check
   in_check_penalty: -10.0           # Penalty for being in check
   capture_bonus: 3.0                # Base bonus for captures
   castling_bonus: 5.0               # Bonus for castling rights
@@ -47,22 +97,13 @@ evaluation:
   tempo_bonus: 0.1                  # Bonus for having the right to move
   stacked_rooks_bonus: 0.5          # Bonus for having the rooks on the same file
   coordinated_rooks_bonus: 0.25     # Bonus for having the rooks on the same rank
-  
-  # Advanced evaluation features
-  enable_piece_square_tables: true   # TODO Use piece-square tables for positional eval (enable control via config)
-  pst_weight: 1.1                    # TODO Piece Square Table weights (ensure weights in calculation)
-  enable_pawn_structure: true        # TODO Evaluate pawn structure
-  enable_king_safety_detailed: true  # TODO Detailed king safety evaluation (verify)
-  
-# Performance settings
-performance:
-  max_moves_evaluated: 50         # TODO Limit moves evaluated per position (verify)
-  use_transposition_table: false  # TODO Cache evaluations
-  parallel_evaluation: false      # TODO Parallel move evaluation
-
-# Debug settings
-debug:
-  print_evaluations: true     # TODO Print evaluation details to console (enable control via config)
-  save_evaluation_log: true    # TODO Save detailed evaluation log
-  show_thinking: true          # Show what the AI is thinking during the game
-  show_thinking_time: true     # TODO Display time taken for move calculation
+  pawn_structure_bonus: 0.1         # TODO Evaluate pawn structure
+  enable_king_safety_detailed: true # TODO Detailed king safety evaluation based on game phase
+  checkmate_move_bonus: 1000000     # Bonus for finding a checkmate during move ordering scoring
+  check_move_bonus: 10000           # Bonus for finding a check move during move ordering scoring
+  hash_move_bonus: 5000             # Bonus for finding a hash move during move ordering scoring
+  capture_move_bonus: 4000          # Bonus for finding a capture move during move ordering scoring
+  promotion_move_bonus: 3000        # Bonus for finding a promotion move during move ordering scoring
+  killer_move_bonus: 2000           # Bonus for finding a killer moves during move ordering scoring
+  history_move_bonus: 1000          # Bonus for finding a historical move during move ordering scoring
+  counter_move_bonus: 1000          # Bonus for finding a strong countermove during move ordering scoring

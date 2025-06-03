@@ -11,7 +11,7 @@ import json
 import time
 import threading
 from typing import Dict, Optional, Any
-from main_engine import ChessEngine
+from evaluation_engine import EvaluationEngine
 import logging
 
 # Set up logging
@@ -22,7 +22,7 @@ class LichessBot:
     def __init__(self, token: str, engine_name: str = "ChessBot"):
         self.token = token
         self.engine_name = engine_name
-        self.engine = ChessEngine()
+        self.engine = EvaluationEngine()
         self.headers = {"Authorization": f"Bearer {token}"}
         self.base_url = "https://lichess.org/api"
         self.active_games = {}

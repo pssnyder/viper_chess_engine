@@ -15,12 +15,15 @@ game_config:
 
 # Puzzle settings
 puzzle_config:
-  puzzle_ai_config: white_ai_config # Color to solve puzzles for, options: false, white, black
-  puzzle_count: 100                 # Number of puzzles to solve
-  puzzle_difficulty: easy           # Difficulty level of puzzles, options: easy, medium, hard
-  puzzle_types: [                   # Type of puzzles, examples: advantage attraction fork middlegame checkmate sacrifice
-    checkmate,
-    fork
+  puzzle_file: '/puzzles/lichess_db_puzzle.csv'  # Path to the puzzle file, can be a local file or a URL 
+  puzzle_count: 100                              # Number of puzzles to solve
+  puzzle_solution_length: 1                      # Length of solution in moves, 0 for any length
+  puzzle_difficulty: easy                        # Difficulty level of puzzles, options: easy, medium, hard
+  puzzle_types: [                                # Type of puzzles, examples: advantage attraction fork middlegame checkmate sacrifice
+    mate,
+    mateInOne,
+    mateInTwo,
+    mateInThree
   ]     
 
 # Performance settings
@@ -54,25 +57,27 @@ ai_types: [
 
 # AI vs AI settings
 white_ai_config:
-  ai_color: chess.WHITE  # Color code for white AI identification
-  ai_type: lookahead      # move search type for White
-  depth: 3                # Depth of search for White AI, 1 for random, 2 for simple search, 3+ for more complex searches
-  dynamic_search: false   # TODO Enable dynamic search depth adjustment based on position complexity
-  pst: true               # Use piece-square tables for evaluation
-  pst_weight: 1.0         # Weight for piece-square table evaluation
-  move_ordering: true     # Enable move ordering for better performance
-  quiescence: true        # Enable quiescence search for tactical positions
-  time_limit: 0           # Time limit for move calculation in milliseconds, 0 for no limit
-  engine: viper           # TODO create optional evaluation engine selection
-  personality: default    # TODO create optional ruleset play types: default, simple, aggressive, conservative
-  ruleset: evaluation     # TODO create optional choice of evaluation rule settings from below
-  scoring_modifier: 1.0   # TODO create optional overall scoring multiplier/divider
+  ai_type: lookahead              # move search type for White
+  ai_color: chess.WHITE           # Color code for AI identification
+  depth: 3                        # Depth of search for White AI, 1 for random, 2 for simple search, 3+ for more complex searches
+  dynamic_search: false           # TODO Enable dynamic search depth adjustment based on position complexity
+  use_positional_awareness: true  # Use known positional solutions for evaluation
+  pst: true                       # Use piece-square tables for evaluation
+  pst_weight: 1.0                 # Weight for piece-square table evaluation
+  move_ordering: true             # Enable move ordering for better performance
+  quiescence: true                # Enable quiescence search for tactical positions
+  time_limit: 0                   # Time limit for move calculation in milliseconds, 0 for no limit
+  engine: viper                   # TODO create optional evaluation engine selection
+  personality: default            # TODO create optional ruleset play types: default, simple, aggressive, conservative
+  ruleset: evaluation             # TODO create optional choice of evaluation rule settings from below
+  scoring_modifier: 1.0           # TODO create optional overall scoring multiplier/divider
 
 black_ai_config:
-  ai_color: chess.BLACK  # Color for Black AI identification
-  ai_type: random         # move search type for Black
+  ai_type: random                 # move search type for Black
+  ai_color: chess.BLACK
   depth: 1
   dynamic_search: false
+  use_positional_awareness: true
   pst: false
   pst_weight: 0.0
   move_ordering: false

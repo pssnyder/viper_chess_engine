@@ -104,8 +104,8 @@ class ChessGame:
 
         # Set up puzzle mode if enabled
         if self.puzzle_mode:
-            self.chess_puzzles = ChessPuzzles()
-            self.chess_puzzles.puzzle_config = self.config.get('puzzle_config', {})
+            self.puzzles = ChessPuzzles()
+            self.puzzles.puzzle_config = self.config.get('puzzle_config', {})
         
         # Set colors
         self._set_colors()
@@ -296,21 +296,30 @@ class ChessGame:
         if not self.watch_mode:
             return  # Skip drawing in headless mode
         """Optimized display update"""
-        self.draw_board()
-        self.draw_pieces()
+        if not hasattr(self, 'display_needs_update'):
+            self.display_needs_update = True  # Initialize flag
 
-        # Highlighting
-        if self.selected_square is not None:
-            self.draw_move_hints()
-            self.highlight_selected_square()
+        if self.display_needs_update:
+            self.draw_board()
+            self.draw_pieces()
 
-        if self.last_ai_move:
-            self.highlight_last_move()
+            # Highlighting
+            if self.selected_square is not None:
+                self.draw_move_hints()
+                self.highlight_selected_square()
 
-        # Draw the evaluation score
-        self.draw_eval()
+            if self.last_ai_move:
+                self.highlight_last_move()
 
-        pygame.display.flip()
+            # Draw the evaluation score
+            self.draw_eval()
+
+            pygame.display.flip()
+            self.display_needs_update = False  # Reset flag
+
+    def mark_display_dirty(self):
+        """Mark the display as needing an update."""
+        self.display_needs_update = True
 
     def highlight_selected_square(self):
         if not self.watch_mode:
@@ -465,89 +474,6 @@ class ChessGame:
             print(f"Unexpected error importing FEN: {e}")
             return False
 
-
-    # =============================================
-    # ============ MAIN GAME LOOP =================
-
-    def run(self):
-        running = True
-        # Only create clock if we need visual display
-        if self.watch_mode:
-            clock = pygame.time.Clock()
-        # Initialize game mode
-        if self.puzzle_mode:
-            # Load puzzle from FEN if provided
-            if self.fen_position:
-                try:
-                    self.import_fen(self.fen_position)
-                except ValueError:
-                    print("Invalid FEN position provided, starting with default board.")
-        elif self.ai_vs_ai:
-            starting_position = input("Custom FEN starting position: [Press Enter to skip]")
-            if starting_position:
-                self.import_fen(starting_position)
-            if not self.watch_mode:
-                # Headless mode - use time-based control
-                last_ai_move_time = pygame.time.get_ticks()
-                ai_move_interval = 1000  # 1 second between moves
-            else:
-                # Visual mode - use timer events
-                pygame.time.set_timer(pygame.USEREVENT, 2000)  # 2 second intervals
-        
-        while running:
-            current_time = pygame.time.get_ticks()
-            # Process events (even in headless mode for quit detection)
-            for event in pygame.event.get():
-                if event.type == pygame.QUIT:
-                    running = False
-                elif event.type == pygame.MOUSEBUTTONDOWN and not self.ai_vs_ai and not self.puzzle_mode:
-                    self.handle_mouse_click(pygame.mouse.get_pos())
-                elif self.ai_vs_ai and self.watch_mode and event.type == pygame.USEREVENT:
-                    if not self.board.is_game_over():
-                        self.process_ai_move()
-            # Handle AI vs AI moves in headless mode
-            if self.ai_vs_ai and not self.watch_mode:
-                if not self.board.is_game_over():
-                    if current_time - last_ai_move_time >= ai_move_interval:
-                        self.process_ai_move()
-                        last_ai_move_time = current_time
-            elif self.puzzle_mode:
-                # Handle puzzle mode AI moves
-                if not self.board.is_game_over():
-                    if self.board.turn == chess.WHITE:
-                        ai_move = self.process_ai_move()
-                        if ai_move and self.push_move(ai_move):
-                            # Test the solution against the puzzle
-                            accurate_move = self.chess_puzzles.test_solution(self.board, ai_move)
-                            if self.show_eval:
-                                print(f"Puzzle AI plays: {ai_move} (Eval: {self.current_eval:.2f})")
-                            else:
-                                print(f"Puzzle AI plays: {ai_move}")
-                            if accurate_move:
-                                print("Puzzle AI found a valid move!")
-                            else:
-                                print("Puzzle AI failed to find a valid move!")
-                        else:
-                            print("Puzzle AI failed to find a valid move!")
-                    else:
-                        print("Waiting for human input in puzzle mode...")
-            elif not self.ai_vs_ai and not self.puzzle_mode and self.board.turn == self.ai_color and not self.board.is_game_over():
-                # Handle AI moves in human vs AI mode
-                self.process_ai_move()
-            
-            # Only update display if we have a screen
-            if self.watch_mode:
-                self.update_display()
-                clock.tick(MAX_FPS)
-            # Check game end conditions
-            if self.handle_game_end():
-                running = False
-        # Only quit pygame if we initialized it with a screen
-        if not (self.ai_vs_ai and not self.watch_mode):
-            pygame.quit()
-        else:
-            print('Exiting headless mode - no visual display to quit.')
-
     # ===================================
     # ========= MOVE HANDLERS ===========
     
@@ -577,11 +503,17 @@ class ChessGame:
             print(f"AI move error: {e}")
             self.quick_save_pgn("logging/error_dump.pgn")
 
-    def push_move(self, move_uci):
+    def push_move(self, move):
+        """ Test and push a move to the board and game node """
+        if not self.board.is_valid():
+            return False  # Skip if board is invalid
         try:
-            move = chess.Move.from_uci(move_uci)
-            if not self.board.is_legal(move): # Use is_legal instead of checking list
-                print(f"Illegal move blocked: {move_uci}")
+            # ensure move is in UCI format
+            if isinstance(move, chess.Move):
+                move = move.uci()
+            
+            if not self.board.is_legal(move):
+                print(f"Illegal move blocked: {move}")
                 return False
 
             self.game_node = self.game_node.add_variation(move)
@@ -681,11 +613,11 @@ class ChessGame:
         if current_player == chess.WHITE:
             # create engine for white
             ai_type = self.config['white_ai_config']['ai_type']
-            ai_config = self._get_ai_config('white')
+            ai_config = self.evaluator._get_ai_config('white')
         else:
             # create engine for black
             ai_type = self.config['black_ai_config']['ai_type']
-            ai_config = self._get_ai_config('black')
+            ai_config = self.evaluator._get_ai_config('black')
         
         # Route to the evaluator with correct settings
         if ai_type in self.ai_types:
@@ -693,26 +625,66 @@ class ChessGame:
         else: # move is random
             legal_moves = list(self.board.legal_moves)
             chosen_move = random.choice(legal_moves) if legal_moves else None
-        return chosen_move.uci() if chosen_move else None
-    
-    # AI Configuration setups
+        return chosen_move if chosen_move else None
 
-    def _get_ai_config(self, player_color):
-        """Extract this bots AI configuration"""
-        return {
-            'ai-color': chess.WHITE if player_color == 'white' else chess.BLACK,
-            'ai_type': self.config[f'{player_color}_ai_config']['ai_type'],
-            'depth': self.config[f'{player_color}_ai_config']['depth'],
-            'max_depth': self.config['performance']['max_depth'],
-            'move_ordering_enabled': self.config[f'{player_color}_ai_config']['move_ordering'],
-            'quiescence_enabled': self.config[f'{player_color}_ai_config']['quiescence'],
-            'move_time_limit': self.config[f'{player_color}_ai_config']['time_limit'],
-            'pst_enabled': self.config[f'{player_color}_ai_config']['pst'],
-            'pst_weight': self.config[f'{player_color}_ai_config']['pst_weight'],
-            'engine': self.config[f'{player_color}_ai_config']['engine'],
-            'ruleset': self.config[f'{player_color}_ai_config']['ruleset']
-        }
-     
+    
+    # =============================================
+    # ============ MAIN GAME LOOP =================
+
+    def run(self):
+        running = True
+        # Only create clock if we need visual display
+        if self.watch_mode:
+            clock = pygame.time.Clock()
+        # Initialize game mode
+        if self.puzzle_mode:
+            # Load puzzle from FEN if provided
+            if self.fen_position:
+                try:
+                    if self.fen_position and self.fen_position in self.puzzles.puzzle_config.get('puzzles', []):
+                        self.puzzles.get_puzzle(self.fen_position)
+                    else:
+                        print(f"Invalid puzzle index: {self.fen_position}. Starting with default puzzle.")
+                    self.import_fen(self.fen_position)
+                except ValueError:
+                    print("Invalid FEN position provided, starting with default board.")
+        elif self.ai_vs_ai:
+            starting_position = input("Custom FEN starting position: [Press Enter to skip]")
+            if starting_position:
+                self.import_fen(starting_position)
+            if not self.watch_mode:
+                # Headless mode - use time-based control
+                pass  # No need for last_ai_move_time in headless mode
+            else:
+                # Visual mode - use timer events
+                pygame.time.set_timer(pygame.USEREVENT, 2000)  # 2 second intervals
+        
+        last_ai_move_time = 0
+        while running:
+            move_start_time = pygame.time.get_ticks()
+
+            # Process events (even in headless mode for quit detection)
+            for event in pygame.event.get():
+                if event.type == pygame.QUIT:
+                    running = False
+                elif event.type == pygame.MOUSEBUTTONDOWN and not self.ai_vs_ai and not self.puzzle_mode:
+                    # Handle mouse click for human interaction
+                    self.handle_mouse_click(pygame.mouse.get_pos())
+                elif event.type == pygame.USEREVENT and (self.ai_vs_ai or self.puzzle_mode) and self.watch_mode:
+                    # Handle AI move forcing
+                    if not self.board.is_game_over() and self.board.is_valid():
+                        self.process_ai_move()
+                        move_end_time = pygame.time.get_ticks()
+                        move_duration = move_end_time - move_start_time
+            # Check game end conditions
+            if self.handle_game_end():
+                running = False
+            else:
+                clock.tick(MAX_FPS)
+            
+        pygame.quit()
+        print('Game complete, exiting...')
+
 if __name__ == "__main__":
     game = ChessGame()
     game.run()

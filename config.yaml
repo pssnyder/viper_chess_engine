@@ -109,15 +109,15 @@ evaluation:
   knight_activity_bonus: 0.1        # Multiplier per square attacked by knight
   bishop_activity_bonus: 0.15       # Multiplier per square attacked by bishop
   king_safety_bonus: 1.5            # Bonus per pawn in king shield
-  king_threat_penalty: -0.5         # Penalty for being checked
-  undeveloped_penalty: -0.2         # Penalty for having under-developed minor pieces
-  check_bonus: 500.0                # Bonus for giving check
+  king_threat_penalty: -50.0        # Penalty for being checked (increased for king safety)
+  undeveloped_penalty: -0.5         # Penalty for having under-developed minor pieces (increased)
+  check_bonus: 50.0                 # Bonus for giving check (reduced)
   in_check_penalty: -10.0           # Penalty for being in check
-  capture_bonus: 3.0                # Base bonus for captures
+  capture_bonus: 10.0               # Base bonus for captures (increased)
   castling_bonus: 5.0               # Bonus for castling rights
   en_passant_bonus: 1.0             # Bonus for en passant opportunity
   pawn_promotion_bonus: 5.0         # Bonus for pawn promotion
-  passed_pawn_bonus: 0.25           # Bonus for having an un-opposed pawn
+  passed_pawn_bonus: 1.0            # Bonus for having an un-opposed pawn (increased)
   hanging_piece_bonus: 2.0          # Bonus for attacking hanging pieces
   trapped_piece_penalty: -5.0       # Penalty for trapped pieces
   piece_development_bonus: 2.0      # Bonus for developing minor pieces

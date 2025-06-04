@@ -4,10 +4,10 @@
 # Game settings
 game_config:
   starting_position: default    # Name of the starting position, can be a FEN string or a predefined position name
-  ai_vs_ai: true               # Set to true for AI vs AI matches
+  ai_vs_ai: false               # Set to true for AI vs AI matches
   watch_mode: true             # Set to true to watch the AI play on a UI board (terminal and pgn output only otherwise)
   puzzle_mode: false              # Set to true for puzzle solving mode, false for regular matches
-  human_color: random            # Options: white, black, random
+  human_color: random       # Options: white, black, random
   game_mode: match               # Options: match, puzzle, tournament
   game_type: standard           # Options: standard, chess960, king_of_the_hill, three_check, antichess, atomic, racing_kings
   game_time_control: classical   # Options: classical, rapid, blitz, bullet

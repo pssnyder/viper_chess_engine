@@ -2,7 +2,6 @@
 
 import chess
 
-
 class PieceSquareTables:
     """
     Piece-Square Tables for chess position evaluation.

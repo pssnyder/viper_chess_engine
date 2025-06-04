@@ -1,12 +1,14 @@
+# TODO Needs update by CoPilot
 # Chess Engine Testing Scenarios
 
-This document provides specific testing scenarios and positions to evaluate your chess engine's performance using the GUI interface.
+This document provides specific testing scenarios and positions to evaluate your chess engine's performance using the GUI or web interface.
 
 ## Quick Start Testing
 
-### 1. Basic Functionality Test
+- Use the GUI (`python chess_game.py`) or your web deployment to test positions.
+- For web: add a FEN input box and evaluation display.
 
-Run these commands after starting the chess GUI:
+### 1. Basic Functionality Test
 
 1. **Start a new game**: The engine should play as Black
 2. **Make the move e4**: Click e2, then e4
@@ -82,6 +84,15 @@ Observe how quickly your engine makes moves at different depths:
 
 **Test**: Does engine recognize draw?
 **Expected**: Should show evaluation near 0
+
+## Web Testing
+
+If you deploy the engine as a web app (see README), add a simple interface:
+- FEN input box
+- "Evaluate" button
+- Display the evaluation score
+
+You can copy-paste the FENs from the scenarios below to test the engine's output.
 
 ## Performance Benchmarks
 

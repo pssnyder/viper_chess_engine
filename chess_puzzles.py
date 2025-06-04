@@ -1,5 +1,14 @@
 # chess_puzzles.py
 
+"""
+    This module provides the ChessPuzzles class for managing, loading, and solving chess puzzles.
+    It supports loading puzzles from a CSV file, filtering them by difficulty and type, and tracking solutions.
+    The class also provides logging functionality and debug output for development and troubleshooting.
+    Classes:
+        ChessPuzzles: Handles the creation, management, and solving of chess puzzles, including configuration loading,
+                      puzzle selection, solution checking, and result logging.
+    UNFINISHED CODE - Still in development DO NOT DEPLOY
+    """
 import logging
 import yaml
 import random

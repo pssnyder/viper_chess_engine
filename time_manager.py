@@ -2,6 +2,8 @@
 """
 Time Management System for Chess Engine
 Handles time allocation for moves in different time controls
+
+UNTESTED CODE
 """
 
 import time

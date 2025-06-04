@@ -1,4 +1,3 @@
-
 # opening_book.py
 # Simple opening book for better opening play
 

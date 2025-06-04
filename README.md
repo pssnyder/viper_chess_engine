@@ -1,39 +1,35 @@
 # ChessBot - Python Chess Engine
 
-A complete chess engine with UCI interface and Lichess bot integration, built around your custom evaluation functions.
+A complete chess engine with UCI interface and Lichess bot integration, built around custom evaluation functions.
 
 ## Features
 
-🎯 **Your Custom Evaluation Engine**
+🎯 **Custom Evaluation Engine**
 - 25+ evaluation rules and heuristics
-- Minimax with alpha-beta pruning
+- Minimax, Negamax, iterative deepening, alpha-beta pruning
 - Position-aware scoring system
 
 🔍 **Advanced Search**
-- Iterative deepening
-- Transposition table
-- Move ordering and killer moves
-- Quiescence search
+- Move ordering, killer moves, quiescence search
+- Transposition table (optional)
 
-⏱️ **Smart Time Management**
+⏱️ **Time Management**
 - Adaptive time allocation
 - Position-complexity aware
-- Emergency time handling
 
 🌐 **Lichess Integration**
 - Automatic challenge handling
-- Real-time game playing
-- Chat integration
+- Real-time play and chat
 
 🖥️ **UCI Compatible**
 - Works with Arena, ChessBase, etc.
 - Standard UCI protocol
-- Configurable engine options
 
 ## Quick Start
 
 ### 1. Setup
 ```bash
+pip install -r requirements.txt
 python setup.py
 ```
 
@@ -44,62 +40,100 @@ python uci_interface.py
 
 ### 3. Run Lichess Bot
 ```bash
-# Set your token
 export LICHESS_TOKEN=your_token_here
-
-# Run the bot
 python lichess_bot.py
 ```
 
-### 4. Package as Executable
+### 4. Run the GUI
+```bash
+python chess_game.py
+```
+
+### 5. Package as Executable
 ```bash
 python package_exe.py
 ```
 
 ## Configuration
 
-Edit `config.py` to customize:
+Edit `config.yaml` to customize:
 - Engine strength and search depth
 - Lichess bot behavior
-- Time management settings
+- Time management
 - Evaluation parameters
 
 ## Files Overview
 
-- `evaluation_engine.py` - Your custom evaluation functions
-- `main_engine.py` - Main engine controller with search
+- `evaluation_engine.py` - Core evaluation and search logic
+- `main_engine.py` - Main engine controller
 - `uci_interface.py` - UCI protocol implementation
-- `time_manager.py` - Time control management
+- `time_manager.py` - Time control
 - `lichess_bot.py` - Lichess API integration
-- `config.py` - Configuration settings
+- `chess_game.py` - Pygame GUI
+- `config.yaml` - Configuration
+- `piece_square_tables.py` - Piece-square tables
+- `testing-scenarios.md` - Testing scenarios and methodology
 
 ## Lichess Setup
 
-1. Create Lichess account (don't play any games)
-2. Go to https://lichess.org/account/oauth/token
-3. Create token with "Bot Play" scope
-4. Upgrade to bot account:
+1. Create a Lichess account (no games played)
+2. Go to https://lichess.org/account/oauth/token and create a token with "Bot Play" scope
+3. Upgrade to bot account:
    ```bash
    curl -d "" https://lichess.org/api/bot/account/upgrade \
         -H "Authorization: Bearer YOUR_TOKEN"
    ```
 
-## Deployment Options
+## Testing
 
-### Desktop Application
-- Use PyInstaller to create .exe files
-- Package with `python package_exe.py`
-- Distribute executables to users
+See [`testing-scenarios.md`](./testing-scenarios.md) for a comprehensive set of test positions and evaluation methodology.
 
-### Cloud Hosting
-- Deploy on Heroku, Railway, or DigitalOcean
-- Use environment variables for tokens
-- Run 24/7 for continuous bot operation
+## Deployment: Simple Web Solution
 
-### Local Testing
-- Test with Arena or other UCI GUIs
-- Challenge your bot on Lichess
-- Analyze games to improve evaluation
+You can deploy this chess engine as a web app so others can try it without a Python environment. Here are two low-cost, simple options:
+
+### 1. Streamlit Cloud (Recommended for Prototyping)
+
+- [Streamlit](https://streamlit.io/) lets you build Python web apps easily.
+- Create a `streamlit_app.py` that wraps your engine and provides a simple UI.
+- Push your repo to GitHub.
+- Sign up at [streamlit.io/cloud](https://streamlit.io/cloud), connect your repo, and deploy for free (with some usage limits).
+
+### 2. Railway or Render (Flask/FastAPI)
+
+- Wrap your engine in a Flask or FastAPI app (see below).
+- Push to GitHub.
+- Deploy on [Railway](https://railway.app/) or [Render](https://render.com/) for free/low cost.
+
+#### Example: Minimal Flask Wrapper
+
+```python
+# app.py
+from flask import Flask, request, jsonify
+import chess
+from evaluation_engine import EvaluationEngine
+
+app = Flask(__name__)
+
+@app.route('/evaluate', methods=['POST'])
+def evaluate():
+    fen = request.json.get('fen')
+    board = chess.Board(fen)
+    engine = EvaluationEngine(board, board.turn)
+    score = engine.evaluate_position(board)
+    return jsonify({'score': score})
+
+if __name__ == '__main__':
+    app.run()
+```
+
+- Add a `requirements.txt` with `flask`, `python-chess`, and your dependencies.
+- Deploy to Railway/Render (both have GitHub integration and simple deploy buttons).
+
+### 3. (Optional) Gradio
+
+- [Gradio](https://gradio.app/) is another Python tool for quick web UIs.
+- Similar to Streamlit, but more focused on ML demos.
 
 ## Usage Examples
 
@@ -111,49 +145,24 @@ Edit `config.py` to customize:
 
 ### Lichess Bot
 ```bash
-# Direct token
 python lichess_bot.py your_token
-
-# Environment variable
+# or
 export LICHESS_TOKEN=your_token
 python lichess_bot.py
 ```
 
-### Custom Time Control
-```python
-time_control = {
-    'wtime': 300000,  # 5 minutes
-    'btime': 300000,
-    'winc': 3000,     # 3 second increment
-    'binc': 3000
-}
-```
-
 ## Troubleshooting
 
-**Engine not responding?**
-- Check Python version (3.8+ required)
-- Verify all dependencies installed
-- Test with `python uci_interface.py`
-
-**Lichess bot not connecting?**
-- Verify API token is correct
-- Check account is upgraded to bot
-- Ensure no firewall blocking connections
-
-**Packaging issues?**
-- Install latest PyInstaller
-- Check all files are present
-- Use spec file for complex builds
+- See `testing-scenarios.md` for debugging and test positions.
+- Check Python version (3.8+), dependencies, and config.
 
 ## Contributing
 
-Feel free to improve the evaluation functions or add new features:
-- Opening book integration
-- Endgame tablebase support
-- Neural network evaluation
-- Multi-threading search
-- Advanced pruning techniques
+Pull requests welcome! Ideas:
+- Opening book
+- Endgame tablebases
+- Neural network eval
+- Multi-threading
 
 ## License
 

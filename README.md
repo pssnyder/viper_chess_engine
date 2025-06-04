@@ -1,169 +1,83 @@
-# ChessBot - Python Chess Engine
+# V7P3R ChessBot - Streamlit Web Demo
 
-A complete chess engine with UCI interface and Lichess bot integration, built around custom evaluation functions.
+A simple web demo of the V7P3R ChessBot engine, allowing you to play against the AI or evaluate any chess position using a FEN string. This version is designed for easy sharing and does **not** require a Python environment for your friends to try it out (when deployed on Streamlit Cloud).
 
-## Features
+---
 
-🎯 **Custom Evaluation Engine**
-- 25+ evaluation rules and heuristics
-- Minimax, Negamax, iterative deepening, alpha-beta pruning
-- Position-aware scoring system
+## Features (Streamlit App)
 
-🔍 **Advanced Search**
-- Move ordering, killer moves, quiescence search
-- Transposition table (optional)
+- **Play vs AI:** Make moves as White or Black, and the AI will respond.
+- **AI Configuration:** Choose AI type (lookahead, minimax, negamax, random) and search depth.
+- **FEN Input:** Set up any position by pasting a FEN string.
+- **Position Evaluation:** Instantly evaluate any position with a single click.
+- **Human-Readable Moves:** Select moves in standard chess notation (SAN).
+- **Move History:** See the full move list in readable notation.
+- **Board Visualization:** Interactive chessboard updates after each move.
+- **No Installation Needed:** Deployable on [Streamlit Cloud](https://streamlit.io/cloud) for instant sharing.
 
-⏱️ **Time Management**
-- Adaptive time allocation
-- Position-complexity aware
+---
 
-🌐 **Lichess Integration**
-- Automatic challenge handling
-- Real-time play and chat
+## Quick Start (Local)
 
-🖥️ **UCI Compatible**
-- Works with Arena, ChessBase, etc.
-- Standard UCI protocol
+1. **Install dependencies:**
+    ```bash
+    pip install -r requirements.txt
+    ```
 
-## Quick Start
+2. **Run the Streamlit app:**
+    ```bash
+    streamlit run streamlit_app.py
+    ```
 
-### 1. Setup
-```bash
-pip install -r requirements.txt
-python setup.py
-```
+---
 
-### 2. Test UCI Engine
-```bash
-python uci_interface.py
-```
+## How to Use
 
-### 3. Run Lichess Bot
-```bash
-export LICHESS_TOKEN=your_token_here
-python lichess_bot.py
-```
+- **Set Position:** Paste a FEN string and click "Set Position from FEN" to load any chess position.
+- **Play a Move:** Use the dropdown to select your move (in chess notation) and click "Play Move". The AI will respond automatically.
+- **Evaluate:** Click "Evaluate Position" to see the engine's evaluation of the current board.
+- **Configure AI:** Use the sidebar to change AI type and depth.
+- **Refresh Board:** If the board does not update after the AI moves, click "Evaluate Position" or interact with the board.
 
-### 4. Run the GUI
-```bash
-python chess_game.py
-```
+---
 
-### 5. Package as Executable
-```bash
-python package_exe.py
-```
+## Deployment (Share with Friends)
 
-## Configuration
+You can deploy this app for free using [Streamlit Cloud](https://streamlit.io/cloud):
 
-Edit `config.yaml` to customize:
-- Engine strength and search depth
-- Lichess bot behavior
-- Time management
-- Evaluation parameters
+1. Push your code to GitHub.
+2. Go to [streamlit.io/cloud](https://streamlit.io/cloud) and sign in.
+3. Click "New app", select your repo, and deploy.
+4. Share the link!
 
-## Files Overview
+---
 
-- `evaluation_engine.py` - Core evaluation and search logic
-- `main_engine.py` - Main engine controller
-- `uci_interface.py` - UCI protocol implementation
-- `time_manager.py` - Time control
-- `lichess_bot.py` - Lichess API integration
-- `chess_game.py` - Pygame GUI
-- `config.yaml` - Configuration
-- `piece_square_tables.py` - Piece-square tables
-- `testing-scenarios.md` - Testing scenarios and methodology
+## File Overview
 
-## Lichess Setup
+- `streamlit_app.py` — The Streamlit web app (all main features are here)
+- `evaluation_engine.py` — Chess engine logic and evaluation
+- `piece_square_tables.py` — Piece-square tables for evaluation
+- `config.yaml` — Engine and AI configuration
 
-1. Create a Lichess account (no games played)
-2. Go to https://lichess.org/account/oauth/token and create a token with "Bot Play" scope
-3. Upgrade to bot account:
-   ```bash
-   curl -d "" https://lichess.org/api/bot/account/upgrade \
-        -H "Authorization: Bearer YOUR_TOKEN"
-   ```
+---
 
-## Testing
+## Limitations (Web Demo)
 
-See [`testing-scenarios.md`](./testing-scenarios.md) for a comprehensive set of test positions and evaluation methodology.
+- No Lichess integration or UCI protocol in this demo.
+- No Pygame GUI or advanced visualizations.
+- Only single-game, human-vs-AI play (no AI vs AI or puzzle mode).
+- Board may require manual refresh after AI moves (see sidebar instructions).
 
-## Deployment: Simple Web Solution
+---
 
-You can deploy this chess engine as a web app so others can try it without a Python environment. Here are two low-cost, simple options:
+## Example Usage
 
-### 1. Streamlit Cloud (Recommended for Prototyping)
+- **Play a game:** Start from the default position and play as White or Black.
+- **Test a position:** Paste a FEN (e.g., from a puzzle or analysis) and see what the engine thinks.
+- **Experiment:** Try different AI types and depths to see how the engine responds.
 
-- [Streamlit](https://streamlit.io/) lets you build Python web apps easily.
-- Create a `streamlit_app.py` that wraps your engine and provides a simple UI.
-- Push your repo to GitHub.
-- Sign up at [streamlit.io/cloud](https://streamlit.io/cloud), connect your repo, and deploy for free (with some usage limits).
-
-### 2. Railway or Render (Flask/FastAPI)
-
-- Wrap your engine in a Flask or FastAPI app (see below).
-- Push to GitHub.
-- Deploy on [Railway](https://railway.app/) or [Render](https://render.com/) for free/low cost.
-
-#### Example: Minimal Flask Wrapper
-
-```python
-# app.py
-from flask import Flask, request, jsonify
-import chess
-from evaluation_engine import EvaluationEngine
-
-app = Flask(__name__)
-
-@app.route('/evaluate', methods=['POST'])
-def evaluate():
-    fen = request.json.get('fen')
-    board = chess.Board(fen)
-    engine = EvaluationEngine(board, board.turn)
-    score = engine.evaluate_position(board)
-    return jsonify({'score': score})
-
-if __name__ == '__main__':
-    app.run()
-```
-
-- Add a `requirements.txt` with `flask`, `python-chess`, and your dependencies.
-- Deploy to Railway/Render (both have GitHub integration and simple deploy buttons).
-
-### 3. (Optional) Gradio
-
-- [Gradio](https://gradio.app/) is another Python tool for quick web UIs.
-- Similar to Streamlit, but more focused on ML demos.
-
-## Usage Examples
-
-### UCI Engine in Arena
-1. Open Arena Chess GUI
-2. Install new engine
-3. Select `ChessBot_UCI.exe`
-4. Start playing!
-
-### Lichess Bot
-```bash
-python lichess_bot.py your_token
-# or
-export LICHESS_TOKEN=your_token
-python lichess_bot.py
-```
-
-## Troubleshooting
-
-- See `testing-scenarios.md` for debugging and test positions.
-- Check Python version (3.8+), dependencies, and config.
-
-## Contributing
-
-Pull requests welcome! Ideas:
-- Opening book
-- Endgame tablebases
-- Neural network eval
-- Multi-threading
+---
 
 ## License
 
-Open source - feel free to use and modify!
+Open source — feel free to use and modify!

@@ -9,6 +9,8 @@ import chess.pgn
 import random
 import yaml
 import datetime
+import logging
+import logging.handlers
 from evaluation_engine import EvaluationEngine
 from chess_puzzles import ChessPuzzles
 
@@ -35,18 +37,17 @@ class ChessGame:
             
         # Initialize Pygame
         pygame.init()
+        self.clock = pygame.time.Clock()
         
         # Initialize game settings
         self.human_color_pref = self.config['game_config']['human_color']
         self.watch_mode = self.config['game_config']['watch_mode']
         self.font = pygame.font.SysFont('Arial', 24)
-        if self.ai_vs_ai or self.puzzle_mode:
-            self.clock = pygame.time.Clock()
         
         # Initialize display, if enabled
         if self.watch_mode:
             self.screen = pygame.display.set_mode((WIDTH, HEIGHT))
-            pygame.display.set_caption('v7p3r Chess Bot - Pure Evaluation Engine')
+            pygame.display.set_caption('V7P3R\'s Chess Bot')
             self.load_images()
         else:
             self.screen = None
@@ -92,7 +93,7 @@ class ChessGame:
         self.black_bot_type = self.config['black_ai_config']['ai_type']
         self.white_ai_config = self.config['white_ai_config']
         self.black_ai_config = self.config['black_ai_config']
-        
+            
         # Initialize puzzle mode
         self.puzzle_mode = self.config['game_config']['puzzle_mode']
         self.puzzles = ChessPuzzles()
@@ -102,6 +103,11 @@ class ChessGame:
         self.show_eval = self.config['debug']['show_evaluation']
         self.logging_enabled = self.config['debug']['enable_logging']
         self.show_thoughts = self.config['debug']['show_thinking']
+        self.logger = None
+        if self.logging_enabled:
+            self.setup_logger()
+        else:
+            self.show_thoughts = False
         
         # Set colors
         self.set_colors()
@@ -111,7 +117,32 @@ class ChessGame:
 
     # ================================
     # ====== GAME CONFIGURATION ======
-    
+    def setup_logger(self):
+        """Setup logger for debugging and evaluation"""
+        if not os.path.exists('logging'):
+            os.makedirs('logging', exist_ok=True)
+            print("Created logging directory")
+        
+        # Create logger 
+        self.logger = logging.getLogger('chess_ai')
+        self.logger.setLevel(logging.DEBUG)
+        self.logger.handlers.clear()
+        
+        if self.show_thoughts:
+            file_handler = logging.handlers.RotatingFileHandler(
+                'logging/chess_game.log', 
+                maxBytes=1000*1024*1024,  # 1GB max
+                backupCount=3
+            )
+            
+            formatter = logging.Formatter(
+                '%(asctime)s | %(funcName)-15s | %(message)s',
+                datefmt='%H:%M:%S'
+            )
+            file_handler.setFormatter(formatter)
+            self.logger.addHandler(file_handler)
+            self.logger.propagate = False
+            
     def set_headers(self):
         # Set initial PGN headers
         if self.ai_vs_ai or self.puzzle_mode:
@@ -493,8 +524,7 @@ class ChessGame:
         try:
             ai_move = self.ai_move()
             if ai_move and self.push_move(ai_move):
-                move_obj = chess.Move.from_uci(ai_move)
-                self.last_ai_move = move_obj.to_square
+                self.last_ai_move = ai_move.to_square if isinstance(ai_move, chess.Move) else chess.Move.from_uci(ai_move).to_square
             else:
                 # Fallback to random legal move
                 print(f"AI falling back on random legal move, {ai_move} invalid!")
@@ -502,7 +532,7 @@ class ChessGame:
                 if legal_moves:
                     fallback = random.choice(legal_moves)
                     ai_move = fallback
-                    self.push_move(fallback.uci())            
+                    self.push_move(fallback)
             if self.show_eval:
                 print(f"AI ({current_color}) plays: {ai_move} (Eval: {self.current_eval:.2f})")
             else:
@@ -513,16 +543,16 @@ class ChessGame:
 
     def process_puzzle_move(self):
         """ Process move in puzzle mode """
-        
+        pass
+    
     def push_move(self, move):
         """ Test and push a move to the board and game node """
         if not self.board.is_valid():
             return False  # Skip if board is invalid
         try:
-            # ensure move is in UCI format
-            if isinstance(move, chess.Move):
-                move = move.uci()
-            
+            # Ensure move is a chess.Move object
+            if isinstance(move, str):
+                move = chess.Move.from_uci(move)
             if not self.board.is_legal(move):
                 print(f"Illegal move blocked: {move}")
                 return False
@@ -532,6 +562,7 @@ class ChessGame:
             self.current_player = self.board.turn
             self.record_evaluation()
             self.quick_save_pgn("logging/active_game.pgn")
+            self.mark_display_dirty()
             return True
         except ValueError:
             return False
@@ -600,6 +631,7 @@ class ChessGame:
                 self.selected_square = None  # Clear selection after successful move
                 self.record_evaluation()
                 self.quick_save_pgn("logging/active_game.pgn")
+                self.mark_display_dirty()  # <-- Ensure display updates after human move
                 
             # CASE 2C2: Invalid move - deselect and provide feedback
             else:
@@ -680,6 +712,10 @@ class ChessGame:
                 elif self.puzzle_mode:
                     if not self.board.is_game_over() and self.board.is_valid():
                         self.process_puzzle_move()
+            if self.watch_mode:
+                # Update the display if in watch mode
+                self.update_display()
+
             # Check game end conditions
             if self.handle_game_end():
                 running = False

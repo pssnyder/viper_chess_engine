@@ -55,7 +55,7 @@ class EvaluationEngine:
         # Initialize AI settings
         self.ai_config = {
             'ai_color': self.board.turn,
-            'ai_type': random,
+            'ai_type': 'random',
             'depth': 1,
             'max_depth': 1,
             'move_ordering_enabled': False,
@@ -118,7 +118,7 @@ class EvaluationEngine:
             'scoring_modifier': self.config[f'{player_color}_ai_config']['scoring_modifier'],
         }
       
-    def configure_for_side(self):
+    def configure_for_side(self, ai_config: dict):
         """Configure evaluation engine with side-specific settings"""
         # Update AI configuration for this bot
         self.depth = self.ai_config.get('depth', self.depth)
@@ -522,7 +522,7 @@ class EvaluationEngine:
         
         if self.show_thoughts:
             file_handler = logging.handlers.RotatingFileHandler(
-                'logging/chess_ai_thoughts.log', 
+                'logging/evaluation_engine.log', 
                 maxBytes=1000*1024*1024,  # 1GB max
                 backupCount=3
             )
@@ -1075,13 +1075,17 @@ if __name__ == "__main__":
     import random
     from typing import Callable, Dict, Any, Optional, Tuple
 
-    # Run an evaluation on a sample position
-    fen_position = input("Enter FEN position: ")
-    board = chess.Board(fen_position)
-    engine = EvaluationEngine(board, board.turn)
-    score = engine.evaluate_position(board)
-    if score:
-        print(f"Current Evaluation: {score}")
-    else:
-        print("Unable to evaluate position")
-    
+    try:
+        # Run an evaluation on a sample position
+        fen_position = input("Enter FEN position: ")
+        if not fen_position:
+            fen_position = "rnbqkbnr/pppppppp/8/8/8/8/PPPPPPPP/RNBQKBNR w KQkq - 0 1"
+        board = chess.Board(fen_position)
+        engine = EvaluationEngine(board, board.turn)
+        score = engine.evaluate_position(board)
+        if score is not None:
+            print(f"Current Evaluation: {score}")
+        else:
+            print("Unable to evaluate position")
+    except Exception as e:
+        print(f"Error running evaluation: {e}")

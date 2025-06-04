@@ -771,22 +771,26 @@ class EvaluationEngine:
         
         # Rules included in scoring
         score += 1.0 * (self._checkmate_threats(board) or 0.0)
-        score += 1.0 * (self._piece_square_table_evaluation(color) or 0.0)
+        # Use correct pst_weight from config or ai_config
+        pst_weight = self.ai_config.get('pst_weight', self.config.get('white_ai_config', {}).get('pst_weight', 1.0) if color == chess.WHITE else self.config.get('black_ai_config', {}).get('pst_weight', 1.0))
+        score += pst_weight * (self._piece_square_table_evaluation(color) or 0.0)
         score += 1.0 * (self._improved_mobility(board, color) or 0.0)
         score += 1.0 * (self._tempo_bonus(board, color) or 0.0)
         score += 1.0 * (self._repeating_positions(board) or 0.0)
-        score += 1.0 * (self._material_score(board, color) or 0.0)
+        # Multiply material by material_weight
+        material_weight = self.config['evaluation'].get('material_weight', 1.0)
+        score += material_weight * (self._material_score(board, color) or 0.0)
         score += 1.0 * (self._center_control(board) or 0.0)
-        score += 1.0 * (self._piece_activity(color) or 0.0)
-        score += 1.0 * (self._king_safety(color) or 0.0)
+        score += 1.0 * (self._piece_activity(board, color) or 0.0)
+        score += 1.0 * (self._king_safety(board, color) or 0.0)
         score += 1.0 * (self._king_threat(board) or 0.0)
-        score += 1.0 * (self._undeveloped_pieces(color) or 0.0)
+        score += 1.0 * (self._undeveloped_pieces(board, color) or 0.0)
         score += 1.0 * (self._special_moves(board) or 0.0)
         score += 1.0 * (self._tactical_evaluation(board) or 0.0)
         score += 1.0 * (self._castling_evaluation(board, color) or 0.0)
         score += 1.0 * (self._passed_pawns(board) or 0.0)
         score += 1.0 * (self._knight_pair(board) or 0.0)
-        score += 1.0 * (self._bishiop_vision(board) or 0.0)
+        score += 1.0 * (self._bishop_vision(board) or 0.0)
         score += 1.0 * (self._rook_coordination(board, color) or 0.0)
 
         return score
@@ -827,9 +831,9 @@ class EvaluationEngine:
                 pst_value = self.pst.get_piece_value(piece, square, color)
                 pst_score += pst_value / 100.0  # Convert centipawns to pawn units
 
-        # Weight the piece-square table evaluation
-        weight = self.config['white_ai_config']['white_pst_weight'] if color == chess.WHITE else self.config['black_ai_config']['black_pst_weight']
-        return pst_score * weight
+        # Use correct pst_weight from ai_config or config
+        pst_weight = self.ai_config.get('pst_weight', self.config.get('white_ai_config', {}).get('pst_weight', 1.0) if color == chess.WHITE else self.config.get('black_ai_config', {}).get('pst_weight', 1.0))
+        return pst_score * pst_weight
 
     def _improved_mobility(self, board, color):
         """
@@ -1037,7 +1041,7 @@ class EvaluationEngine:
             score += len(knights) * self.config['evaluation']['knight_pair_bonus']
         return score
 
-    def _bishiop_vision(self, board):
+    def _bishop_vision(self, board):
         score = 0.0
         for square in chess.SQUARES:
             piece = board.piece_at(square)

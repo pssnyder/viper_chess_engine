@@ -1,66 +1,145 @@
 # config.yaml
 # Configuration for pure evaluation-based chess AI
 
-game:
-  ai_vs_ai: true                # Set to true for AI vs AI matches
-  ai_watch_mode: false          # Set to true to watch the AI play on a UI board (terminal and pgn output only otherwise)
-  human_color: random           # Options: white, black, random
+# Game settings
+game_config:
+  starting_position: default    # Name of the starting position, can be a FEN string or a predefined position name
+  ai_vs_ai: false               # Set to true for AI vs AI matches
+  watch_mode: true             # Set to true to watch the AI play on a UI board (terminal and pgn output only otherwise)
+  puzzle_mode: false              # Set to true for puzzle solving mode, false for regular matches
+  human_color: random       # Options: white, black, random
+  game_mode: match               # Options: match, puzzle, tournament
+  game_type: standard           # Options: standard, chess960, king_of_the_hill, three_check, antichess, atomic, racing_kings
+  game_time_control: classical   # Options: classical, rapid, blitz, bullet
+  game_clock: 300               # Time in seconds for each player, 0 for no clock
+  game_increment: 2             # Increment in seconds per move, 0 for no increment
 
-ai:
-  search_depth: 3              # Minimax search depth (1-5 recommended)
-  use_lookahead: true          # Enable minimax with alpha-beta pruning
-  use_quiescence: false        # 
-  move_time_limit: 5.0         # Maximum time per move in seconds
-  move_ordering: false          # Enable move ordering for better pruning
+# Puzzle settings
+puzzle_config:
+  puzzle_file: 'puzzles/lichess_db_puzzle.csv'  # Path to the puzzle file, can be a local file or a URL 
+  puzzle_count: 100                              # Number of puzzles to solve
+  puzzle_solution_limit: 4                      # Length of solution in move count, 0 for any length
+  puzzle_difficulty: 800                        # Difficulty rating of puzzles in ELO rating level, 0 for any difficulty
+  puzzle_time_limit: 30                          # Time limit in seconds to solve each puzzle, 0 for no limit
+  puzzle_types: [                                # Type of puzzles, examples: advantage attraction fork middlegame checkmate sacrifice
+    mate,
+    mateIn1,
+    mateIn2,
+    mateIn3
+  ]     
 
-evaluation:
-  # Material values and bonuses
-  checkmate_bonus: 1000.0      # Bonus for checkmate threats
-  repetition_penalty: -100.0   # Penalty for threefold repetition
-  center_control_bonus: 0.25   # Bonus per center square controlled
-  knight_activity_bonus: 0.1   # Multiplier per square attacked by knight
-  bishop_activity_bonus: 0.15  # Multiplier per square attacked by bishop
-  king_safety_bonus: 1.5       # Bonus per pawn in king shield
-  king_threat_penalty: -0.5    # Penalty for being checked
-  undeveloped_penalty: -0.2    # Penalty for having under-developed minor pieces
-  
-  # Unused
-  check_bonus: 10              # Bonus for giving check
-  in_check_penalty: -10        # Penalty for being in check
-  capture_bonus: 3             # Base bonus for captures
-  castling_bonus: 5            # Bonus for castling rights
-  en_passant_bonus: 1          # Bonus for en passant opportunity
-  pawn_promotion_bonus: 5      # Bonus for pawn promotion
-  passed_pawn_bonus: 0.25      # Bonus for having an un-opposed pawn
-  hanging_piece_bonus: 2       # Bonus for attacking hanging pieces
-  trapped_piece_penalty: -5    # Penalty for trapped pieces
-  piece_development_bonus: 2   # Bonus for developing minor pieces
-  piece_activity_bonus: 0.1    # Bonus for activating minor pieces
-  knight_pair_bonus: 1         # Bonus for having knight pair
-  knight_vision_penalty: -0.25 # Penalty for having the knight on a less active square
-  pawn_advancement_bonus: 0.25 # Bonus for advancing pawns
-  rook_development_penalty: 0.2 # Penalty for not developing rooks
-  castling_protection_bonus: 3 # Bonus for keeping the right to castle
-  castling_protection_penalty: -6 # Penalty for giving up castling rights without castling
-  pst_weight: 1.2              # Piece Square Table weights
-  material_weight: 0.8         # Material calculation impact on eval
-  bishop_vision_bonus: 1       # Bonus for the bishops having good board vision
-  tempo_bonus: 0.1             # Bonus for having the right to move
-  
-  
-  # Advanced evaluation features
-  enable_piece_square_tables: false  # Use piece-square tables for positional eval
-  enable_pawn_structure: false        # Evaluate pawn structure
-  enable_king_safety_detailed: false # Detailed king safety evaluation
-  
 # Performance settings
 performance:
-  max_moves_evaluated: 50      # Limit moves evaluated per position
-  use_transposition_table: false  # Cache evaluations (not implemented yet)
-  parallel_evaluation: false      # Parallel move evaluation (not implemented yet)
+  max_moves_evaluated: 50         # TODO Limit moves evaluated per position, only if move ordering is on to prevent misses
+  use_transposition_table: false  # TODO Cache evaluations for faster processing (idea: export fen to cache with score for quick reference of board positions)
+  parallel_evaluation: false      # TODO Parallel move evaluation
+  async_mode: false               # TODO Enables thread processing of eval functions
+  thread_limit: 4                 # Enables an upper limit in thread count during async_mode
+  hash_size: 64                   # MB limit for hash tables
+  max_depth: 8                    # Max depth of search functions to prevent runaway
 
 # Debug settings
 debug:
-  print_evaluations: false     # Print evaluation details to console
-  save_evaluation_log: false   # Save detailed evaluation log
-  show_thinking_time: true     # Display time taken for move calculation
+  enable_logging: true            # Turn logging on or off, auto-disables thoughts if false
+  show_evaluation: true          # Show the evaluation during a game
+  show_thinking: true             # Show what the AI is thinking during the game # TODO add thinking time to the log
+
+# AI Types
+ai_types: [
+  'deepsearch',
+  'lookahead', 
+  'iterative_deepening',
+  'minimax', 
+  'negamax', 
+  'simple_search', 
+  'random'
+  ]
+
+# Starting positions
+starting_positions:
+  default: 'rnbqkbnr/pppppppp/8/8/8/8/PPPPPPPP/RNBQKBNR w KQkq - 0 1'  # Standard chess starting position
+  london: 'rnbqkbnr/pppppppp/8/8/4P3/8/PPPP1PPP/RNBQKBNR w KQkq - 0 1'  # London System starting position
+  kings_indian: 'rnbqkbnr/pppppppp/8/8/4P3/8/PPPP1PPP/RNBQKBNR w KQkq - 0 1'  # King's Indian Defense starting position
+  caro_kann: 'rnbqkbnr/pppppppp/8/8/4P3/8/PPPP1PPP/RNBQKBNR w KQkq - 0 1'  # Caro-Kann Defense starting position
+  scandinavian: 'rnbqkbnr/pppppppp/8/8/4P3/8/PPPP1PPP/RNBQKBNR w KQkq - 0 1'  # Scandinavian Defense starting position
+  dutch: 'rnbqkbnr/pppppppp/8/8/4P3/8/PPPP1PPP/RNBQKBNR w KQkq - 0 1'  # Dutch Defense starting position
+  sicilian: 'rnbqkbnr/pppppppp/8/8/4P3/8/PPPP1PPP/RNBQKBNR w KQkq - 0 1'  # Sicilian Defense starting position
+  vienna: 'rnbqkbnr/pppppppp/8/8/4P3/8/PPPP1PPP/RNBQKBNR w KQkq - 0 1'  # Vienna Game starting position
+  french: 'rnbqkbnr/pppppppp/8/8/4P3/8/PPPP1PPP/RNBQKBNR w KQkq - 0 1'  # French Defense starting position
+
+# AI vs AI settings
+white_ai_config:
+  ai_type: lookahead              # move search type for White
+  ai_color: chess.WHITE           # Color code for AI identification
+  depth: 1                        # Depth of search for White AI, 1 for random, 2 for simple search, 3+ for more complex searches
+  dynamic_depth: false           # TODO Enable dynamic search depth adjustment based on position complexity
+  use_solutions: true             # Use known positional solutions for evaluation
+  pst: true                       # Use piece-square tables for evaluation
+  pst_weight: 1.0                 # Weight for piece-square table evaluation
+  move_ordering: true             # Enable move ordering for better performance
+  quiescence: true                # Enable quiescence search for tactical positions
+  time_limit: 0                   # Time limit for move calculation in milliseconds, 0 for no limit
+  engine: viper                   # TODO create optional evaluation engine selection
+  personality: default            # TODO create optional ruleset play types: default, simple, aggressive, conservative
+  ruleset: evaluation             # TODO create optional choice of evaluation rule settings from below
+  scoring_modifier: 1.0           # TODO create optional overall scoring multiplier/divider
+
+black_ai_config:
+  ai_type: random                 # move search type for Black
+  ai_color: chess.BLACK
+  depth: 1
+  dynamic_depth: false
+  use_solutions: false
+  pst: false
+  pst_weight: 0.0
+  move_ordering: false
+  quiescence: false
+  time_limit: 1000
+  engine: None
+  personality: default
+  ruleset: None
+  scoring_modifier: 1.0
+
+# Evaluation Rule settings
+evaluation:
+  # Eval modifiers and score values
+  checkmate_bonus: 1000000.0        # Bonus for checkmate threats
+  repetition_penalty: -100000.0     # Penalty for threefold repetition
+  center_control_bonus: 0.25        # Bonus per center square controlled
+  knight_activity_bonus: 0.1        # Multiplier per square attacked by knight
+  bishop_activity_bonus: 0.15       # Multiplier per square attacked by bishop
+  king_safety_bonus: 1.5            # Bonus per pawn in king shield
+  king_threat_penalty: -0.5         # Penalty for being checked
+  undeveloped_penalty: -0.2         # Penalty for having under-developed minor pieces
+  check_bonus: 500.0                # Bonus for giving check
+  in_check_penalty: -10.0           # Penalty for being in check
+  capture_bonus: 3.0                # Base bonus for captures
+  castling_bonus: 5.0               # Bonus for castling rights
+  en_passant_bonus: 1.0             # Bonus for en passant opportunity
+  pawn_promotion_bonus: 5.0         # Bonus for pawn promotion
+  passed_pawn_bonus: 0.25           # Bonus for having an un-opposed pawn
+  hanging_piece_bonus: 2.0          # Bonus for attacking hanging pieces
+  trapped_piece_penalty: -5.0       # Penalty for trapped pieces
+  piece_development_bonus: 2.0      # Bonus for developing minor pieces
+  piece_activity_bonus: 0.1         # Bonus for activating minor pieces
+  knight_pair_bonus: 1.0            # Bonus for having knight pair
+  knight_vision_penalty: -0.25      # Penalty for having the knight on a less active square
+  pawn_advancement_bonus: 0.25      # Bonus for advancing pawns
+  rook_development_penalty: 0.2     # Penalty for not developing rooks
+  castling_protection_bonus: 3.0    # Bonus for keeping the right to castle
+  castling_protection_penalty: -6.0 # Penalty for giving up castling rights without castling
+  material_weight: 0.8              # Material calculation impact on eval
+  bishop_vision_bonus: 1.0          # Bonus for the bishops having good board vision
+  tempo_bonus: 0.1                  # Bonus for having the right to move
+  stacked_rooks_bonus: 0.5          # Bonus for having the rooks on the same file
+  coordinated_rooks_bonus: 0.25     # Bonus for having the rooks on the same rank
+  pawn_structure_bonus: 0.1         # TODO Evaluate pawn structure
+  enable_king_safety_detailed: true # TODO Detailed king safety evaluation based on game phase
+  checkmate_move_bonus: 1000000     # Bonus for finding a checkmate during move ordering scoring
+  check_move_bonus: 10000           # Bonus for finding a check move during move ordering scoring
+  hash_move_bonus: 5000             # Bonus for finding a hash move during move ordering scoring
+  capture_move_bonus: 4000          # Bonus for finding a capture move during move ordering scoring
+  promotion_move_bonus: 3000        # Bonus for finding a promotion move during move ordering scoring
+  killer_move_bonus: 2000           # Bonus for finding a killer moves during move ordering scoring
+  history_move_bonus: 1000          # Bonus for finding a historical move during move ordering scoring
+  counter_move_bonus: 1000          # Bonus for finding a strong countermove during move ordering scoring

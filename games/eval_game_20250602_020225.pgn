@@ -1,0 +1,33 @@
+[Event "AIv.AI Pure Evaluation Engine"]
+[Site "Local Computer"]
+[Date "2025.06.02"]
+[Round "#"]
+[White "AI: viper via lookahead"]
+[Black "AI: viper via simple_eval"]
+[Result "1/2-1/2"]
+
+1. f4 { Eval: -14.48 } 1... f5 { Eval: 1.12 } 2. d4 { Eval: -13.85 } 2... Kf7
+{ Eval: 15.45 } 3. e3 { Eval: 0.70 } 3... h5 { Eval: 1.35 } 4. Bc4+
+{ Eval: 2.62 } 4... d5 { Eval: 2.02 } 5. Bxd5+ { Eval: 3.60 } 5... Be6
+{ Eval: 3.00 } 6. Qxh5+ { Eval: 3.85 } 6... Rxh5 { Eval: -4.58 } 7. Bxe6+
+{ Eval: 0.07 } 7... Ke8 { Eval: -14.32 } 8. c4 { Eval: -15.73 } 8... b6
+{ Eval: -15.12 } 9. a4 { Eval: -16.00 } 9... a6 { Eval: -15.40 } 10. g3
+{ Eval: -16.20 } 10... c5 { Eval: -15.60 } 11. h4 { Eval: -16.37 } 11... g5
+{ Eval: -16.03 } 12. b4 { Eval: -16.60 } 12... Bh6 { Eval: -16.25 } 13. Rh3
+{ Eval: -16.78 } 13... Qc8 { Eval: -16.52 } 14. d5 { Eval: -17.00 } 14... b5
+{ Eval: -16.75 } 15. Ba3 { Eval: -17.20 } 15... Kd8 { Eval: -17.00 } 16. d6
+{ Eval: -17.35 } 16... exd6 { Eval: -3.05 } 17. a5 { Eval: -3.32 } 17... Ke8
+{ Eval: -3.12 } 18. Bd5 { Eval: -2.27 } 18... Kd8 { Eval: -2.07 } 19. Bf7
+{ Eval: -3.47 } 19... Ra7 { Eval: -3.32 } 20. Be6 { Eval: -3.38 } 20... Rg7
+{ Eval: -2.92 } 21. Bf7 { Eval: -3.27 } 21... Qd7 { Eval: -3.17 } 22. Bg6
+{ Eval: -3.67 } 22... Qc8 { Eval: -3.38 } 23. Bh7 { Eval: -4.48 } 23... d5
+{ Eval: -4.22 } 24. g4 { Eval: -4.50 } 24... Ke7 { Eval: -4.30 } 25. e4
+{ Eval: -4.57 } 25... Qf8 { Eval: -4.38 } 26. e5 { Eval: -4.55 } 26... Ke8
+{ Eval: -4.35 } 27. e6 { Eval: -4.85 } 27... Kd8 { Eval: -4.65 } 28. Rg3
+{ Eval: -4.77 } 28... Ke8 { Eval: -4.57 } 29. e7 { Eval: -5.18 } 29... Kd7
+{ Eval: -4.97 } 30. Rh3 { Eval: -5.25 } 30... Qc8 { Eval: -5.05 } 31. Bg6
+{ Eval: -4.35 } 31... Qf8 { Eval: -4.15 } 32. Be8+ { Eval: -4.95 } 32... Kc7
+{ Eval: -4.40 } 33. Bf7 { Eval: -4.30 } 33... Kd7 { Eval: -4.00 } 34. Be8+
+{ Eval: -4.95 } 34... Kc7 { Eval: -4.40 } 35. Bf7 { Eval: -4.30 } 35... Kd7
+{ Eval: -4.00 } 1/2-1/2
+

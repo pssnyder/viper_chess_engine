@@ -793,7 +793,7 @@ class EvaluationEngine:
                 if abs(score) > 9000:
                     break
                 if self.show_thoughts and self.logger:
-                    self.logger.debug(f"Evaluating move: {move} | Score: {score:.3f} | Depth: {d} | Best score: {best_score:.3f} | FEN: {new_board.fen()}")
+                    self.logger.debug(f"Evaluating move: {move} | Score: {score:.3f} | Depth: {d} | Best score: {best_score:.3f} | FEN: {board.fen()}")
         except Exception as e:
             if self.logger:
                 self.logger.debug(f"info string Search error: {e}")

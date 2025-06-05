@@ -173,9 +173,10 @@ class ChessPuzzles:
                 print("[DEBUG] No puzzles available for random selection.")
             return None
         puzzle = random.choice(self.puzzles)
+        puzzle_solved = puzzle.get('solved', False)
         if self.debug:
             print(f"[DEBUG] Random puzzle selected: {puzzle}")
-        return puzzle
+        return puzzle if not puzzle_solved else self.get_random_puzzle()
 
     def solve_puzzle(self, index: int, move: str):
         """
@@ -215,7 +216,21 @@ class ChessPuzzles:
             return True, "Correct solution!"
         else:
             return False, "Incorrect solution. Try again."
+
+    def mark_puzzle_solved(self, fen: str):
+        """
+        Mark a puzzle as solved by its FEN string.
         
+        :param fen: FEN string of the puzzle to mark as solved
+        """
+        for puzzle in self.puzzles:
+            if puzzle['fen'] == fen:
+                puzzle['solved'] = True
+                if self.debug:
+                    print(f"[DEBUG] Puzzle with FEN {fen} marked as solved.")
+                return
+        if self.debug:
+            print(f"[DEBUG] Puzzle with FEN {fen} not found to mark as solved.")    
     def log_result(self, index: int, result: str):
         """
         Log the result of solving a puzzle.

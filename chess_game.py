@@ -4,13 +4,13 @@ import os
 import sys
 import pygame
 import chess
-import chess.engine
 import chess.pgn
 import random
 import yaml
 import datetime
 import logging
 import logging.handlers
+import threading
 from evaluation_engine import EvaluationEngine
 from chess_puzzles import ChessPuzzles
 
@@ -54,12 +54,6 @@ class ChessGame:
             print("Running in headless mode - no visual display")
             self.headless_mode()
         
-        # Initialize chess components
-        self.board = chess.Board()
-        self.selected_square = None
-        self.player_clicks = []
-        self.load_images()
-        
         # Initialize piece fallback values
         self.piece_values = {
             chess.KING: 0,
@@ -69,28 +63,15 @@ class ChessGame:
             chess.KNIGHT: 3,
             chess.PAWN: 1
         }
-
-        # Initialize game recording
-        self.game = chess.pgn.Game()
-        self.ai_color = None # Will be set in run()
-        self.human_color = None
-        self.game_node = self.game
-
-        # Initialize turn management
-        self.current_player = None
-        self.last_ai_move = None # Track AI's last move
-
-        # Initialize evaluation engine
-        self.engine = EvaluationEngine(self.board, self.board.turn)
-        self.current_eval = None
-        self.white_engine = self.config['white_ai_config']['engine']
-        self.black_engine = self.config['black_ai_config']['engine']
-
+ 
         # Initialize AI
+        self.game_count = self.config['game_config']['ai_game_count']
         self.ai_vs_ai = self.config['game_config']['ai_vs_ai']
         self.ai_types = self.config['ai_types']
         self.white_bot_type = self.config['white_ai_config']['ai_type']
         self.black_bot_type = self.config['black_ai_config']['ai_type']
+        self.white_eval_engine = self.config['white_ai_config']['engine']
+        self.black_eval_engine = self.config['black_ai_config']['engine']
         self.white_ai_config = self.config['white_ai_config']
         self.black_ai_config = self.config['black_ai_config']
             
@@ -109,14 +90,51 @@ class ChessGame:
         else:
             self.show_thoughts = False
         
+        # Initialize board and new game
+        self.new_game()
+        
         # Set colors
         self.set_colors()
         
         # Set headers
         self.set_headers()
 
+        self.screen_ready = False
+        self.ai_busy = False
+        self.ai_move_result = None
+        self.ai_thread = None
+        self.move_start_time = 0
+        self.move_end_time = 0
+        self.move_duration = 0
+
     # ================================
     # ====== GAME CONFIGURATION ======
+    
+    def new_game(self, fen_position=None):
+        """Reset the game state for a new game"""
+        self.board = chess.Board(fen=fen_position) if fen_position else chess.Board()
+        self.game = chess.pgn.Game()
+        self.game_node = self.game
+        self.selected_square = None
+        self.last_ai_move = None
+        self.current_eval = None
+        self.ai_color = None # Will be set in run()
+        self.human_color = None
+        self.current_player = self.board.turn
+        self.last_ai_move = None # Track AI's last move
+        
+        # Reset AI engines if they exist
+        if hasattr(self, 'white_engine') and self.white_engine:
+            self.white_engine.reset(self.board)
+        if hasattr(self, 'black_engine') and self.black_engine:
+            self.black_engine.reset(self.board)
+
+        # Reset PGN headers
+        self.set_headers()
+        
+        # Reset move history
+        self.move_history = []
+        print("\nStarting new game...")
     def setup_logger(self):
         """Setup logger for debugging and evaluation"""
         if not os.path.exists('logging'):
@@ -150,12 +168,12 @@ class ChessGame:
                 self.game.headers["Event"] = "AI Puzzle Mode"
             else:
                 self.game.headers["Event"] = "AI vs. AI Game"
-            self.game.headers["White"] = f"AI: {self.white_engine} via {self.white_bot_type}"
-            self.game.headers["Black"] = f"AI: {self.black_engine} via {self.black_bot_type}"
+            self.game.headers["White"] = f"AI: {self.white_eval_engine} via {self.white_bot_type}"
+            self.game.headers["Black"] = f"AI: {self.black_eval_engine} via {self.black_bot_type}"
         else:
             self.game.headers["Event"] = "Human vs. AI Game"
-            self.game.headers["White"] = f"AI: {self.white_engine} via {self.white_bot_type}" if self.ai_color == chess.WHITE else "Human"
-            self.game.headers["Black"] = "Human" if self.ai_color == chess.WHITE else f"AI: {self.black_engine} via {self.black_bot_type}"
+            self.game.headers["White"] = f"AI: {self.white_eval_engine} via {self.white_bot_type}" if self.ai_color == chess.WHITE else "Human"
+            self.game.headers["Black"] = "Human" if self.ai_color == chess.WHITE else f"AI: {self.black_eval_engine} via {self.black_bot_type}"
         self.game.headers["Date"] = datetime.datetime.now().strftime("%Y.%m.%d")
         self.game.headers["Site"] = "Local Computer"
         self.game.headers["Round"] = "#"
@@ -304,16 +322,20 @@ class ChessGame:
             self.screen.blit(text, (WIDTH-150, 10))
 
             # Also show depth
-            depth_text = self.font.render(f"Depth: {self.engine.depth}", True, (0, 0, 0))
+            if self.board.turn == chess.WHITE:
+                self.depth = self.white_engine.depth
+            else:
+                self.depth = self.black_engine.depth
+            depth_text = self.font.render(f"Depth: {self.depth}", True, (0, 0, 0))
             self.screen.blit(depth_text, (WIDTH-150, 35))
             
-            # Show current turn in AI vs AI mode
+            # Show current turn in AI vs AI mode (move has already changed sides so references are backwards)
             if self.ai_vs_ai:
-                turn_text = f"Turn: {'White' if self.board.turn == chess.WHITE else 'Black'}"
+                turn_text = f"Turn: {'White' if self.current_player == chess.BLACK else 'Black'}"
                 turn_surface = self.font.render(turn_text, True, (0, 0, 0))
                 self.screen.blit(turn_surface, (WIDTH-150, 60))
             elif self.puzzle_mode:
-                turn_text = f"{'White' if self.board.turn == chess.WHITE else 'Black'} to move"
+                turn_text = f"{'White' if self.current_player == chess.BLACK else 'Black'} to move"
                 turn_surface = self.font.render(turn_text, True, (0, 0, 0))
                 self.screen.blit(turn_surface, (WIDTH-150, 60))
 
@@ -355,6 +377,7 @@ class ChessGame:
 
             pygame.display.flip()
             self.display_needs_update = False  # Reset flag
+            self.screen_ready = True  # Mark screen as ready after first draw
 
     def mark_display_dirty(self):
         """Mark the display as needing an update."""
@@ -386,6 +409,8 @@ class ChessGame:
         
         # Check for automatic game ending conditions first (these don't require claims)
         if self.board.is_game_over():
+            # Update the game node so the saved game is the most up to date record
+            self.game_node = self.game.end()
             result = self.board.result()
             self.game.headers["Result"] = result
             self.save_pgn()
@@ -431,7 +456,7 @@ class ChessGame:
     
     def record_evaluation(self):
         """Record evaluation score in PGN comments"""
-        score = self.engine.evaluate_position(self.board)
+        score = self.white_engine.evaluate_position(self.board)
         self.current_eval = score
         if self.game_node.move:
             self.game_node.comment = f"Eval: {score:.2f}"
@@ -441,6 +466,7 @@ class ChessGame:
     def save_pgn(self):
         # Create games directory if it doesn't exist
         games_dir = "games"
+        
         if not os.path.exists(games_dir):
             os.makedirs(games_dir, exist_ok=True)
             print(f"Created directory: {games_dir}")
@@ -491,8 +517,10 @@ class ChessGame:
             self.game_node = self.game
 
             # Update engine if it exists
-            if self.engine:
-                self.engine.board = self.board
+            if self.white_engine:
+                self.white_engine.board = self.board
+            if self.black_engine:
+                self.black_engine.board = self.board
 
             # Reset game state
             self.selected_square = None
@@ -518,7 +546,7 @@ class ChessGame:
     def process_ai_move(self):
         """Process AI move in AI vs AI mode or human vs AI mode"""
         # Allow AI to play both sides in AI vs AI mode
-        current_color = "White" if self.board.turn == chess.WHITE else "Black"
+        current_color = "white" if self.board.turn == chess.WHITE else "black"
         if not self.ai_vs_ai and self.board.turn != self.ai_color:
             return  # Only check AI color in human vs AI mode
         try:
@@ -545,6 +573,39 @@ class ChessGame:
         """ Process move in puzzle mode """
         pass
     
+    def process_ai_move_threaded(self):
+        """Start AI move calculation in a background thread (watch_mode only)."""
+        if self.ai_busy or self.board.is_game_over() or not self.screen_ready:
+            return
+        self.ai_busy = True
+        self.ai_move_result = None
+        self.move_start_time = pygame.time.get_ticks()
+
+        def ai_task():
+            try:
+                ai_move = self.ai_move()
+                self.ai_move_result = ai_move
+            except Exception as e:
+                print(f"AI move error (thread): {e}")
+                self.ai_move_result = None
+            finally:
+                self.ai_busy = False
+
+        self.ai_thread = threading.Thread(target=ai_task, daemon=True)
+        self.ai_thread.start()
+
+    def apply_ai_move_result(self):
+        """Apply the AI move result if available and not busy, and log timing."""
+        if self.ai_move_result is not None and not self.ai_busy:
+            move = self.ai_move_result
+            if move and self.push_move(move):
+                self.last_ai_move = move.to_square if isinstance(move, chess.Move) else chess.Move.from_uci(move).to_square
+            self.move_end_time = pygame.time.get_ticks()
+            self.move_duration = self.move_end_time - self.move_start_time
+            if self.show_thoughts and self.logger:
+                self.logger.info(f"AI move took {self.move_duration} ms")
+            self.ai_move_result = None
+            
     def push_move(self, move):
         """ Test and push a move to the board and game node """
         if not self.board.is_valid():
@@ -565,6 +626,7 @@ class ChessGame:
             self.mark_display_dirty()
             return True
         except ValueError:
+            self.quick_save_pgn("logging/error_dump.pgn")
             return False
         
     # =============================================
@@ -642,32 +704,35 @@ class ChessGame:
     # ============== AI CONFIG =================
 
     def ai_move(self):
-        """AI MOVE SELECTION"""
+        """AI MOVE SELECTION (supports separate engines for white and black)"""
         ai_config = {}
         chosen_move = None
         # Validate current board state
         if not self.board.is_valid():
             print(f"ERROR: Invalid board state detected! | FEN: {self.board.fen()}")
             return None
-        if not self.board.legal_moves: return None
+        if not self.board.legal_moves:
+            return None
         # Store the current player before making moves
-        self.current_player = self.board.turn
         current_player = self.current_player
+
+        # Select engine and config based on side to move
         if current_player == chess.WHITE:
-            # create engine for white
-            ai_type = self.config['white_ai_config']['ai_type']
-            ai_config = self.engine._get_ai_config('white')
+            ai_config = self.white_engine._get_ai_config('white')
         else:
-            # create engine for black
-            ai_type = self.config['black_ai_config']['ai_type']
-            ai_config = self.engine._get_ai_config('black')
-        
+            ai_config = self.black_engine._get_ai_config('black')
+
         # Route to the engine with correct settings
-        if ai_type in self.ai_types:
-            chosen_move = self.engine.search(self.board, current_player, ai_type, ai_config)
-        else: # move is random
+        if self.board.turn == chess.WHITE:
+            chosen_move = self.white_engine.search(self.board, current_player, ai_config)
+        elif self.board.turn == chess.BLACK:
+            chosen_move = self.black_engine.search(self.board, current_player, ai_config)
+        else:  # move is random
             legal_moves = list(self.board.legal_moves)
             chosen_move = random.choice(legal_moves) if legal_moves else None
+        
+        # Store the last AI move
+        self.last_ai_move = chosen_move if chosen_move else None
         return chosen_move if chosen_move else None
 
     # =============================================
@@ -676,6 +741,7 @@ class ChessGame:
     def run(self):
         running = True
         clock = pygame.time.Clock()
+        game_count = self.game_count
         # Initialize game mode
         if self.puzzle_mode:
             # Puzzle mode - load puzzles and start
@@ -689,41 +755,66 @@ class ChessGame:
                 # Visual mode - use timer events
                 pygame.time.set_timer(pygame.USEREVENT, 2000)  # 2 second visual updates to make it easier to watch the ai vs ai game
         
-        last_ai_move_time = 0
-        while running:
+        # Configure AI engines per color
+        self.white_engine = EvaluationEngine(self.board, chess.WHITE)
+        self.black_engine = EvaluationEngine(self.board, chess.BLACK)
+
+        while running and game_count >= 1:
+            # print(f"Running game loop: {game_count}")
+            # print(f"AI Busy: {self.ai_busy}, Screen Ready: {self.screen_ready}, Game Over: {self.board.is_game_over()}")
             move_start_time = pygame.time.get_ticks()
+            move_end_time = 0
+            move_duration = 0
 
             # Process events (even in headless mode for quit detection)
             for event in pygame.event.get():
+                # Set the current player
+                self.current_player = self.board.turn
                 if event.type == pygame.QUIT:
                     running = False
                 elif event.type == pygame.MOUSEBUTTONDOWN and not self.ai_vs_ai and not self.puzzle_mode:
                     # Handle mouse click for human interaction
                     self.handle_mouse_click(pygame.mouse.get_pos())
-                elif event.type == pygame.USEREVENT and self.ai_vs_ai:
-                    # Handle AI move forcing in watch mode
-                    if not self.board.is_game_over() and self.board.is_valid():
-                        self.process_ai_move()
-                        if self.watch_mode:
-                            move_end_time = pygame.time.get_ticks()
-                            move_duration = move_end_time - move_start_time
-                        if self.show_thoughts:
-                            self.logger.info(f"AI move took {move_duration} ms")
+                elif event.type == pygame.USEREVENT and self.ai_vs_ai and self.watch_mode:
+                    # Only start AI move if not busy and screen is ready
+                    if not self.ai_busy and self.screen_ready and not self.board.is_game_over() and self.board.is_valid():
+                        self.process_ai_move_threaded()
                 elif self.puzzle_mode:
                     if not self.board.is_game_over() and self.board.is_valid():
                         self.process_puzzle_move()
+
+            # In headless AI vs AI mode, call process_ai_move() directly
+            if self.ai_vs_ai and not self.watch_mode:
+                if not self.board.is_game_over() and self.board.is_valid():
+                    self.process_ai_move()
+
+            # In watch mode, apply AI move result if ready (on main thread)
+            if self.watch_mode and self.ai_move_result is not None and not self.ai_busy:
+                self.apply_ai_move_result()
+                move_end_time = pygame.time.get_ticks()
+                move_duration = move_end_time - move_start_time
+                if self.show_thoughts and self.logger:
+                    self.logger.info(f"AI move took {move_duration} ms")
+
             if self.watch_mode:
                 # Update the display if in watch mode
                 self.update_display()
 
             # Check game end conditions
             if self.handle_game_end():
-                running = False
+                game_count -= 1
+                if game_count == 0:
+                    running = False
+                    pygame.quit()
+                    if self.game_count > 1:
+                        print(f'All {self.game_count} games complete, exiting...')
+                    else:
+                        print('Game complete, exiting...')
+                else:
+                    print(f'Game {self.game_count - game_count}/{self.game_count} complete...')
+                    self.new_game()
             else:
                 clock.tick(MAX_FPS)
-            
-        pygame.quit()
-        print('Game complete, exiting...')
 
 if __name__ == "__main__":
     game = ChessGame()

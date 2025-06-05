@@ -7,6 +7,12 @@ from evaluation_engine import EvaluationEngine
 st.sidebar.title("AI Settings")
 ai_type = st.sidebar.selectbox("AI Type", ["lookahead", "minimax", "negamax", "random"], index=0)
 ai_depth = st.sidebar.slider("AI Depth", 1, 4, 2)
+flip_board = st.sidebar.checkbox("Flip Board", value=False)
+if st.sidebar.button("Reset Game"):
+    st.session_state.board = chess.Board()
+    st.session_state.engine = EvaluationEngine(st.session_state.board, st.session_state.board.turn)
+    st.session_state.move_history = []
+    st.experimental_rerun()
 st.sidebar.info(
     "After the AI moves, if the board does not update automatically, "
     "please press 'Evaluate Position' or interact with the board to refresh the display."
@@ -34,7 +40,7 @@ if st.button("Set Position from FEN"):
 # --- Show board ---
 st.write("### Chess Board")
 try:
-    board_svg = chess.svg.board(st.session_state.board, size=400)
+    board_svg = chess.svg.board(st.session_state.board, size=400, flipped=flip_board)
     st.image(board_svg, use_container_width=True, output_format="svg")
 except Exception as e:
     st.warning("SVG board rendering failed. Showing text board instead.")
@@ -43,7 +49,7 @@ except Exception as e:
 # --- Evaluation ---
 if st.button("Evaluate Position"):
     score = st.session_state.engine.evaluate_position(st.session_state.board)
-    st.write(f"Evaluation: {score:.2f}")
+    st.write(f"Evaluation: {score:+.2f}")
 
 # --- Human move input ---
 st.write("### Make Your Move")
@@ -76,7 +82,7 @@ if st.button("Play Move") and move_input_san:
             "ruleset": "evaluation"
         }
         ai_move = st.session_state.engine.search(
-            st.session_state.board, st.session_state.board.turn, ai_type, ai_config
+            st.session_state.board, ai_config
         )
         if ai_move:
             ai_move_san = st.session_state.board.san(ai_move)  # Get SAN before pushing
@@ -90,12 +96,16 @@ if st.button("Play Move") and move_input_san:
 
 # --- Move history ---
 st.write("### Move History")
-# Show move history in SAN for readability
+# Show move history in SAN for readability, with move numbers
 board_tmp = chess.Board()
 san_history = []
-for uci in st.session_state.move_history:
+for idx, uci in enumerate(st.session_state.move_history):
     move = chess.Move.from_uci(uci)
-    san_history.append(board_tmp.san(move))
+    san = board_tmp.san(move)
+    if board_tmp.turn == chess.WHITE:
+        san_history.append(f"{(idx//2)+1}. {san}")
+    else:
+        san_history.append(san)
     board_tmp.push(move)
 st.write(" ".join(san_history))
 

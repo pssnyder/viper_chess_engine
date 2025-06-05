@@ -1,0 +1,25 @@
+[Event "AI vs. AI Game"]
+[Site "Local Computer"]
+[Date "2025.06.04"]
+[Round "#"]
+[White "AI: viper via lookahead"]
+[Black "AI: None via random"]
+[Result "1-0"]
+
+1. Nc3 { Eval: 0.50 } 1... c6 { Eval: 0.80 } 2. Nf3 { Eval: 1.30 } 2... Qa5
+{ Eval: 1.30 } 3. Ne5 { Eval: 1.40 } 3... Qxa2 { Eval: 0.95 } 4. Nxd7
+{ Eval: 1.30 } 4... Nxd7 { Eval: 0.85 } 5. Nd5 { Eval: 0.95 } 5... Nb6
+{ Eval: 0.95 } 6. Nxe7 { Eval: 1.30 } 6... Qa3 { Eval: 1.30 } 7. Nxc6
+{ Eval: 1.55 } 7... g5 { Eval: 2.00 } 8. Ne5 { Eval: 2.10 } 8... Qh3
+{ Eval: 2.10 } 9. Nd3 { Eval: 2.05 } 9... Be7 { Eval: 1.95 } 10. Rxa7
+{ Eval: 2.40 } 10... g4 { Eval: 2.45 } 11. Rxb7 { Eval: 3.00 } 11... Qh5
+{ Eval: 2.95 } 12. Rb8 { Eval: 2.95 } 12... Qxh2 { Eval: 2.50 } 13. Rxa8
+{ Eval: 2.50 } 13... Bd8 { Eval: 2.60 } 14. Ne5 { Eval: 2.65 } 14... Qxh1
+{ Eval: 2.75 } 15. Nc6 { Eval: 2.65 } 15... Bc7 { Eval: 2.55 } 16. Nd4
+{ Eval: 2.65 } 16... Bd8 { Eval: 2.75 } 17. Nc6 { Eval: 2.65 } 17... Be7
+{ Eval: 2.55 } 18. d3 { Eval: 2.35 } 18... Kd7 { Eval: 2.35 } 19. Be3
+{ Eval: 2.55 } 19... h6 { Eval: 2.95 } 20. Nd4 { Eval: 3.05 } 20... Ba3
+{ Eval: 3.15 } 21. Qd2 { Eval: 3.20 } 21... Nxa8 { Eval: 3.70 } 22. Qc3
+{ Eval: 3.75 } 22... Qh3 { Eval: 3.65 } 23. Bg5 { Eval: 3.55 } 23... Qxg2
+{ Eval: 2.95 } 24. Bf6 { Eval: 3.05 } 24... Ke8 { Eval: 1000002.80 } 1-0
+

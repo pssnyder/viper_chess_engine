@@ -24,8 +24,10 @@ IMAGES = {}
 
 # Resource path config for distro
 def resource_path(relative_path):
-    if hasattr(sys, '_MEIPASS'):
-        return os.path.join(sys._MEIPASS, relative_path)
+    # Use getattr to avoid attribute error
+    base = getattr(sys, '_MEIPASS', None)
+    if base:
+        return os.path.join(base, relative_path)
     return os.path.join(os.path.abspath("."), relative_path)
 
 # At module level, define a single logger for this file
@@ -65,6 +67,9 @@ class ChessGame:
         self.human_color_pref = self.config['game_config']['human_color']
         self.watch_mode = self.config['game_config']['watch_mode']
         self.font = pygame.font.SysFont('Arial', 24)
+        self.small_font = pygame.font.SysFont('Arial', 16)
+        self.width = WIDTH  # Ensure width attribute exists
+        self.BLACK = (0, 0, 0)  # Ensure BLACK attribute exists
         
         # Initialize display, if enabled
         if self.watch_mode:
@@ -142,11 +147,11 @@ class ChessGame:
         """Reset the game state for a new game"""
         # Clear the log file at the start of each new game
         log_path = "logging/chess_game.log"
-        try:
-            with open(log_path, "w"):
-                pass  # Truncate the file
-        except Exception as e:
-            print(f"Could not clear log file: {e}")
+        #try:
+        #    with open(log_path, "w"):
+        #        pass  # Truncate the file
+        #except Exception as e:
+        #    print(f"Could not clear log file: {e}")
 
         self.board = chess.Board(fen=fen_position) if fen_position else chess.Board()
         self.game = chess.pgn.Game()
@@ -283,7 +288,7 @@ class ChessGame:
                 print(f"Warning: Could not load image for {piece}")
 
     def draw_board(self):
-        if not self.watch_mode:
+        if not self.watch_mode or self.screen is None:
             return  # Skip drawing in headless mode
         colors = [pygame.Color("#a8a9a8"),pygame.Color("#d8d9d8")]
         for r in range(DIMENSION):
@@ -305,7 +310,7 @@ class ChessGame:
                 )
 
     def draw_pieces(self):
-        if not self.watch_mode:
+        if not self.watch_mode or self.screen is None:
             return  # Skip drawing in headless mode
         # Draw pieces
         for r in range(DIMENSION):
@@ -336,7 +341,7 @@ class ChessGame:
         return f"{color}N" if symbol == 'N' else f"{color}{symbol.lower()}"
 
     def draw_move_hints(self):
-        if not self.watch_mode:
+        if not self.watch_mode or self.screen is None:
             return  # Skip drawing in headless mode
         if self.selected_square:
             # Get all legal moves from selected square
@@ -355,19 +360,21 @@ class ChessGame:
                     )
 
     def draw_move_history(self):
+        if not self.watch_mode or self.screen is None:
+            return
         history_x = self.width - 200
         history_y = 50
-        
+
         history_surface = self.font.render("Move History", True, self.BLACK)
         self.screen.blit(history_surface, (history_x, history_y))
-        
+
         for i, move in enumerate(self.move_history[-10:]):  # Show last 10 moves
             move_text = f"{i+1}. {move}"
             move_surface = self.small_font.render(move_text, True, self.BLACK)
             self.screen.blit(move_surface, (history_x, history_y + 40 + i*20))
-            
+
     def draw_eval(self):
-        if not self.watch_mode:
+        if not self.watch_mode or self.screen is None:
             return  # Skip drawing in headless mode
         if self.current_eval is not None:
             # Display evaluation from current player's perspective
@@ -421,7 +428,7 @@ class ChessGame:
         return (screen_file * SQ_SIZE, screen_rank * SQ_SIZE)
 
     def update_display(self):
-        if not self.watch_mode:
+        if not self.watch_mode or self.screen is None:
             return  # Skip drawing in headless mode
         """Optimized display update"""
         if not hasattr(self, 'display_needs_update'):
@@ -451,7 +458,7 @@ class ChessGame:
         self.display_needs_update = True
 
     def highlight_selected_square(self):
-        if not self.watch_mode:
+        if not self.watch_mode or self.screen is None:
             return  # Skip drawing in headless mode
         if self.selected_square:
             screen_x, screen_y = self.chess_to_screen(self.selected_square)
@@ -461,7 +468,7 @@ class ChessGame:
             self.screen.blit(s, (screen_x, screen_y))
 
     def highlight_last_move(self):
-        if not self.watch_mode:
+        if not self.watch_mode or self.screen is None:
             return  # Skip drawing in headless mode
         """Highlight AI's last move on the board"""
         if self.last_ai_move:
@@ -660,7 +667,7 @@ class ChessGame:
             # AI's turn to solve
             expected_move_uci = self.current_puzzle_solution[self.current_puzzle_step]
             ai_move = self.ai_move()
-            if ai_move and ai_move.uci() == expected_move_uci:
+            if ai_move and isinstance(ai_move, chess.Move) and ai_move.uci() == expected_move_uci:
                 self.push_move(ai_move)
                 self.last_ai_move = ai_move
                 if self.logging_enabled and self.logger:
@@ -676,7 +683,9 @@ class ChessGame:
                 if self.current_puzzle_step >= self.total_puzzle_steps:
                     if self.logging_enabled and self.logger:
                         self.logger.info("Puzzle solved! | Solution: %s | FEN: %s", self.current_puzzle_solution, self.board.fen())
-                    self.puzzle_manager.mark_puzzle_solved(self.current_puzzle_fen)
+                    # Only call mark_puzzle_solved if FEN is a string
+                    if isinstance(self.current_puzzle_fen, str):
+                        self.puzzle_manager.mark_puzzle_solved(self.current_puzzle_fen)
                     timestamp = datetime.datetime.now().strftime("%Y%m%d_%H%M%S")
                     filename = f"games/puzzle_solved_{timestamp}.pgn"
                     self.quick_save_pgn(filename)
@@ -687,11 +696,12 @@ class ChessGame:
             else:
                 # AI failed to find the correct move
                 if self.logging_enabled and self.logger:
+                    ai_move_uci = ai_move.uci() if isinstance(ai_move, chess.Move) else str(ai_move)
                     self.logger.warning(
-                        f"Puzzle step {self.current_puzzle_step+1} incorrect: AI played {ai_move.uci() if ai_move else None}, expected {expected_move_uci} | FEN: {self.board.fen()}"
+                        f"Puzzle step {self.current_puzzle_step+1} incorrect: AI played {ai_move_uci}, expected {expected_move_uci} | FEN: {self.board.fen()}"
                     )
                     self.logger.error(
-                        f"Puzzle failed: FEN={self.current_puzzle_fen}, Solution={self.current_puzzle_solution}, Step={self.current_puzzle_step+1}, AI move={ai_move.uci() if ai_move else None}"
+                        f"Puzzle failed: FEN={self.current_puzzle_fen}, Solution={self.current_puzzle_solution}, Step={self.current_puzzle_step+1}, AI move={ai_move_uci}"
                     )
                 timestamp = datetime.datetime.now().strftime("%Y%m%d_%H%M%S")
                 fail_filename = f"games/puzzle_failed_{timestamp}.pgn"
@@ -732,13 +742,20 @@ class ChessGame:
         if self.ai_move_result is not None and not self.ai_busy:
             move = self.ai_move_result
             if move and self.push_move(move):
-                self.last_ai_move = move.to_square if isinstance(move, chess.Move) else chess.Move.from_uci(move).to_square
+                # Only assign last_ai_move if move is a chess.Move
+                if isinstance(move, chess.Move):
+                    self.last_ai_move = move.to_square
+                else:
+                    try:
+                        self.last_ai_move = chess.Move.from_uci(move).to_square
+                    except Exception:
+                        self.last_ai_move = None
             self.move_end_time = pygame.time.get_ticks()
             self.move_duration = self.move_end_time - self.move_start_time
             if self.logging_enabled and self.logger:
                 self.logger.info("AI move took %d ms", self.move_duration)
             self.ai_move_result = None
-            
+
     def push_move(self, move):
         """ Test and push a move to the board and game node """
         if not self.board.is_valid():
@@ -803,7 +820,7 @@ class ChessGame:
                 return
                 
             # CASE 2B: Clicking on another piece of the same color - SWITCH SELECTION
-            if piece and piece.color == self.human_color and self.board.turn == self.human_color:
+            if piece and hasattr(piece, "color") and piece.color == self.human_color and self.board.turn == self.human_color:
                 self.selected_square = square
                 print(f"Switched selection to piece at {chess.square_name(square)}")
                 return
@@ -812,8 +829,10 @@ class ChessGame:
             move = chess.Move(self.selected_square, square)
             
             # Check for pawn promotion
-            if (self.board.piece_at(self.selected_square) and
-                self.board.piece_at(self.selected_square).piece_type == chess.PAWN):
+            piece_at_selected = self.board.piece_at(self.selected_square)
+            if (piece_at_selected is not None and
+                hasattr(piece_at_selected, "piece_type") and
+                piece_at_selected.piece_type == chess.PAWN):
                 target_rank = chess.square_rank(square)
                 if (target_rank == 7 and self.board.turn == chess.WHITE) or \
                    (target_rank == 0 and self.board.turn == chess.BLACK):

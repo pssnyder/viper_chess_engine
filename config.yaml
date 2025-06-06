@@ -3,25 +3,25 @@
 
 # Game settings
 game_config:
-  starting_position: default    # Name of the starting position, can be a FEN string or a predefined position name
+  starting_position: default    # TODO Implement - Name of the starting position, can be a FEN string or a predefined position name
   ai_vs_ai: true                 # Set to true for AI vs AI matches
   ai_game_count: 10            # Number of games to play in AI vs AI mode
   watch_mode: false               # Set to true to watch the AI play on a UI board (terminal and pgn output only otherwise)
   puzzle_mode: false              # Set to true for puzzle solving mode, false for regular matches
   human_color: random       # Options: white, black, random
-  game_mode: match               # Options: match, puzzle, tournament
   game_type: standard           # Options: standard, chess960, king_of_the_hill, three_check, antichess, atomic, racing_kings
-  game_time_control: classical   # Options: classical, rapid, blitz, bullet
   game_clock: 300               # Time in seconds for each player, 0 for no clock
   game_increment: 2             # Increment in seconds per move, 0 for no increment
 
 # Puzzle settings
 puzzle_config:
-  puzzle_file: 'puzzles/lichess_db_puzzle.csv'  # Path to the puzzle file, can be a local file or a URL 
-  puzzle_count: 100                              # Number of puzzles to solve
+  puzzle_file: 'puzzles/lichess_db_puzzle.csv'  # Path to the puzzle file, can be a local file or a URL
+  puzzle_import_limit: 1000          # Limit the number of puzzles to import from the file, 0 for no limit
+  puzzle_import_offset: 0              # Offset for importing puzzles, useful for pagination 
+  puzzle_count: 2                              # Number of puzzles to solve
   puzzle_solution_limit: 4                      # Length of solution in move count, 0 for any length
   puzzle_difficulty: 800                        # Difficulty rating of puzzles in ELO rating level, 0 for any difficulty
-  puzzle_time_limit: 30                          # Time limit in seconds to solve each puzzle, 0 for no limit
+  puzzle_time_limit: 0                          # TODO Implement- Time limit in seconds to solve each puzzle, 0 for no limit
   puzzle_types: [                                # Type of puzzles, examples: advantage attraction fork middlegame checkmate sacrifice
     mate,
     mateIn1,
@@ -31,13 +31,13 @@ puzzle_config:
 
 # Performance settings
 performance:
-  max_moves_evaluated: 50         # TODO Limit moves evaluated per position, only if move ordering is on to prevent misses
-  use_transposition_table: false  # TODO Cache evaluations for faster processing (idea: export fen to cache with score for quick reference of board positions)
-  parallel_evaluation: false      # TODO Parallel move evaluation
-  async_mode: false               # TODO Enables thread processing of eval functions
-  thread_limit: 4                 # Enables an upper limit in thread count during async_mode
+  max_moves_evaluated: 50         # TODO Implement - Limit moves evaluated per position, only if move ordering is on to prevent misses
+  use_transposition_table: true  # TODO Test - Cache evaluations for faster processing
+  parallel_evaluation: false      # TODO Implement - Parallel move evaluation
+  async_mode: false               # TODO Control via setting - Enables thread processing of eval functions
+  thread_limit: 4                 # TODO Control via setting - Enables an upper limit in thread count during async_mode
   hash_size: 64                   # MB limit for hash tables
-  max_depth: 8                    # Max depth of search functions to prevent runaway
+  max_depth: 8                    # TODO Test - Max depth of dynamic deepsearch function to prevent runaway
 
 # Debug settings
 debug:
@@ -47,14 +47,15 @@ debug:
 
 # AI Types
 ai_types: [
-  'deepsearch',
-  'lookahead', 
-  'iterative_deepening',
-  'minimax', 
-  'negamax', 
-  'simple_search', 
-  'random'
-  ]
+  'deepsearch', # Dynamic deep search with iterative deepening - deepsearch is a custom search algorithm designed for the viper engine that adjusts its depth and choice of algorithms based on the position
+  'lookahead', # Lookahead search with a fixed depth - lookahead is a simple evaluation comparison search algorithm that performs similar to simple_search but is able to see moves several plies in advance, it uses a fixed depth search
+  'minimax', # Minimax search with alpha-beta pruning - minimax is a standard search algorithm for two-player games, where one player chooses the best move to maximize their score while the other player tries to minimize it, single pov evaluations alternating highest eval then lowest eval for that color eg. if white finds a move sequence that leads to a score of +10, black will try to find a move that leads to a score of -10, it evaluates the game tree recursively and returns the best move for the current player, simple but inefficient for complex positions, it uses alpha-beta pruning to reduce the number of nodes evaluated, it is a common search algorithm used in chess engines
+  'negamax', # Negamax search with alpha-beta pruning - negamax is a variant of minimax that simplifies the implementation - it assumes that the evaluation function is symmetric, meaning that the evaluation for a position is the negative of the evaluation for the position with colors swapped, it uses a single evaluation function and negates the score for the opponent's turn, this allows for a more efficient search tree traversal, it also uses alpha-beta pruning to reduce the number of nodes evaluated, negamax is a more efficient version of minimax that is commonly used in chess engines
+  'negascout', # Negascout search with alpha-beta pruning - negascout is an optimization of negamax that reduces the number of nodes evaluated - it uses a single alpha-beta search with a null window to find the best move, it assumes that the evaluation function is symmetric, meaning that the evaluation for a position is the negative of the evaluation for the position with colors swapped, it uses a single evaluation function and negates the score for the opponent's turn, this allows for a more efficient search tree traversal, it also uses alpha-beta pruning to reduce the number of nodes evaluated, negascout is a more efficient version of negamax that is commonly used in chess engines
+  'transposition_only', # Transposition table search - transposition is a technique that stores previously evaluated positions to avoid redundant calculations
+  'simple_search', # Simple 1/2 ply search that returns the best move based on the immediate position evaluation
+  'random' # Random move selection
+]
 
 # Starting positions
 starting_positions:
@@ -70,26 +71,24 @@ starting_positions:
 
 # AI vs AI settings
 white_ai_config:
-  ai_type: lookahead              # move search type for White
+  ai_type: minimax                # Move search type for White (see ai_types above for options)
   ai_color: white                 # Color code for AI identification, use "white" or "black" as string for clarity
-  depth: 3                        # Depth of search for AI, 1 for random, 2 for simple search, 3+ for more complex searches
-  dynamic_depth: false           # TODO Enable dynamic search depth adjustment based on position complexity
-  use_solutions: false             # Use known positional solutions for evaluation
+  depth: 4                        # Depth of search for AI, 1 for random, 2 for simple search, 3+ for more complex searches
+  use_solutions: true             # Use known positional solutions for evaluation
   pst: true                       # Use piece-square tables for evaluation
-  pst_weight: 1.0                 # Weight for piece-square table evaluation
+  pst_weight: 1.2                 # Weight for piece-square table evaluation
   move_ordering: true             # Enable move ordering for better performance
   quiescence: true                # Enable quiescence search for tactical positions
   time_limit: 0                   # Time limit for move calculation in milliseconds, 0 for no limit
   engine: viper                   # TODO create optional evaluation engine selection
   personality: default            # TODO create optional ruleset play types: default, simple, aggressive, conservative
   ruleset: evaluation             # TODO create optional choice of evaluation rule settings from below
-  scoring_modifier: 1.0           # TODO create optional overall scoring multiplier/divider
+  scoring_modifier: 1.1           # TODO create optional overall scoring multiplier/divider
 
 black_ai_config:
-  ai_type: random                 # move search type for Black
+  ai_type: random                 # Move search type for Black (see ai_types above for options)
   ai_color: black                 
-  depth: 2
-  dynamic_depth: false
+  depth: 1
   use_solutions: false
   pst: false
   pst_weight: 0.0
@@ -103,7 +102,6 @@ black_ai_config:
 
 # Evaluation Rule settings
 evaluation:
-  # Eval modifiers and score values
   checkmate_bonus: 1000000.0        # Bonus for checkmate threats
   repetition_penalty: -100000.0     # Penalty for threefold repetition
   center_control_bonus: 0.25        # Bonus per center square controlled
@@ -134,7 +132,8 @@ evaluation:
   tempo_bonus: 0.1                  # Bonus for having the right to move
   stacked_rooks_bonus: 0.5          # Bonus for having the rooks on the same file
   coordinated_rooks_bonus: 0.25     # Bonus for having the rooks on the same rank
-  stalemate_penalty: -1000000.0      # Penalty for stalemate situations
+  stalemate_penalty: -1000000.0     # Penalty for stalemate situations
+  draw_penalty: -500000.0           # Penalty for draw situations
   pawn_structure_bonus: 0.1         # TODO Evaluate pawn structure
   enable_king_safety_detailed: true # TODO Detailed king safety evaluation based on game phase
   checkmate_move_bonus: 1000000     # Bonus for finding a checkmate during move ordering scoring

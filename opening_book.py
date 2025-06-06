@@ -238,11 +238,11 @@ class OpeningPrinciples:
             king_square = board.king(color)
 
             # Castled kingside or queenside
-            if (color == chess.WHITE and king_square in [chess.G1, chess.C1]) or                (color == chess.BLACK and king_square in [chess.G8, chess.C8]):
+            if (color == chess.WHITE and king_square in [chess.G1, chess.C1]) or (color == chess.BLACK and king_square in [chess.G8, chess.C8]):
                 score += 30 * sign
 
             # Penalty for lost castling rights if not castled yet
-            if not board.has_castling_rights(color) and                ((color == chess.WHITE and king_square == chess.E1) or                 (color == chess.BLACK and king_square == chess.E8)):
+            if not board.has_castling_rights(color) and ((color == chess.WHITE and king_square == chess.E1) or (color == chess.BLACK and king_square == chess.E8)):
                 score -= 20 * sign
 
         return score

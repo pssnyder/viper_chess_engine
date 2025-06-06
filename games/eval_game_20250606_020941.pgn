@@ -1,0 +1,35 @@
+[Event "AI vs. AI Game"]
+[Site "Local Computer"]
+[Date "2025.06.06"]
+[Round "#"]
+[White "AI: viper via minimax"]
+[Black "AI: None via random"]
+[Result "1/2-1/2"]
+
+1. Nh3 { Eval: 0.16 } 1... e5 { Eval: 2.20 } 2. Nc3 { Eval: 1.35 } 2... Ba3
+{ Eval: 3.00 } 3. bxa3 { Eval: 3.41 } 3... e4 { Eval: 5.14 } 4. Nxe4
+{ Eval: 4.85 } 4... Ke7 { Eval: 13.10 } 5. Nhg5 { Eval: 8.62 } 5... h5
+{ Eval: 14.29 } 6. Bb2 { Eval: 9.50 } 6... Rh7 { Eval: 14.37 } 7. Nxh7
+{ Eval: 13.26 } 7... Ke8 { Eval: 14.91 } 8. Nhg5 { Eval: 13.90 } 8... c5
+{ Eval: 16.18 } 9. Nd6+ { Eval: 14.45 } 9... Ke7 { Eval: 19.40 } 10. Ngxf7
+{ Eval: 16.12 } 10... Nf6 { Eval: 20.28 } 11. Nxd8 { Eval: 22.70 } 11... Ne8
+{ Eval: 28.28 } 12. N6xb7 { Eval: 24.45 } 12... Na6 { Eval: 29.24 } 13. Be5
+{ Eval: 24.45 } 13... h4 { Eval: 29.48 } 14. Bc3 { Eval: 24.45 } 14... Nac7
+{ Eval: 28.92 } 15. Ba5 { Eval: 23.73 } 15... Nf6 { Eval: 28.05 } 16. Bxc7
+{ Eval: 25.90 } 16... Nd5 { Eval: 30.69 } 17. Ba5 { Eval: 25.58 } 17... h3
+{ Eval: 30.45 } 18. Nxc5 { Eval: 27.10 } 18... Nf4 { Eval: 32.12 } 19. g3
+{ Eval: 26.54 } 19... g5 { Eval: 32.20 } 20. gxf4 { Eval: 30.13 } 20... a6
+{ Eval: 35.71 } 21. fxg5 { Eval: 31.57 } 21... d6 { Eval: 35.18 } 22. Bg2
+{ Eval: 32.04 } 22... d5 { Eval: 37.07 } 23. Bxd5 { Eval: 33.55 } 23... Bd7
+{ Eval: 38.35 } 24. Bxa8 { Eval: 37.32 } 24... Ba4 { Eval: 42.43 } 25. Nxa4
+{ Eval: 39.47 } 25... Kd6 { Eval: 44.42 } 26. Nc6 { Eval: 40.10 } 26... Kd5
+{ Eval: 45.05 } 27. Bb7 { Eval: 40.50 } 27... Ke6 { Eval: 45.45 } 28. Bxa6
+{ Eval: 41.30 } 28... Kf7 { Eval: 46.09 } 29. Bd3 { Eval: 41.46 } 29... Kg8
+{ Eval: 46.41 } 30. Bc3 { Eval: 41.69 } 30... Kf8 { Eval: 46.64 } 31. Bg6
+{ Eval: 41.69 } 31... Kg8 { Eval: 46.64 } 32. Nc5 { Eval: 42.41 } 32... Kf8
+{ Eval: 47.36 } 33. Ne4 { Eval: 42.49 } 33... Kg8 { Eval: 47.44 } 34. Bf6
+{ Eval: 42.57 } 34... Kf8 { Eval: 47.52 } 35. Ne5 { Eval: 42.72 } 35... Kg8
+{ Eval: 47.67 } 36. Bf5 { Eval: 42.72 } 36... Kf8 { Eval: 47.67 } 37. Bg6
+{ Eval: 42.72 } 37... Kg8 { Eval: 47.67 } 38. Bf5 { Eval: 42.72 } 38... Kf8
+{ Eval: 47.67 } 1/2-1/2
+

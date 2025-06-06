@@ -11,8 +11,9 @@ import datetime
 import logging
 import logging.handlers
 import threading
+import time
 from evaluation_engine import EvaluationEngine
-from chess_puzzles import ChessPuzzles
+from puzzle_manager import PuzzleManager
 
 # Pygame constants
 WIDTH, HEIGHT = 640, 640
@@ -23,9 +24,32 @@ IMAGES = {}
 
 # Resource path config for distro
 def resource_path(relative_path):
-    if hasattr(sys, '_MEIPASS'):
-        return os.path.join(sys._MEIPASS, relative_path)
+    # Use getattr to avoid attribute error
+    base = getattr(sys, '_MEIPASS', None)
+    if base:
+        return os.path.join(base, relative_path)
     return os.path.join(os.path.abspath("."), relative_path)
+
+# At module level, define a single logger for this file
+chess_game_logger = logging.getLogger("chess_game")
+chess_game_logger.setLevel(logging.DEBUG)
+if not chess_game_logger.handlers:
+    if not os.path.exists('logging'):
+        os.makedirs('logging', exist_ok=True)
+    from logging.handlers import RotatingFileHandler
+    log_file_path = "logging/chess_game.log"
+    file_handler = RotatingFileHandler(
+        log_file_path,
+        maxBytes=10*1024*1024,
+        backupCount=3
+    )
+    formatter = logging.Formatter(
+        '%(asctime)s | %(funcName)-15s | %(message)s',
+        datefmt='%H:%M:%S'
+    )
+    file_handler.setFormatter(formatter)
+    chess_game_logger.addHandler(file_handler)
+    chess_game_logger.propagate = False
 
 class ChessGame:
     def __init__(self, fen_position=None):
@@ -43,6 +67,9 @@ class ChessGame:
         self.human_color_pref = self.config['game_config']['human_color']
         self.watch_mode = self.config['game_config']['watch_mode']
         self.font = pygame.font.SysFont('Arial', 24)
+        self.small_font = pygame.font.SysFont('Arial', 16)
+        self.width = WIDTH  # Ensure width attribute exists
+        self.BLACK = (0, 0, 0)  # Ensure BLACK attribute exists
         
         # Initialize display, if enabled
         if self.watch_mode:
@@ -65,28 +92,34 @@ class ChessGame:
         }
  
         # Initialize AI
-        self.game_count = self.config['game_config']['ai_game_count']
-        self.ai_vs_ai = self.config['game_config']['ai_vs_ai']
-        self.ai_types = self.config['ai_types']
-        self.white_bot_type = self.config['white_ai_config']['ai_type']
-        self.black_bot_type = self.config['black_ai_config']['ai_type']
-        self.white_eval_engine = self.config['white_ai_config']['engine']
-        self.black_eval_engine = self.config['black_ai_config']['engine']
-        self.white_ai_config = self.config['white_ai_config']
-        self.black_ai_config = self.config['black_ai_config']
-            
+        self.game_count = self.config.get('game_config', {}).get('ai_game_count', 0)
+        self.ai_vs_ai = self.config.get('game_config', {}).get('ai_vs_ai', False)
+        self.ai_types = self.config.get('ai_types', [])
+        self.white_bot_type = self.config.get('white_ai_config', {}).get('ai_type', 'default')
+        self.black_bot_type = self.config.get('black_ai_config', {}).get('ai_type', 'default')
+        self.white_eval_engine = self.config.get('white_ai_config', {}).get('engine', 'default')
+        self.black_eval_engine = self.config.get('black_ai_config', {}).get('engine', 'default')
+        self.white_ai_config = self.config.get('white_ai_config', {})
+        self.black_ai_config = self.config.get('black_ai_config', {})
+
         # Initialize puzzle mode
-        self.puzzle_mode = self.config['game_config']['puzzle_mode']
-        self.puzzles = ChessPuzzles()
-        self.puzzles.puzzle_config = self.config.get('puzzle_config', {})
+        self.puzzle_mode = self.config.get('game_config', {}).get('puzzle_mode', False)
+        self.puzzle_manager = PuzzleManager()
+        self.puzzle_manager.puzzle_config = self.config.get('puzzle_config', {})
+        self.puzzle_count = self.puzzle_manager.puzzle_config.get('puzzle_count',0)
+        self.current_puzzle_data = {}
+        self.current_puzzle_fen = None
+        self.current_puzzle_solution = None
+        self.current_puzzle_step = 0
+        self.total_puzzle_steps = 0
         
         # Initialize debug settings
-        self.show_eval = self.config['debug']['show_evaluation']
-        self.logging_enabled = self.config['debug']['enable_logging']
-        self.show_thoughts = self.config['debug']['show_thinking']
-        self.logger = None
+        self.show_eval = self.config.get('debug', {}).get('show_evaluation', False)
+        self.logging_enabled = self.config.get('debug', {}).get('enable_logging', False)
+        self.show_thoughts = self.config.get('debug', {}).get('show_thinking', False)
+        self.logger = chess_game_logger  # Use the module-level logger
         if self.logging_enabled:
-            self.setup_logger()
+            self.logger.info("Chess game logger initialized")
         else:
             self.show_thoughts = False
         
@@ -112,17 +145,26 @@ class ChessGame:
     
     def new_game(self, fen_position=None):
         """Reset the game state for a new game"""
+        # Clear the log file at the start of each new game
+        log_path = "logging/chess_game.log"
+        #try:
+        #    with open(log_path, "w"):
+        #        pass  # Truncate the file
+        #except Exception as e:
+        #    print(f"Could not clear log file: {e}")
+
         self.board = chess.Board(fen=fen_position) if fen_position else chess.Board()
         self.game = chess.pgn.Game()
-        self.game_node = self.game
+        self.game_node = self.game # Initialize new game node
         self.selected_square = None
         self.last_ai_move = None
         self.current_eval = None
-        self.ai_color = None # Will be set in run()
-        self.human_color = None
+        self.ai_color = None 
+        self.human_color = None 
         self.current_player = self.board.turn
-        self.last_ai_move = None # Track AI's last move
-        
+        self.last_ai_move = None # Reset AI's last move
+        self.last_move = None # Reset last move made by any player
+        self.move_history = []  # Reset move history for display
         # Reset AI engines if they exist
         if hasattr(self, 'white_engine') and self.white_engine:
             self.white_engine.reset(self.board)
@@ -134,33 +176,63 @@ class ChessGame:
         
         # Reset move history
         self.move_history = []
-        print("\nStarting new game...")
-    def setup_logger(self):
-        """Setup logger for debugging and evaluation"""
-        if not os.path.exists('logging'):
-            os.makedirs('logging', exist_ok=True)
-            print("Created logging directory")
-        
-        # Create logger 
-        self.logger = logging.getLogger('chess_ai')
-        self.logger.setLevel(logging.DEBUG)
-        self.logger.handlers.clear()
-        
-        if self.show_thoughts:
-            file_handler = logging.handlers.RotatingFileHandler(
-                'logging/chess_game.log', 
-                maxBytes=1000*1024*1024,  # 1GB max
-                backupCount=3
-            )
+        if self.logging_enabled and self.logger:
+            self.logger.info("Starting new game...")
+
+    def new_puzzle(self):
+        """Reset the game state for a new puzzle"""
+        self.current_puzzle_data = None
+        # Set up a new puzzle if puzzles enabled
+        if self.puzzle_mode:
+            # Get a random puzzle from the puzzle engine and check configuration
+            if not hasattr(self, 'puzzle_manager'):
+                self.logger.warning("Puzzle engine not initialized, creating a new one.")
+                self.puzzle_manager = PuzzleManager()
+                self.puzzle_manager.puzzle_config = self.config.get('puzzle_config', {})
+                
+            # Wait for puzzles to finish loading
+            while getattr(self.puzzle_manager, "loading", False):
+                print("Waiting for puzzles to finish loading...")
+                time.sleep(0.1)
+            self.current_puzzle_data = self.puzzle_manager.get_random_puzzle()
             
-            formatter = logging.Formatter(
-                '%(asctime)s | %(funcName)-15s | %(message)s',
-                datefmt='%H:%M:%S'
-            )
-            file_handler.setFormatter(formatter)
-            self.logger.addHandler(file_handler)
-            self.logger.propagate = False
+            # Reset to step 1 of the current puzzle
+            if not self.current_puzzle_data:
+                if self.logging_enabled and self.logger:
+                    self.logger.warning("No puzzles available, starting a new game without puzzles.")
+                self.puzzle_mode = False
+                self.current_puzzle_data = None
+                self.ai_vs_ai = True  # Fallback to AI vs AI if no puzzles
+                return self.new_game()
+            else:
+                self.current_puzzle_step = 1
             
+            # Convert the puzzle text into an array
+            if hasattr(self.current_puzzle_data, 'fen'):
+                # Load the puzzle data
+                self.current_puzzle_fen = self.current_puzzle_data['fen']
+                self.import_fen(self.current_puzzle_fen)
+            else:
+                if self.logging_enabled and self.logger:
+                    self.logger.error("Puzzle data missing FEN string, cannot start puzzle mode.")
+            if hasattr(self.current_puzzle_data, 'solution'):
+                if isinstance(self.current_puzzle_data['solution'], str):
+                    self.current_puzzle_solution = self.current_puzzle_data['solution'].split()
+                    self.total_puzzle_steps = len(self.current_puzzle_solution)
+            else:
+                self.current_puzzle_fen = None
+                self.current_puzzle_solution = []
+                self.total_puzzle_steps = 0
+                self.current_puzzle_data = None
+                self.current_puzzle_step = 0
+                
+                if self.logging_enabled and self.logger:
+                    self.logger.error("Puzzle data missing solution, cannot start puzzle mode.")
+                    
+            
+            if self.logging_enabled and self.logger:
+                self.logger.info("Loaded puzzle: %s | Required moves: %d", self.current_puzzle_fen, self.total_puzzle_steps)
+
     def set_headers(self):
         # Set initial PGN headers
         if self.ai_vs_ai or self.puzzle_mode:
@@ -216,7 +288,7 @@ class ChessGame:
                 print(f"Warning: Could not load image for {piece}")
 
     def draw_board(self):
-        if not self.watch_mode:
+        if not self.watch_mode or self.screen is None:
             return  # Skip drawing in headless mode
         colors = [pygame.Color("#a8a9a8"),pygame.Color("#d8d9d8")]
         for r in range(DIMENSION):
@@ -238,7 +310,7 @@ class ChessGame:
                 )
 
     def draw_pieces(self):
-        if not self.watch_mode:
+        if not self.watch_mode or self.screen is None:
             return  # Skip drawing in headless mode
         # Draw pieces
         for r in range(DIMENSION):
@@ -269,7 +341,7 @@ class ChessGame:
         return f"{color}N" if symbol == 'N' else f"{color}{symbol.lower()}"
 
     def draw_move_hints(self):
-        if not self.watch_mode:
+        if not self.watch_mode or self.screen is None:
             return  # Skip drawing in headless mode
         if self.selected_square:
             # Get all legal moves from selected square
@@ -288,19 +360,21 @@ class ChessGame:
                     )
 
     def draw_move_history(self):
+        if not self.watch_mode or self.screen is None:
+            return
         history_x = self.width - 200
         history_y = 50
-        
+
         history_surface = self.font.render("Move History", True, self.BLACK)
         self.screen.blit(history_surface, (history_x, history_y))
-        
+
         for i, move in enumerate(self.move_history[-10:]):  # Show last 10 moves
             move_text = f"{i+1}. {move}"
             move_surface = self.small_font.render(move_text, True, self.BLACK)
             self.screen.blit(move_surface, (history_x, history_y + 40 + i*20))
-            
+
     def draw_eval(self):
-        if not self.watch_mode:
+        if not self.watch_mode or self.screen is None:
             return  # Skip drawing in headless mode
         if self.current_eval is not None:
             # Display evaluation from current player's perspective
@@ -354,7 +428,7 @@ class ChessGame:
         return (screen_file * SQ_SIZE, screen_rank * SQ_SIZE)
 
     def update_display(self):
-        if not self.watch_mode:
+        if not self.watch_mode or self.screen is None:
             return  # Skip drawing in headless mode
         """Optimized display update"""
         if not hasattr(self, 'display_needs_update'):
@@ -384,7 +458,7 @@ class ChessGame:
         self.display_needs_update = True
 
     def highlight_selected_square(self):
-        if not self.watch_mode:
+        if not self.watch_mode or self.screen is None:
             return  # Skip drawing in headless mode
         if self.selected_square:
             screen_x, screen_y = self.chess_to_screen(self.selected_square)
@@ -394,7 +468,7 @@ class ChessGame:
             self.screen.blit(s, (screen_x, screen_y))
 
     def highlight_last_move(self):
-        if not self.watch_mode:
+        if not self.watch_mode or self.screen is None:
             return  # Skip drawing in headless mode
         """Highlight AI's last move on the board"""
         if self.last_ai_move:
@@ -526,7 +600,10 @@ class ChessGame:
             self.selected_square = None
             
             # Update PGN headers for custom position
-            self.game.headers["Event"] = "Custom Position Game"
+            if self.puzzle_mode:
+                self.game.headers["Event"] = "Puzzle Solving"
+            else:
+                self.game.headers["Event"] = "Custom Position Game"
             self.game.headers["SetUp"] = "1"
             self.game.headers["FEN"] = fen_string
             
@@ -547,12 +624,13 @@ class ChessGame:
         """Process AI move in AI vs AI mode or human vs AI mode"""
         # Allow AI to play both sides in AI vs AI mode
         current_color = "white" if self.board.turn == chess.WHITE else "black"
+        self.current_player = self.board.turn
         if not self.ai_vs_ai and self.board.turn != self.ai_color:
             return  # Only check AI color in human vs AI mode
         try:
             ai_move = self.ai_move()
             if ai_move and self.push_move(ai_move):
-                self.last_ai_move = ai_move.to_square if isinstance(ai_move, chess.Move) else chess.Move.from_uci(ai_move).to_square
+                self.last_ai_move = ai_move if ai_move else None
             else:
                 # Fallback to random legal move
                 print(f"AI falling back on random legal move, {ai_move} invalid!")
@@ -565,16 +643,81 @@ class ChessGame:
                 print(f"AI ({current_color}) plays: {ai_move} (Eval: {self.current_eval:.2f})")
             else:
                 print(f"AI ({current_color}) plays: {ai_move}")
+            if self.logging_enabled and self.logger:
+                self.logger.info("AI (%s) played: %s (Eval: %.2f)", current_color, ai_move, self.current_eval)
         except Exception as e:
             print(f"AI move error: {e}")
-            self.quick_save_pgn("logging/error_dump.pgn")
+            #self.quick_save_pgn("games/game_error_dump.pgn")
 
     def process_puzzle_move(self):
-        """ Process move in puzzle mode """
-        pass
-    
+        """Process AI puzzle guess in puzzle mode"""
+        # Only AI side solves, opponent moves are played from solution
+        try:
+            # Ensure puzzle solution is a list of moves
+            if isinstance(self.current_puzzle_solution, str):
+                self.current_puzzle_solution = self.current_puzzle_solution.split()
+            # Defensive: skip if no moves
+            if not self.current_puzzle_solution or self.total_puzzle_steps == 0:
+                return
+
+            # If puzzle is already complete, do nothing
+            if self.current_puzzle_step >= self.total_puzzle_steps:
+                return
+
+            # AI's turn to solve
+            expected_move_uci = self.current_puzzle_solution[self.current_puzzle_step]
+            ai_move = self.ai_move()
+            if ai_move and isinstance(ai_move, chess.Move) and ai_move.uci() == expected_move_uci:
+                self.push_move(ai_move)
+                self.last_ai_move = ai_move
+                if self.logging_enabled and self.logger:
+                    self.logger.info(f"Puzzle step {self.current_puzzle_step+1} correct: {ai_move.uci()} | FEN: {self.board.fen()}")
+                self.current_puzzle_step += 1
+                # Play opponent's move from solution if available
+                if self.current_puzzle_step < self.total_puzzle_steps:
+                    opponent_move_uci = self.current_puzzle_solution[self.current_puzzle_step]
+                    opponent_move = chess.Move.from_uci(opponent_move_uci)
+                    self.push_move(opponent_move)
+                    self.current_puzzle_step += 1
+                # Check if puzzle is solved
+                if self.current_puzzle_step >= self.total_puzzle_steps:
+                    if self.logging_enabled and self.logger:
+                        self.logger.info("Puzzle solved! | Solution: %s | FEN: %s", self.current_puzzle_solution, self.board.fen())
+                    # Only call mark_puzzle_solved if FEN is a string
+                    if isinstance(self.current_puzzle_fen, str):
+                        self.puzzle_manager.mark_puzzle_solved(self.current_puzzle_fen)
+                    timestamp = datetime.datetime.now().strftime("%Y%m%d_%H%M%S")
+                    filename = f"games/puzzle_solved_{timestamp}.pgn"
+                    self.quick_save_pgn(filename)
+                    # Load next puzzle if needed
+                    if self.puzzle_count > 1:
+                        self.puzzle_count -= 1
+                        self.new_puzzle()
+            else:
+                # AI failed to find the correct move
+                if self.logging_enabled and self.logger:
+                    ai_move_uci = ai_move.uci() if isinstance(ai_move, chess.Move) else str(ai_move)
+                    self.logger.warning(
+                        f"Puzzle step {self.current_puzzle_step+1} incorrect: AI played {ai_move_uci}, expected {expected_move_uci} | FEN: {self.board.fen()}"
+                    )
+                    self.logger.error(
+                        f"Puzzle failed: FEN={self.current_puzzle_fen}, Solution={self.current_puzzle_solution}, Step={self.current_puzzle_step+1}, AI move={ai_move_uci}"
+                    )
+                timestamp = datetime.datetime.now().strftime("%Y%m%d_%H%M%S")
+                fail_filename = f"games/puzzle_failed_{timestamp}.pgn"
+                self.quick_save_pgn(fail_filename)
+                # Load next puzzle if needed
+                if self.puzzle_count > 1:
+                    self.puzzle_count -= 1
+                    self.new_puzzle()
+        except Exception as e:
+            if self.logger:
+                self.logger.error("AI move error: %s", e)
+            self.quick_save_pgn("games/puzzle_error_dump.pgn")
+
     def process_ai_move_threaded(self):
         """Start AI move calculation in a background thread (watch_mode only)."""
+        self.current_player = self.board.turn
         if self.ai_busy or self.board.is_game_over() or not self.screen_ready:
             return
         self.ai_busy = True
@@ -599,13 +742,20 @@ class ChessGame:
         if self.ai_move_result is not None and not self.ai_busy:
             move = self.ai_move_result
             if move and self.push_move(move):
-                self.last_ai_move = move.to_square if isinstance(move, chess.Move) else chess.Move.from_uci(move).to_square
+                # Only assign last_ai_move if move is a chess.Move
+                if isinstance(move, chess.Move):
+                    self.last_ai_move = move.to_square
+                else:
+                    try:
+                        self.last_ai_move = chess.Move.from_uci(move).to_square
+                    except Exception:
+                        self.last_ai_move = None
             self.move_end_time = pygame.time.get_ticks()
             self.move_duration = self.move_end_time - self.move_start_time
-            if self.show_thoughts and self.logger:
-                self.logger.info(f"AI move took {self.move_duration} ms")
+            if self.logging_enabled and self.logger:
+                self.logger.info("AI move took %d ms", self.move_duration)
             self.ai_move_result = None
-            
+
     def push_move(self, move):
         """ Test and push a move to the board and game node """
         if not self.board.is_valid():
@@ -622,11 +772,12 @@ class ChessGame:
             self.board.push(move)
             self.current_player = self.board.turn
             self.record_evaluation()
-            self.quick_save_pgn("logging/active_game.pgn")
-            self.mark_display_dirty()
+            self.quick_save_pgn("games/active_game.pgn")
+            if self.watch_mode:
+                self.mark_display_dirty()
             return True
         except ValueError:
-            self.quick_save_pgn("logging/error_dump.pgn")
+            #self.quick_save_pgn("games/game_error_dump.pgn")
             return False
         
     # =============================================
@@ -669,7 +820,7 @@ class ChessGame:
                 return
                 
             # CASE 2B: Clicking on another piece of the same color - SWITCH SELECTION
-            if piece and piece.color == self.human_color and self.board.turn == self.human_color:
+            if piece and hasattr(piece, "color") and piece.color == self.human_color and self.board.turn == self.human_color:
                 self.selected_square = square
                 print(f"Switched selection to piece at {chess.square_name(square)}")
                 return
@@ -678,8 +829,10 @@ class ChessGame:
             move = chess.Move(self.selected_square, square)
             
             # Check for pawn promotion
-            if (self.board.piece_at(self.selected_square) and
-                self.board.piece_at(self.selected_square).piece_type == chess.PAWN):
+            piece_at_selected = self.board.piece_at(self.selected_square)
+            if (piece_at_selected is not None and
+                hasattr(piece_at_selected, "piece_type") and
+                piece_at_selected.piece_type == chess.PAWN):
                 target_rank = chess.square_rank(square)
                 if (target_rank == 7 and self.board.turn == chess.WHITE) or \
                    (target_rank == 0 and self.board.turn == chess.BLACK):
@@ -692,7 +845,7 @@ class ChessGame:
                 self.board.push(move)
                 self.selected_square = None  # Clear selection after successful move
                 self.record_evaluation()
-                self.quick_save_pgn("logging/active_game.pgn")
+                self.quick_save_pgn("games/active_game.pgn")
                 self.mark_display_dirty()  # <-- Ensure display updates after human move
                 
             # CASE 2C2: Invalid move - deselect and provide feedback
@@ -727,9 +880,8 @@ class ChessGame:
             chosen_move = self.white_engine.search(self.board, current_player, ai_config)
         elif self.board.turn == chess.BLACK:
             chosen_move = self.black_engine.search(self.board, current_player, ai_config)
-        else:  # move is random
-            legal_moves = list(self.board.legal_moves)
-            chosen_move = random.choice(legal_moves) if legal_moves else None
+        else:  # Invalid turn
+            self.logger.error(f"Invalid turn detected: {self.board.turn}")
         
         # Store the last AI move
         self.last_ai_move = chosen_move if chosen_move else None
@@ -742,12 +894,12 @@ class ChessGame:
         running = True
         clock = pygame.time.Clock()
         game_count = self.game_count
+        puzzle_count = self.puzzle_count
         # Initialize game mode
         if self.puzzle_mode:
             # Puzzle mode - load puzzles and start
             print("Starting puzzle mode...")
-            self.puzzles.load_puzzles()
-            
+
         elif self.ai_vs_ai:
             # AI vs AI mode - no human interaction
             print("Starting AI vs AI mode...")
@@ -759,9 +911,10 @@ class ChessGame:
         self.white_engine = EvaluationEngine(self.board, chess.WHITE)
         self.black_engine = EvaluationEngine(self.board, chess.BLACK)
 
-        while running and game_count >= 1:
-            # print(f"Running game loop: {game_count}")
-            # print(f"AI Busy: {self.ai_busy}, Screen Ready: {self.screen_ready}, Game Over: {self.board.is_game_over()}")
+        while running and ((self.ai_vs_ai and game_count >= 1) or (self.puzzle_mode and self.puzzle_count >= 1)):
+            if self.logging_enabled and self.logger:
+                self.logger.info(f"Running chess {'puzzle' if self.puzzle_mode else 'game'} loop: {puzzle_count if self.puzzle_mode else game_count} remaining")
+                self.logger.info(f"AI Busy: {self.ai_busy}, Screen Ready: {self.screen_ready}, Game Over: {self.board.is_game_over()}")
             move_start_time = pygame.time.get_ticks()
             move_end_time = 0
             move_duration = 0
@@ -779,22 +932,26 @@ class ChessGame:
                     # Only start AI move if not busy and screen is ready
                     if not self.ai_busy and self.screen_ready and not self.board.is_game_over() and self.board.is_valid():
                         self.process_ai_move_threaded()
-                elif self.puzzle_mode:
-                    if not self.board.is_game_over() and self.board.is_valid():
+                elif event.type == pygame.USEREVENT and self.puzzle_mode and self.watch_mode:
+                    # In puzzle mode, process AI move if not busy and screen is ready
+                    if not self.ai_busy and self.screen_ready and not self.board.is_game_over() and self.board.is_valid():
                         self.process_puzzle_move()
 
             # In headless AI vs AI mode, call process_ai_move() directly
             if self.ai_vs_ai and not self.watch_mode:
                 if not self.board.is_game_over() and self.board.is_valid():
                     self.process_ai_move()
+            if self.puzzle_mode and not self.watch_mode:
+                if not self.board.is_game_over() and self.board.is_valid():
+                    self.process_puzzle_move()
 
             # In watch mode, apply AI move result if ready (on main thread)
             if self.watch_mode and self.ai_move_result is not None and not self.ai_busy:
                 self.apply_ai_move_result()
                 move_end_time = pygame.time.get_ticks()
                 move_duration = move_end_time - move_start_time
-                if self.show_thoughts and self.logger:
-                    self.logger.info(f"AI move took {move_duration} ms")
+                if self.logging_enabled and self.logger:
+                    self.logger.info("AI move took %d ms", move_duration)
 
             if self.watch_mode:
                 # Update the display if in watch mode
@@ -802,17 +959,27 @@ class ChessGame:
 
             # Check game end conditions
             if self.handle_game_end():
-                game_count -= 1
-                if game_count == 0:
+                if self.ai_vs_ai:
+                    game_count -= 1
+                elif self.puzzle_mode:
+                    puzzle_count -= 1
+                if game_count == 0 or puzzle_count == 0:
                     running = False
                     pygame.quit()
-                    if self.game_count > 1:
+                    if self.ai_vs_ai and self.game_count > 1 and self.game_count != game_count:
                         print(f'All {self.game_count} games complete, exiting...')
-                    else:
-                        print('Game complete, exiting...')
-                else:
+                    elif self.ai_vs_ai and self.game_count != game_count:
+                        print('Game complete')
+                    elif self.puzzle_mode and self.puzzle_count > 1 and self.puzzle_count != puzzle_count:
+                        print(f'All {self.puzzle_count} puzzles complete, exiting...')
+                    elif self.puzzle_mode and self.puzzle_count != puzzle_count:
+                        print('Puzzle complete')
+                elif self.ai_vs_ai and self.game_count != game_count:
                     print(f'Game {self.game_count - game_count}/{self.game_count} complete...')
                     self.new_game()
+                elif self.puzzle_mode and self.puzzle_count != puzzle_count:
+                    print(f'Puzzle {self.puzzle_count - puzzle_count}/{self.puzzle_count} complete...')
+                    self.new_puzzle()
             else:
                 clock.tick(MAX_FPS)
 

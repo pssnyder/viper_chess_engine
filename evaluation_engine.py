@@ -1,27 +1,65 @@
 # evaluation_engine.py
-#  This module implements the EvaluationEngine class, which is responsible for evaluating chess positions and making decisions based on various algorithms.
-# Evaluator Name: Viper 1.0 Beta
 
+""" Viper Evaluation Engine
+This module implements the evaluation engine for the Viper chess AI.
+It provides various search algorithms, evaluation functions, and move ordering
+"""
 import chess
 import yaml
 import random
 import logging
-import logging.handlers
+import os
 from piece_square_tables import PieceSquareTables
 from typing import Optional, Callable, Dict, Any
 from time_manager import TimeManager
-from chess_puzzles import ChessPuzzles
+from opening_book import OpeningBook
+from puzzle_manager import PuzzleManager
+from collections import OrderedDict
+
+# At module level, define a single logger for this file
+evaluation_logger = logging.getLogger("evaluation_engine")
+evaluation_logger.setLevel(logging.DEBUG)
+if not evaluation_logger.handlers:
+    if not os.path.exists('logging'):
+        os.makedirs('logging', exist_ok=True)
+    from logging.handlers import RotatingFileHandler
+    log_file_path = "logging/evaluation_engine.log"
+    file_handler = RotatingFileHandler(
+        log_file_path,
+        maxBytes=10*1024*1024,
+        backupCount=3
+    )
+    formatter = logging.Formatter(
+        '%(asctime)s | %(funcName)-15s | %(message)s',
+        datefmt='%H:%M:%S'
+    )
+    file_handler.setFormatter(formatter)
+    evaluation_logger.addHandler(file_handler)
+    evaluation_logger.propagate = False
+
+class LimitedSizeDict(OrderedDict):
+    def __init__(self, *args, maxlen=100000, **kwargs):
+        self.maxlen = maxlen
+        super().__init__(*args, **kwargs)
+    def __setitem__(self, key, value):
+        if key in self:
+            self.move_to_end(key)
+        super().__setitem__(key, value)
+        if len(self) > self.maxlen:
+            oldest = next(iter(self))
+            del self[oldest]
 
 class EvaluationEngine:
     def __init__(self, board, player, ai_config=None):
         self.board = board
         self.current_player = player
         self.time_manager = TimeManager()
-        self.puzzles = ChessPuzzles()
+        self.opening_book = OpeningBook()
+        self.puzzle_manager = PuzzleManager()
 
         # Variable init
         self.nodes_searched = 0
-        self.transposition_table = {}
+        self.transposition_table = LimitedSizeDict(maxlen=100000)  # Limit size to avoid memory leak
         self.killer_moves = [[None, None] for _ in range(50)]
         self.history_table = {}
         self.counter_moves = {}
@@ -55,9 +93,9 @@ class EvaluationEngine:
         # Enable logging
         self.logging_enabled = self.config['debug']['enable_logging']
         self.show_thoughts = self.config['debug']['show_thinking']
-        self.logger = None
+        self.logger = evaluation_logger  # Use the module-level logger
         if self.logging_enabled:
-            self.setup_logger()
+            self.logger.debug("Logging enabled for Evaluation Engine")
         else:
             self.show_thoughts = False
 
@@ -91,7 +129,6 @@ class EvaluationEngine:
             'ai_color': player_color,
             'depth': self.config[f'{player_color}_ai_config']['depth'],
             'max_depth': self.config['performance']['max_depth'],
-            'dynamic_depth_enabled': self.config[f'{player_color}_ai_config']['dynamic_depth'],
             'solutions_enabled': self.config[f'{player_color}_ai_config']['use_solutions'],
             'pst_enabled': self.config[f'{player_color}_ai_config']['pst'],
             'pst_weight': self.config[f'{player_color}_ai_config']['pst_weight'],
@@ -116,10 +153,10 @@ class EvaluationEngine:
         self.ai_color = self.ai_config.get('ai_color', 'white')
         self.depth = self.ai_config.get('depth', 1)
         self.max_depth = self.ai_config.get('max_depth', 2)
+        self.solutions_enabled = self.ai_config.get('solutions_enabled', False)
         self.move_ordering_enabled = self.ai_config.get('move_ordering_enabled', False)
         self.quiescence_enabled = self.ai_config.get('quiescence_enabled', False)
         self.move_time_limit = self.ai_config.get('move_time_limit', 0)
-        self.time_control = self.ai_config['infinite'] = True
         self.pst_enabled = self.ai_config.get('pst_enabled', False)
         self.pst_weight = self.ai_config.get('pst_weight', 1.0)
         self.engine = self.ai_config.get('engine','viper')
@@ -154,10 +191,11 @@ class EvaluationEngine:
         
         # Reconfigure for the current player
         self.configure_for_side(self.ai_config)
+    
     # =================================
     # ===== MOVE SEARCH HANDLER =======
 
-    def search(self, board: chess.Board, player: chess.Color, ai_config: dict = None):
+    def search(self, board: chess.Board, player: chess.Color, ai_config: dict = {}):
         """Searches for the best valid move using the AI's configured algorithm.
         NOTE: This engine instance is already configured for its color. Only update board state.
         """
@@ -177,8 +215,8 @@ class EvaluationEngine:
             self.logger.debug(f"== EVALUATION (Player: {'White' if player == chess.WHITE else 'Black'}) == | AI Type: {ai_config['ai_type']} | Depth: {ai_config['depth']} ==")
 
         # Check if the position is already in our solution knowledge base
-        if self.puzzles and self.puzzles.positional_solutions:
-            solution = self.puzzles.find_puzzle_solution(self.board.fen())
+        if self.solutions_enabled and self.puzzle_manager and self.puzzle_manager.positional_solutions:
+            solution = self.puzzle_manager.find_puzzle_solution(self.board.fen())
             if solution:
                 best_move = solution[0]
                 if self.show_thoughts and self.logger:
@@ -188,13 +226,16 @@ class EvaluationEngine:
         # AI Search Type Selection
         if self.ai_type == 'deepsearch':
             # Use deep search with time control
-            best_move = self._deepsearch(self.board.copy(), self.depth, self.time_control, -float('inf'), float('inf'), stop_callback=self.time_manager.should_stop)
+            best_move = self._deepsearch(self.board.copy(), self.depth, self.time_control, stop_callback=self.time_manager.should_stop)
         elif self.ai_type == 'minimax':
             # Use minimax algorithm with alpha-beta pruning
-            best_move = self._minimax(self.board.copy(), self.depth, -float('inf'), float('inf'), self.player, stop_callback=self.time_manager.should_stop)
+            best_move = self._minimax(self.board.copy(), self.depth, -float('inf'), float('inf'), self.current_player == chess.WHITE, stop_callback=self.time_manager.should_stop)
         elif self.ai_type == 'negamax':
             # Use negamax algorithm with alpha-beta pruning
             best_move = self._negamax(self.board.copy(), self.depth, -float('inf'), float('inf'), stop_callback=self.time_manager.should_stop)
+        elif self.ai_type == 'negascout':
+            # Use negascout algorithm with alpha-beta pruning
+            best_move = self._negascout(self.board.copy(), self.depth, -float('inf'), float('inf'), stop_callback=self.time_manager.should_stop)
         elif self.ai_type == 'lookahead':
             # Use lookahead search with static depth
             best_move = self._lookahead_search(self.board.copy(), self.depth, -float('inf'), float('inf'), stop_callback=self.time_manager.should_stop)
@@ -204,12 +245,6 @@ class EvaluationEngine:
         elif self.ai_type == 'evaluation_only':
             # Use evaluation only with no special features (no depth, no quiescence, no move ordering)
             best_move = self._evaluation_only()
-        elif self.ai_type == 'positional_solutions':
-            # Use positional solutions only if available
-            best_move = self.puzzles.find_puzzle_solution(self.board.fen())[0]
-            if best_move is None:
-                # If the position can't be found then fall back to random search
-                best_move = self._random_search()
         elif self.ai_type == 'random':
             # Select a random move from the available moves
             best_move = self._random_search()
@@ -254,19 +289,19 @@ class EvaluationEngine:
         score = 0.0
         board = self.board.copy()
         if move not in board.legal_moves:  # Add validation check
-            return self.ai_config.get('checkmate_bonus') * -1000
+            return -9999999999 # never play illegal moves
         board.push(move)
         score = self.evaluate_position(board)
-        # Debug output
-        #if self.show_thoughts:
-        #    self.logger.debug(f"Exploring the move: {move} | Evaluation: {score:.3f} | FEN: {board.fen()}")
+        if self.show_thoughts and self.logger:
+            self.logger.debug("Exploring the move: %s | Evaluation: %.3f | FEN: %s", move, score, board.fen())
         board.pop()
         return score if score is not None else 0.0
 
     # ===================================
     # ======= HELPER FUNCTIONS ==========
     
-    def order_moves(self, board: chess.Board, moves: list[chess.Move], hash_move=None, depth: int = 0):
+    
+    def order_moves(self, board: chess.Board, moves: list[chess.Move], hash_move: Optional[chess.Move] = None, depth: int = 0):
         """
         Order moves for better alpha-beta pruning efficiency
 
@@ -281,9 +316,8 @@ class EvaluationEngine:
         """
         # Store move scores for later sorting
         move_scores = []
-
-        moves = [m for m in moves if m in board.legal_moves]
-        
+        if moves is None or len(moves) == 0:
+            moves =  list(board.legal_moves)  # Ensure we have legal moves to work with
         for move in moves:
             # Checks and Mates
             if move not in board.legal_moves :  # Add validation check
@@ -294,7 +328,7 @@ class EvaluationEngine:
                 board.pop()
                 return [move for move in moves if move in board.legal_moves]
             # Calculate score for move
-            score = self._order_move_score(board.copy(), move, hash_move, depth)
+            score = self._order_move_score(board, move, hash_move, depth)
             if score is None:
                 score = 0.0
             move_scores.append((move, score))
@@ -303,13 +337,13 @@ class EvaluationEngine:
         # Sort moves by score in descending order
         move_scores.sort(key=lambda x: x[1], reverse=True)
         
-        if self.show_thoughts and self.logger:
+        if self.logging_enabled and self.logger:
             self.logger.debug(f"Ordered moves at depth {depth}: {[f'{move} ({score:.2f})' for move, score in move_scores]}")
         
         # Return just the moves, not the scores
         return [move for move, _ in move_scores]
 
-    def _order_move_score(self, board: chess.Board, move: chess.Move, hash_move: chess.Move, depth: int):
+    def _order_move_score(self, board: chess.Board, move: chess.Move, hash_move: Optional[chess.Move], depth: int):
         """Score a move for ordering"""
         # Base score
         score = 0.0
@@ -379,50 +413,7 @@ class EvaluationEngine:
 
         return score if score is not None else 0.0
     
-    def _get_dynamic_search_depth(self, board: chess.Board, depth: int, stop_callback: Callable[[], bool] = None):
-        """Search to a dynamically selected depth"""
-        alpha = float('-inf')
-        beta = float('inf')
-        best_move = None
-        best_score = float('-inf')
-        move = None
-        score = 0.0
-        # Get list of available moves
-        moves = list(board.legal_moves)
-        # Ordering of legal moves for faster pruning
-        if self.move_ordering_enabled:
-            moves = self.order_moves(board.copy(), moves)
-
-        for move in moves:
-            if stop_callback and stop_callback():
-                break
-            if self.time_manager.should_stop(depth, self.nodes_searched):
-                break
-            board.push(move)
-            self.nodes_searched += 1
-            # Search the position after this move
-            score = -self._negamax(board, depth - 1, -beta, -alpha, stop_callback)
-            
-            # TODO Thread minimax and negamax searches together in parallel and either choose first available move returned or if the first score returned is not above a specified increase in evail (eval increases at least +0.1) then wait for the other search to return
-            # If the search returns None, fallback to basic lookup search 
-            
-            #if self.show_thoughts:
-            #    self.logger.debug(f"Exploring the move: {move} at a depth of {depth} | Evaluation: {score:.3f} a: {alpha} b: {beta} | FEN: {board.fen()}")
-            board.pop()
-            if score > best_score:
-                best_score = score
-                best_move = move
-                alpha = max(alpha, score)
-
-                # Update killer moves
-                if depth < len(self.killer_moves):
-                    if self.killer_moves[depth][0] != move:
-                        self.killer_moves[depth][1] = self.killer_moves[depth][0]
-                        self.killer_moves[depth][0] = move
-                                   
-        return best_move if best_move else None, best_score
-    
-    def _quiescence_search(self, board: chess.Board, alpha: float, beta: float, depth: int = 0, stop_callback: Callable[[], bool] = None):
+    def _quiescence_search(self, board: chess.Board, alpha: float, beta: float, depth: int = 0, stop_callback: Optional[Callable[[], bool]] = None):
         """
         Quiescence search to avoid horizon effect.
         Returns an evaluation score.
@@ -435,7 +426,6 @@ class EvaluationEngine:
 
         stand_pat = self.evaluate_position_from_perspective(board, board.turn)
         if stand_pat >= beta:
-            self.update_killer_move(m, depth)
             return beta
         if stand_pat > alpha:
             alpha = stand_pat
@@ -443,9 +433,9 @@ class EvaluationEngine:
         # Only search captures and checks in quiescence
         captures = [m for m in board.legal_moves if board.is_capture(m) or board.gives_check(m)]
         # Order captures by MVV-LVA
-        captures.sort(key=lambda m: self._mvv_lva_score(board, m), reverse=True)
+        captures.sort(key=lambda m: self.mvv_lva_score(board, m), reverse=True)
         if self.move_ordering_enabled:
-            captures = self.order_moves(board.copy(), captures)
+            captures = self.order_moves(board, captures)
 
         for m in captures:
             if stop_callback and stop_callback():
@@ -465,7 +455,7 @@ class EvaluationEngine:
             if score > alpha:
                 alpha = score
         
-        if self.show_thoughts and self.logger:
+        if self.logging_enabled and self.logger:
             self.logger.debug(f"Quiescence search at depth {depth} | Alpha: {alpha} Beta: {beta} | Nodes searched: {self.nodes_searched}")
         
         return alpha
@@ -505,12 +495,11 @@ class EvaluationEngine:
 
     def update_killer_move(self, move, depth):
         """Update killer move table with a move that caused a beta cutoff"""
-        if depth not in self.killer_moves:
-            self.killer_moves[depth] = [move]
-        elif move not in self.killer_moves[depth]:
-            self.killer_moves[depth].insert(0, move)
-            # Keep only the best 2 killer moves per depth
-            self.killer_moves[depth] = self.killer_moves[depth][:2]
+        if depth >= len(self.killer_moves):
+            return
+        if move not in self.killer_moves[depth]:
+            self.killer_moves[depth][1] = self.killer_moves[depth][0]
+            self.killer_moves[depth][0] = move
 
     def update_history_score(self, board, move, depth):
         """Update history heuristic score for a move that caused a beta cutoff"""
@@ -527,27 +516,6 @@ class EvaluationEngine:
         if last_move:
             counter_key = (last_move.from_square, last_move.to_square)
             self.counter_moves[counter_key] = current_move
-
-    def setup_logger(self):
-        """Setup file logging for AI thoughts"""
-        self.logger = logging.getLogger('chess_ai')
-        self.logger.setLevel(logging.DEBUG)
-        self.logger.handlers.clear()
-        
-        if self.show_thoughts:
-            file_handler = logging.handlers.RotatingFileHandler(
-                'logging/evaluation_engine.log', 
-                maxBytes=1000*1024*1024,  # 1GB max
-                backupCount=3
-            )
-            
-            formatter = logging.Formatter(
-                '%(asctime)s | %(funcName)-15s | %(message)s',
-                datefmt='%H:%M:%S'
-            )
-            file_handler.setFormatter(formatter)
-            self.logger.addHandler(file_handler)
-            self.logger.propagate = False
 
     # =======================================
     # ======= MAIN SEARCH ALGORITHMS ========
@@ -574,7 +542,7 @@ class EvaluationEngine:
             return None
         moves = list(board.legal_moves)
         if self.move_ordering_enabled:
-            moves = self.order_moves(board.copy(), moves)
+            moves = self.order_moves(board, moves)
         for move in moves:
             board.push(move)
             score = self.evaluate_position_from_perspective(board, board.turn)
@@ -593,9 +561,8 @@ class EvaluationEngine:
             self.logger.debug(f"Strongly considering: {best_move} | Best score: {best_score:.3f} | FEN: {board.fen()}")
         return best_move
 
-    def _lookahead_search(self, board: chess.Board, depth: int, alpha: float, beta: float, stop_callback: Callable[[], bool] = None):
-        """Lookahead function to evaluate position at a given depth, returns best move"""
-        if stop_callback and stop_callback():
+    def _lookahead_search(self, board: chess.Board, depth: int, alpha: float, beta: float, stop_callback: Optional[Callable[[], bool]] = None):
+        if stop_callback is not None and stop_callback():
             return None
         if depth == 0 or board.is_game_over(claim_draw=True):
             if self.quiescence_enabled:
@@ -604,9 +571,10 @@ class EvaluationEngine:
                 return self.evaluate_position_from_perspective(board, board.turn)
         moves = list(board.legal_moves)
         if self.move_ordering_enabled:
-            moves = self.order_moves(board.copy(), moves)
+            moves = self.order_moves(board, moves)
         best_move = None
         best_score = -float('inf') if board.turn == chess.WHITE else float('inf')
+        best_move_board = None  # Track the board for logging
         for move in moves:
             new_board = board.copy()
             new_board.push(move)
@@ -615,7 +583,8 @@ class EvaluationEngine:
                     score = self.evaluate_position_from_perspective(new_board, board.turn)
                 else:
                     next_move = self._lookahead_search(new_board, depth - 1, alpha, beta, stop_callback)
-                    if next_move is not None:
+                    # Only push if next_move is a chess.Move
+                    if isinstance(next_move, chess.Move):
                         new_board.push(next_move)
                     score = self.evaluate_position_from_perspective(new_board, board.turn)
             except Exception as e:
@@ -626,29 +595,35 @@ class EvaluationEngine:
                 if score > best_score:
                     best_score = score
                     best_move = move
+                    best_move_board = new_board.copy()
             else:
                 if score < best_score:
                     best_score = score
                     best_move = move
+                    best_move_board = new_board.copy()
             if self.show_thoughts and self.logger:
                 self.logger.debug(f"Evaluating move: {move} | Score: {score:.3f} | Depth: {self.depth - depth} | Best score: {best_score:.3f} | FEN: {new_board.fen()}")
         if self.show_thoughts and self.logger:
-            self.logger.debug(f"Strongly considering: {best_move} | Best score: {best_score:.3f} | FEN: {new_board.fen()}")
+            # Use best_move_board if available, else board
+            fen_to_log = best_move_board.fen() if best_move_board else board.fen()
+            self.logger.debug(f"Strongly considering: {best_move} | Best score: {best_score:.3f} | FEN: {fen_to_log}")
         return best_move
 
-    def _minimax(self, board: chess.Board, depth: int, alpha: float, beta: float, maximizing_player: bool, stop_callback: Callable[[], bool] = None):
-        """Minimax that properly handles perspectives and returns best move at root"""
-        if stop_callback and stop_callback():
+    def _minimax(self, board: chess.Board, depth: int, alpha: float, beta: float, maximizing_player: bool, stop_callback: Optional[Callable[[], bool]] = None):
+        # Add base case to prevent infinite recursion
+        if stop_callback is not None and stop_callback():
             return None
         if depth == 0 or board.is_game_over():
+            # Use quiescence search if enabled, otherwise static evaluation
             if self.quiescence_enabled:
                 return self._quiescence_search(board, alpha, beta, depth, stop_callback)
             else:
                 return self.evaluate_position_from_perspective(board, board.turn)
         moves = list(board.legal_moves)
         if self.move_ordering_enabled:
-            moves = self.order_moves(board.copy(), moves)
+            moves = self.order_moves(board, moves)
         best_move = None
+        best_move_board = None  # Track the board for logging
         if maximizing_player:
             best_score = -float('inf')
             for move in moves:
@@ -664,12 +639,16 @@ class EvaluationEngine:
                         score = result
                     elif result is None:
                         score = self.evaluate_position_from_perspective(new_board, board.turn)
-                    else:
+                    elif isinstance(result, chess.Move):
+                        # Only push if result is a Move
                         new_board.push(result)
+                        score = self.evaluate_position_from_perspective(new_board, board.turn)
+                    else:
                         score = self.evaluate_position_from_perspective(new_board, board.turn)
                 if score > best_score:
                     best_score = score
                     best_move = move
+                    best_move_board = new_board.copy()
                 alpha = max(alpha, score)
                 if beta <= alpha:
                     self.update_killer_move(move, depth)
@@ -677,7 +656,8 @@ class EvaluationEngine:
                 if self.show_thoughts and self.logger:
                     self.logger.debug(f"Evaluating move: {move} | Score: {score:.3f} | Depth: {self.depth - depth} | Best score: {best_score:.3f} | FEN: {new_board.fen()}")
             if self.show_thoughts and self.logger:
-                self.logger.debug(f"Strongly considering: {best_move} | Best score: {best_score:.3f} | FEN: {new_board.fen()}")
+                fen_to_log = best_move_board.fen() if best_move_board else board.fen()
+                self.logger.debug(f"Strongly considering: {best_move} | Best score: {best_score:.3f} | FEN: {fen_to_log}")
             if depth == self.depth:
                 return best_move
             else:
@@ -697,12 +677,15 @@ class EvaluationEngine:
                         score = result
                     elif result is None:
                         score = self.evaluate_position_from_perspective(new_board, board.turn)
-                    else:
+                    elif isinstance(result, chess.Move):
                         new_board.push(result)
+                        score = self.evaluate_position_from_perspective(new_board, board.turn)
+                    else:
                         score = self.evaluate_position_from_perspective(new_board, board.turn)
                 if score < best_score:
                     best_score = score
                     best_move = move
+                    best_move_board = new_board.copy()
                 
                 beta = min(beta, score)
                 if beta <= alpha:
@@ -710,15 +693,15 @@ class EvaluationEngine:
                 if self.show_thoughts and self.logger:
                     self.logger.debug(f"Evaluating move tree for: {move} | Score: {score:.3f} | Best score: {best_score:.3f} | FEN: {new_board.fen()}")
             if self.show_thoughts and self.logger:
-                self.logger.debug(f"Strongly considering: {best_move} | Best score: {best_score:.3f} | FEN: {new_board.fen()}")
+                fen_to_log = best_move_board.fen() if best_move_board else board.fen()
+                self.logger.debug(f"Strongly considering: {best_move} | Best score: {best_score:.3f} | FEN: {fen_to_log}")
             if depth == self.depth:
                 return best_move
             else:
                 return best_score
 
-    def _negamax(self, board: chess.Board, depth: int, alpha: float, beta: float, stop_callback: Callable[[], bool] = None):
-        """Negamax search with alpha-beta pruning, returns best move at root"""
-        if stop_callback and stop_callback():
+    def _negamax(self, board: chess.Board, depth: int, alpha: float, beta: float, stop_callback: Optional[Callable[[], bool]] = None):
+        if stop_callback is not None and stop_callback():
             return None
         if self.time_manager.should_stop(depth, self.nodes_searched):
             return None
@@ -730,9 +713,10 @@ class EvaluationEngine:
                 return self.evaluate_position_from_perspective(board, board.turn)
         moves = list(board.legal_moves)
         if self.move_ordering_enabled:
-            moves = self.order_moves(board.copy(), moves)
+            moves = self.order_moves(board, moves)
         best_move = None
         best_score = -float('inf')
+        best_move_board = None
         for move in moves:
             board.push(move)
             if board.is_checkmate():
@@ -742,18 +726,12 @@ class EvaluationEngine:
             else:
                 # For negamax, recursively call and negate the result
                 result = self._negamax(board, depth-1, -beta, -alpha, stop_callback)
-                if isinstance(result, (int, float)):
-                    score = -result
-                elif result is None:
-                    score = self.evaluate_position_from_perspective(board, board.turn)
-                else:
-                    board.push(result)
-                    score = -self.evaluate_position_from_perspective(board, not board.turn)
-                    board.pop()
+                score = -result if isinstance(result, (int, float)) else 0.0
             board.pop()
             if score > best_score:
                 best_score = score
                 best_move = move
+                best_move_board = board.copy()
             alpha = max(alpha, score)
             if alpha >= beta:
                 break
@@ -761,13 +739,68 @@ class EvaluationEngine:
                 self.logger.debug(f"Evaluating move: {move} | Score: {score:.3f} | Depth: {self.depth - depth} | Best score: {best_score:.3f} | FEN: {board.fen()}")
         # If at root, return best move; otherwise, return best_score
         if self.show_thoughts and self.logger:
-            self.logger.debug(f"Strongly considering: {best_move} | Best score: {best_score:.3f} | FEN: {board.fen()}")
+            fen_to_log = best_move_board.fen() if best_move_board else board.fen()
+            self.logger.debug(f"Strongly considering: {best_move} | Best score: {best_score:.3f} | FEN: {fen_to_log}")
         if depth == self.depth:
             return best_move
         else:
             return best_score
 
-    def _deepsearch(self, board: chess.Board, depth: int, time_control: Dict[str, Any], stop_callback: Callable[[], bool] = None):
+    def _negascout(self, board: chess.Board, depth: int, alpha: float, beta: float, stop_callback: Optional[Callable[[], bool]] = None):
+        if stop_callback is not None and stop_callback():
+            return None
+        if self.time_manager.should_stop(depth, self.nodes_searched):
+            return None
+        if depth == 0 or board.is_game_over():
+            if self.quiescence_enabled:
+                return self._quiescence_search(board, alpha, beta, depth, stop_callback)
+            else:
+                return self.evaluate_position_from_perspective(board, board.turn)
+        moves = list(board.legal_moves)
+        if self.move_ordering_enabled:
+            moves = self.order_moves(board, moves)
+        best_move = None
+        best_score = -float('inf')
+        best_move_board = None
+        first = True
+        for move in moves:
+            board.push(move)
+            if board.is_checkmate():
+                score = self.config['evaluation']['checkmate_bonus'] - (self.depth - depth)
+            elif board.is_stalemate() or board.is_insufficient_material():
+                score = 0.0
+            else:
+                if first:
+                    result = self._negascout(board, depth-1, -beta, -alpha, stop_callback)
+                    score = -result if isinstance(result, (int, float)) else 0.0
+                else:
+                    result = self._negascout(board, depth-1, -alpha-1, -alpha, stop_callback)
+                    score = -result if isinstance(result, (int, float)) else 0.0
+                    # If score is in the window, do a full re-search
+                    if alpha < score < beta:
+                        result = self._negascout(board, depth-1, -beta, -score, stop_callback)
+                        score = -result if isinstance(result, (int, float)) else 0.0
+            board.pop()
+            if score > best_score:
+                best_score = score
+                best_move = move
+                best_move_board = board.copy()
+            if score > alpha:
+                alpha = score
+            if alpha >= beta:
+                break
+            first = False
+            if self.show_thoughts and self.logger:
+                self.logger.debug(f"Negascout move: {move} | Score: {score:.3f} | Depth: {self.depth - depth} | Best: {best_score:.3f} | FEN: {board.fen()}")
+        if self.show_thoughts and self.logger:
+            fen_to_log = best_move_board.fen() if best_move_board else board.fen()
+            self.logger.debug(f"Negascout considering: {best_move} | Best score: {best_score:.3f} | FEN: {fen_to_log}")
+        if depth == self.depth:
+            return best_move
+        else:
+            return best_score
+    
+    def _deepsearch(self, board: chess.Board, depth: int, time_control: Dict[str, Any], stop_callback: Optional[Callable[[], bool]] = None):
         """Perform a search with iterative deepening to find the best move at a given depth with time control."""
         self.nodes_searched = 0
         legal_moves = list(board.legal_moves)
@@ -782,15 +815,15 @@ class EvaluationEngine:
         best_score = -float('inf')
         try:
             for d in range(1, max_depth + 1):
-                if stop_callback and stop_callback():
+                if stop_callback is not None and stop_callback():
                     break
                 if self.time_manager.should_stop(d, self.nodes_searched):
                     break
                 move, score = self._get_dynamic_search_depth(board, d, stop_callback)
-                if move is not None and (best_move is None or score > best_score):
+                if move is not None and (best_move is None or (isinstance(score, (int, float)) and score > best_score)):
                     best_move = move
                     best_score = score
-                if abs(score) > 9000:
+                if isinstance(score, (int, float)) and abs(score) > 9000:
                     break
                 if self.show_thoughts and self.logger:
                     self.logger.debug(f"Evaluating move: {move} | Score: {score:.3f} | Depth: {d} | Best score: {best_score:.3f} | FEN: {board.fen()}")
@@ -801,38 +834,70 @@ class EvaluationEngine:
             self.logger.debug(f"Strongly considering: {best_move} | Best score: {best_score:.3f} | FEN: {board.fen()}")
         return best_move
 
+    def _get_dynamic_search_depth(self, board: chess.Board, depth: int, stop_callback: Optional[Callable[[], bool]] = None):
+        """Perform a search at a specific depth with dynamic evaluation."""
+        if stop_callback is not None and stop_callback():
+            return None, 0.0
+        if self.time_manager.should_stop(depth, self.nodes_searched):
+            return None, 0.0
+        
+        # Get the best move from transposition table if available
+        hash_move = self.get_transposition_move(board, depth)
+        if hash_move:
+            if self.show_thoughts and self.logger:
+                self.logger.debug(f"Using transposition move: {hash_move} at depth {depth}")
+            return hash_move, self.evaluate_position_from_perspective(board, board.turn)
+
+        # Determine the search depth dynamically
+        dynamic_depth = self._get_dynamic_depth(board, depth)
+        if dynamic_depth is None:
+            return None, 0.0
+
+        # Start a thread for each search type, storing their results for evaluation and selection for best move
+        # For now, just return None, 0.0 as a stub
+        return None, 0.0
+
+    def _get_dynamic_depth(self, board: chess.Board, depth: int) -> int:
+        """Stub for dynamic depth calculation. Returns the input depth."""
+        # You can implement more advanced logic here if needed.
+        return depth
+
     # ==================================
     # ====== RULE SCORING HANDLER ======
     
     def _calculate_score(self, board, color):
         """IMPROVED scoring with piece-square tables"""
         score = 0.0
-        
-        # Update the evaluator with the provided before scoring
+
+        # Update the evaluator with the provided board and color before scoring
         self.board = board
         self.current_player = color
-        
-        # Rules included in scoring
-        score += self.score_modifier * (self._checkmate_threats(board) or 0.0)
+
+        # Get piece-square table weight from ai_config or config
         pst_weight = self.ai_config.get('pst_weight', self.config.get('white_ai_config', {}).get('pst_weight', 1.0) if color == chess.WHITE else self.config.get('black_ai_config', {}).get('pst_weight', 1.0))
-        score += self.score_modifier * pst_weight * (self._piece_square_table_evaluation(color) or 0.0)
-        score += self.score_modifier * (self._improved_mobility(board, color) or 0.0)
-        #score += self.score_modifier * (self._tempo_bonus(board, color) or 0.0)
-        score += self.score_modifier * (self._repeating_positions(board) or 0.0)
-        #material_weight = self.config['evaluation'].get('material_weight', 1.0)
-        #score += self.score_modifier * material_weight * (self._material_score(board, color) or 0.0)
-        score += self.score_modifier * (self._center_control(board) or 0.0)
-        #score += self.score_modifier * (self._piece_activity(board, color) or 0.0)
-        score += self.score_modifier * (self._king_safety(board, color) or 0.0)
-        #score += self.score_modifier * (self._king_threat(board) or 0.0)
-        #score += self.score_modifier * (self._undeveloped_pieces(board, color) or 0.0)
-        #score += self.score_modifier * (self._special_moves(board) or 0.0)
-        #score += self.score_modifier * (self._tactical_evaluation(board) or 0.0)
-        #score += self.score_modifier * (self._castling_evaluation(board, color) or 0.0)
-        #score += self.score_modifier * (self._passed_pawns(board) or 0.0)
-        #score += self.score_modifier * (self._knight_pair(board) or 0.0)
-        #score += self.score_modifier * (self._bishop_vision(board) or 0.0)
-        #score += self.score_modifier * (self._rook_coordination(board, color) or 0.0)
+        
+        # Get material weight from ai_config or config
+        material_weight = self.config['evaluation'].get('material_weight', 1.0)
+
+        # Rules included in scoring
+        score += self.scoring_modifier * (self._checkmate_threats(board) or 0.0)
+        score += self.scoring_modifier * pst_weight * (self._piece_square_table_evaluation(color) or 0.0)
+        #score += self.scoring_modifier * (self._improved_mobility(board, color) or 0.0)
+        #score += self.scoring_modifier * (self._tempo_bonus(board, color) or 0.0)
+        score += self.scoring_modifier * (self._draw_scenarios(board) or 0.0)
+        score += self.scoring_modifier * material_weight * (self._material_score(board, color) or 0.0)
+        #score += self.scoring_modifier * (self._center_control(board) or 0.0)
+        #score += self.scoring_modifier * (self._piece_activity(board, color) or 0.0)
+        score += self.scoring_modifier * (self._king_safety(board, color) or 0.0)
+        score += self.scoring_modifier * (self._king_threat(board) or 0.0)
+        #score += self.scoring_modifier * (self._undeveloped_pieces(board, color) or 0.0)
+        #score += self.scoring_modifier * (self._special_moves(board) or 0.0)
+        #score += self.scoring_modifier * (self._tactical_evaluation(board) or 0.0)
+        score += self.scoring_modifier * (self._castling_evaluation(board, color) or 0.0)
+        #score += self.scoring_modifier * (self._passed_pawns(board) or 0.0)
+        #score += self.scoring_modifier * (self._knight_pair(board) or 0.0)
+        #score += self.scoring_modifier * (self._bishop_vision(board) or 0.0)
+        #score += self.scoring_modifier * (self._rook_coordination(board, color) or 0.0)
 
         return score
     
@@ -848,11 +913,11 @@ class EvaluationEngine:
                 break
             board.pop()
         return score
-
-    def _repeating_positions(self, board):
+    
+    def _draw_scenarios(self, board):
         score = 0.0
-        if board.is_repetition(count=2):
-            score += self.config['evaluation']['repetition_penalty']
+        if board.is_stalemate() or board.is_insufficient_material() or board.is_fivefold_repetition() or board.is_repetition(count=2):
+            score += self.config['evaluation']['draw_penalty']
         return score
 
     def _material_score(self, board, color):
@@ -864,7 +929,8 @@ class EvaluationEngine:
     
     def _piece_square_table_evaluation(self, color):
         pst_score = 0.0
-
+        if not self.pst:
+            return 0.0
         for square in chess.SQUARES:
             piece = self.board.piece_at(square)
             if piece and piece.color == color:
@@ -1099,17 +1165,18 @@ class EvaluationEngine:
                 if board.piece_at(sq) == chess.Piece(chess.ROOK, color)]
         
         # Check all unique rook pairs
-        for i in range(len(rooks)):
-            for j in range(i+1, len(rooks)):
-                sq1, sq2 = rooks[i], rooks[j]
-                
-                # Same file bonus (15 centipawns)
-                if chess.square_file(sq1) == chess.square_file(sq2):
-                    score += self.config['evaluation']['stacked_rooks_bonus']
+        if rooks:  # Ensure rooks is not None
+            for i in range(len(rooks)):
+                for j in range(i+1, len(rooks)):
+                    sq1, sq2 = rooks[i], rooks[j]
                     
-                # Same rank bonus (10 centipawns)
-                if chess.square_rank(sq1) == chess.square_rank(sq2):
-                    score += self.config['evaluation']['coordinated_rooks_bonus']
+                    # Same file bonus (15 centipawns)
+                    if chess.square_file(sq1) == chess.square_file(sq2):
+                        score += self.config['evaluation']['stacked_rooks_bonus']
+                        
+                    # Same rank bonus (10 centipawns)
+                    if chess.square_rank(sq1) == chess.square_rank(sq2):
+                        score += self.config['evaluation']['coordinated_rooks_bonus']
         
         return score
     
@@ -1118,6 +1185,23 @@ class EvaluationEngine:
         if board.is_stalemate():
             return self.config['evaluation']['stalemate_penalty']
         return 0.0
+    
+    # ================================
+    # ======= DEBUG AND TESTING =======""
+    
+    def debug_evaluate_position(self, fen_position):
+        """Debugging function to evaluate a position given in FEN"""
+        try:
+            board = chess.Board(fen_position)
+            return self.evaluate_position(board)
+        except Exception as e:
+            if self.logger:
+                self.logger.debug(f"Error in debug_evaluate_position: {e}")
+            return None
+
+    def debug_order_moves(self, fen_position, moves):
+        """Debugging function to order moves in a given position"""        # Run an evaluation on a sample position
+
     
 # Example usage and testing
 if __name__ == "__main__":

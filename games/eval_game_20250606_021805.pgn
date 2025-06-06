@@ -1,0 +1,25 @@
+[Event "AI vs. AI Game"]
+[Site "Local Computer"]
+[Date "2025.06.06"]
+[Round "#"]
+[White "AI: viper via minimax"]
+[Black "AI: None via random"]
+[Result "1-0"]
+
+1. Nh3 { Eval: 0.16 } 1... c5 { Eval: 0.79 } 2. Ng5 { Eval: 1.27 } 2... Nc6
+{ Eval: 0.48 } 3. Nxf7 { Eval: 2.15 } 3... c4 { Eval: 3.96 } 4. Nxd8
+{ Eval: 9.67 } 4... d5 { Eval: 13.37 } 5. Nf7 { Eval: 10.54 } 5... a6
+{ Eval: 14.48 } 6. Nxh8 { Eval: 14.78 } 6... b6 { Eval: 18.72 } 7. Nf7
+{ Eval: 16.21 } 7... Bd7 { Eval: 19.35 } 8. Nc3 { Eval: 16.84 } 8... Bc8
+{ Eval: 20.30 } 9. Nxd5 { Eval: 18.44 } 9... Nb8 { Eval: 22.53 } 10. Nxb6
+{ Eval: 20.03 } 10... h6 { Eval: 23.96 } 11. Nxa8 { Eval: 27.49 } 11... Nc6
+{ Eval: 30.00 } 12. Nb6 { Eval: 27.57 } 12... Nf6 { Eval: 30.08 } 13. Nxc8
+{ Eval: 28.93 } 13... a5 { Eval: 32.30 } 14. Nxh6 { Eval: 29.57 } 14... Nd4
+{ Eval: 32.71 } 15. Ng8 { Eval: 29.57 } 15... Nd5 { Eval: 32.71 } 16. Ngxe7
+{ Eval: 31.48 } 16... Nc7 { Eval: 36.74 } 17. c3 { Eval: 31.32 } 17... Nde6
+{ Eval: 36.35 } 18. Nf5 { Eval: 31.56 } 18... Nd8 { Eval: 37.22 } 19. Qa4+
+{ Eval: 32.27 } 19... Nb5 { Eval: 37.14 } 20. Qxb5+ { Eval: 34.99 } 20... Nc6
+{ Eval: 39.31 } 21. Qxc6+ { Eval: 37.23 } 21... Kd8 { Eval: 42.18 } 22. d3
+{ Eval: 36.92 } 22... Bd6 { Eval: 39.90 } 23. Ncxd6 { Eval: 40.33 } 23... cxd3
+{ Eval: 1100038.58 } 1-0
+

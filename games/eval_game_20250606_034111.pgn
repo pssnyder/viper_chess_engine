@@ -1,0 +1,20 @@
+[Event "AI vs. AI Game"]
+[Site "Local Computer"]
+[Date "2025.06.06"]
+[Round "#"]
+[White "AI: viper via minimax"]
+[Black "AI: None via random"]
+[Result "1-0"]
+
+1. Nh3 { Eval: 0.14 } 1... Nh6 { Eval: 0.00 } 2. Ng5 { Eval: 0.43 } 2... c5
+{ Eval: 1.01 } 3. Nc3 { Eval: 1.73 } 3... e6 { Eval: 3.52 } 4. Nxe6
+{ Eval: 3.46 } 4... a5 { Eval: 5.61 } 5. Nxd8 { Eval: 10.59 } 5... Bd6
+{ Eval: 11.80 } 6. Ne4 { Eval: 10.45 } 6... b6 { Eval: 12.52 } 7. Nxd6+
+{ Eval: 13.70 } 7... Kf8 { Eval: 18.05 } 8. N8xf7 { Eval: 18.50 } 8... a4
+{ Eval: 21.58 } 9. Nxh8 { Eval: 21.86 } 9... c4 { Eval: 25.00 } 10. Nxc8
+{ Eval: 23.81 } 10... Na6 { Eval: 26.66 } 11. Nxb6 { Eval: 25.11 } 11... Rc8
+{ Eval: 28.11 } 12. Nxc8 { Eval: 28.61 } 12... a3 { Eval: 31.54 } 13. bxa3
+{ Eval: 28.83 } 13... Ng4 { Eval: 31.40 } 14. e3 { Eval: 28.11 } 14... Nc7
+{ Eval: 29.18 } 15. Qxg4 { Eval: 30.15 } 15... Nb5 { Eval: 31.58 } 16. Qxd7
+{ Eval: 31.60 } 16... Na7 { Eval: 1000032.18 } 1-0
+

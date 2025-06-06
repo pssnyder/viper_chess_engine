@@ -83,7 +83,7 @@ white_ai_config:
   engine: viper                   # TODO create optional evaluation engine selection
   personality: default            # TODO create optional ruleset play types: default, simple, aggressive, conservative
   ruleset: evaluation             # TODO create optional choice of evaluation rule settings from below
-  scoring_modifier: 1.1           # TODO create optional overall scoring multiplier/divider
+  scoring_modifier: 1.0           # TODO create optional overall scoring multiplier/divider
 
 black_ai_config:
   ai_type: random                 # Move search type for Black (see ai_types above for options)

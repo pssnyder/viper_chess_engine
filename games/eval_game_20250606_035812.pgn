@@ -4,7 +4,7 @@
 [Round "#"]
 [White "AI: viper via minimax"]
 [Black "AI: None via random"]
-[Result "*"]
+[Result "1-0"]
 
 1. Nh3 { Eval: 0.14 } 1... h6 { Eval: 0.72 } 2. Nf4 { Eval: 1.37 } 2... b5
 { Eval: 2.02 } 3. Nc3 { Eval: 2.74 } 3... Ba6 { Eval: 2.74 } 4. Nd3
@@ -16,5 +16,5 @@
 { Eval: 27.25 } 12. Nxc7+ { Eval: 25.48 } 12... Kd7 { Eval: 29.98 } 13. Nxb5
 { Eval: 26.35 } 13... Ke6 { Eval: 30.85 } 14. Nd8+ { Eval: 24.28 } 14... Kd5
 { Eval: 30.28 } 15. Nc7+ { Eval: 25.78 } 15... Ke4 { Eval: 30.13 } 16. d4
-{ Eval: 25.27 } 16... h5 { Eval: 1000025.49 } *
+{ Eval: 25.27 } 16... h5 { Eval: 1000025.49 } 1-0
 

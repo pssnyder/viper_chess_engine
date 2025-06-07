@@ -118,6 +118,9 @@ class EvaluationEngine:
                 print(f"Warning: Could not initialize PST: {e}")
                 self.pst = None
 
+        # Strict draw prevention setting
+        self.strict_draw_prevention = self.config.get('game_config', {}).get('strict_draw_prevention', False)
+
     # =================================
     # ==== EVALUATOR CONFIGURATION ====   
     
@@ -270,6 +273,8 @@ class EvaluationEngine:
         if best_move:
             if isinstance(best_move, chess.Move) or best_move is None:
                 self.update_transposition_table(self.board, self.depth, best_move, self.evaluate_position(self.board))
+        # Enforce strict draw prevention before returning
+        best_move = self._enforce_strict_draw_prevention(self.board, best_move if isinstance(best_move, chess.Move) or best_move is None else None)
         return best_move if best_move else None
     
     # =================================
@@ -302,13 +307,14 @@ class EvaluationEngine:
         except Exception as e:
             return 0.0  # Fallback to neutral score
     
-    def evaluate_move(self, move: chess.Move):
+    def evaluate_move(self, move: chess.Move = chess.Move.null()):
         """Quick evaluation of individual move on overall eval"""
         score = 0.0
         board = self.board.copy()
         if move not in board.legal_moves:  # Add validation check
             return -9999999999 # never play illegal moves
-        board.push(move)
+        if move is not None:
+            board.push(move)
         score = self.evaluate_position(board)
         if self.show_thoughts and self.logger:
             self.logger.debug("Exploring the move: %s | Evaluation: %.3f | FEN: %s", move, score, board.fen())
@@ -411,9 +417,9 @@ class EvaluationEngine:
         if board.is_checkmate():
             board.pop()
             return self.config.get('evaluation', {}).get('checkmate_move_bonus', 1000000.0) * 1000.0
-        
+
         if board.is_check():
-            score += float(self.config['evaluation']['check_move_bonus'])
+            score += float(self.config.get(self.ruleset, {}).get('check_move_bonus', 500.0))
 
         # Add move data to history table
         self.update_history_score(board, move, depth)
@@ -448,7 +454,7 @@ class EvaluationEngine:
                 continue
             board.push(m)
             if board.is_checkmate():
-                score = self.config['evaluation']['checkmate_bonus']
+                score = self.config.get(self.ruleset, {}).get('checkmate_bonus', 1000000.0)
             else:
                 self.nodes_searched += 1
                 score = -self._quiescence_search(board, -beta, -alpha, depth + 1, stop_callback)
@@ -521,15 +527,45 @@ class EvaluationEngine:
             counter_key = (last_move.from_square, last_move.to_square)
             self.counter_moves[counter_key] = current_move
 
+    def _enforce_strict_draw_prevention(self, board: chess.Board, move: Optional[chess.Move]):
+        """Enforce strict draw prevention rules to block moves that would lead to stalemate, insufficient material, or threefold repetition."""
+        if not self.strict_draw_prevention or move is None:
+            return move
+        temp_board = board.copy()
+        temp_board.push(move)
+        if temp_board.is_stalemate() or temp_board.is_insufficient_material() or temp_board.is_fivefold_repetition() or temp_board.is_repetition(count=3):
+            if self.show_thoughts and self.logger:
+                self.logger.debug(f"Potential drawing move detected, enforcing strict draw prevention: {move} | FEN: {temp_board.fen()}")
+            # Try to find a non-drawing move
+            legal_moves = list(board.legal_moves)
+            non_draw_moves = []
+            for m in legal_moves:
+                temp = board.copy()
+                temp.push(m)
+                if not (temp.is_stalemate() or temp.is_insufficient_material() or temp.is_fivefold_repetition() or temp.is_repetition(count=3)):
+                    non_draw_moves.append(m)
+            if non_draw_moves:
+                chosen = random.choice(non_draw_moves)
+                if self.logger:
+                    self.logger.info(f"Strict draw prevention: Move {move} would result in a draw, replaced with {chosen}")
+                return chosen
+            else:
+                if self.logger:
+                    self.logger.info(f"Strict draw prevention: All moves result in draw, playing {move}")
+                return move
+        return move
+
     # =======================================
     # ======= MAIN SEARCH ALGORITHMS ========
     
     def _random_search(self):
         legal_moves = list(self.board.legal_moves)
+        move = random.choice(legal_moves) if legal_moves else None
+        move = self._enforce_strict_draw_prevention(self.board, move)
         if self.show_thoughts and self.logger:
             self.logger.debug(f"Random search: {len(legal_moves)} legal moves available.")
-        return random.choice(legal_moves) if legal_moves else None
-    
+        return move
+
     def _evaluation_only(self): 
         """Evaluate the current position without searching"""
         evaluation = self.evaluate_position(self.board)
@@ -568,6 +604,8 @@ class EvaluationEngine:
                 best_move = move
             if self.show_thoughts and self.logger:
                 self.logger.debug(f"Strongly considering: {best_move} | Best score: {best_score:.3f} | FEN: {board.fen()}")
+        # Enforce strict draw prevention before returning best_move:
+        best_move = self._enforce_strict_draw_prevention(self.board, best_move)
         return best_move
 
     def _lookahead_search(self, board: chess.Board, depth: int, alpha: float, beta: float, stop_callback: Optional[Callable[[], bool]] = None):
@@ -616,6 +654,8 @@ class EvaluationEngine:
             # Use best_move_board if available, else board
             fen_to_log = best_move_board.fen() if best_move_board else board.fen()
             self.logger.debug(f"Strongly considering: {best_move} | Best score: {best_score:.3f} | FEN: {fen_to_log}")
+        # Enforce strict draw prevention before returning best_move:
+        best_move = self._enforce_strict_draw_prevention(board, best_move)
         return best_move
 
     def _minimax(self, board: chess.Board, depth: int, alpha: float, beta: float, maximizing_player: bool, stop_callback: Optional[Callable[[], bool]] = None):
@@ -639,7 +679,7 @@ class EvaluationEngine:
                 new_board = board.copy()
                 new_board.push(move)
                 if new_board.is_checkmate():
-                    score = self.config['evaluation']['checkmate_bonus'] - (self.depth - depth)
+                    score = self.config.get(self.ruleset, {}).get('checkmate_bonus', 1000000.0) - (self.depth - depth)
                 elif new_board.is_stalemate() or new_board.is_insufficient_material():
                     score = 0.0
                 else:
@@ -677,7 +717,7 @@ class EvaluationEngine:
                 new_board = board.copy()
                 new_board.push(move)
                 if new_board.is_checkmate():
-                    score = -self.config['evaluation']['checkmate_bonus'] + (self.depth - depth)
+                    score = -self.config.get(self.ruleset, {}).get('checkmate_bonus', 1000000.0) + (self.depth - depth)
                 elif new_board.is_stalemate() or new_board.is_insufficient_material():
                     score = 0.0
                 else:
@@ -729,7 +769,7 @@ class EvaluationEngine:
         for move in moves:
             board.push(move)
             if board.is_checkmate():
-                score = self.config['evaluation']['checkmate_bonus'] - (self.depth - depth)
+                score = self.config.get(self.ruleset, {}).get('checkmate_bonus', 1000000.0) - (self.depth - depth)
             elif board.is_stalemate() or board.is_insufficient_material():
                 score = 0.0
             else:
@@ -775,7 +815,7 @@ class EvaluationEngine:
         for move in moves:
             board.push(move)
             if board.is_checkmate():
-                score = self.config['evaluation']['checkmate_bonus'] - (self.depth - depth)
+                score = self.config.get(self.ruleset, {}).get('checkmate_bonus', 1000000.0) - (self.depth - depth)
             elif board.is_stalemate() or board.is_insufficient_material():
                 score = 0.0
             else:
@@ -988,7 +1028,7 @@ class EvaluationEngine:
         for move in board.legal_moves:
             board.push(move)
             if board.is_checkmate():
-                score += self.config['evaluation']['checkmate_bonus']
+                score += self.config.get(self.ruleset, {}).get('checkmate_bonus', 0)
                 break
             board.pop()
         return score
@@ -996,7 +1036,7 @@ class EvaluationEngine:
     def _draw_scenarios(self, board):
         score = 0.0
         if board.is_stalemate() or board.is_insufficient_material() or board.is_fivefold_repetition() or board.is_repetition(count=2):
-            score += self.config['evaluation']['draw_penalty']
+            score += self.config.get(self.ruleset, {}).get('draw_penalty', 0)
         return score
 
     def _material_score(self, board, color):
@@ -1033,21 +1073,21 @@ class EvaluationEngine:
             for target in board.attacks(square):
                 if not self._is_attacked_by_pawn(board, target, not color):
                     safe_moves += 1
-            score += safe_moves * self.config['evaluation']['knight_activity_bonus']
+            score += safe_moves * self.config.get(self.ruleset, {}).get('knight_activity_bonus', 0.0)
 
         for square in board.pieces(chess.BISHOP, color):
             safe_moves = 0
             for target in board.attacks(square):
                 if not self._is_attacked_by_pawn(board, target, not color):
                     safe_moves += 1
-            score += safe_moves * self.config['evaluation']['bishop_activity_bonus']
+            score += safe_moves * self.config.get(self.ruleset, {}).get('bishop_activity_bonus', 0.0)
 
         return score
 
     def _tempo_bonus(self, board, color):
         """If it's the player's turn and the game is still ongoing, give a small tempo bonus"""
         if not board.is_game_over() and board.turn == color:
-            return self.config['evaluation']['tempo_bonus']  # Small tempo bonus
+            return self.config.get(self.ruleset, {}).get('tempo_bonus', 0.0)  # Small tempo bonus
         return 0.0
 
     def _is_attacked_by_pawn(self, board, square, by_color):
@@ -1072,7 +1112,7 @@ class EvaluationEngine:
         center = [chess.D4, chess.D5, chess.E4, chess.E5]
         for square in center:
             if board.piece_at(square) and board.piece_at(square).color == board.turn:
-                score += self.config['evaluation']['center_control_bonus']
+                score += self.config.get(self.ruleset, {}).get('center_control_bonus', 0.0)
         return score
 
     def _piece_activity(self, board, color):
@@ -1080,10 +1120,10 @@ class EvaluationEngine:
         score = 0.0
 
         for square in board.pieces(chess.KNIGHT, color):
-            score += len(board.attacks(square)) * self.config['evaluation']['knight_activity_bonus']
+            score += len(board.attacks(square)) * self.config.get(self.ruleset, {}).get('knight_activity_bonus', 0.0)
 
         for square in board.pieces(chess.BISHOP, color):
-            score += len(board.attacks(square)) * self.config['evaluation']['bishop_activity_bonus']
+            score += len(board.attacks(square)) * self.config.get(self.ruleset, {}).get('bishop_activity_bonus', 0.0)
 
         return score
 
@@ -1104,7 +1144,7 @@ class EvaluationEngine:
             if shield in chess.SQUARES:
                 piece = board.piece_at(shield)
                 if piece and piece.piece_type == chess.PAWN and piece.color == color:
-                    score += self.config['evaluation']['king_safety_bonus']
+                    score += self.config.get(self.ruleset, {}).get('king_safety_bonus', 0.0)
 
         return score
 
@@ -1116,7 +1156,7 @@ class EvaluationEngine:
         score = 0.0
         # Check if the opponent's king is in check in the current position
         if board.is_check():
-            score += self.config['evaluation']['king_threat_penalty']
+            score += self.config.get(self.ruleset, {}).get('king_threat_penalty', 0.0)
         return score
 
     def _undeveloped_pieces(self, board, color):
@@ -1134,7 +1174,7 @@ class EvaluationEngine:
                 undeveloped += 1
 
         if undeveloped > 0 and board.has_castling_rights(color):
-            score = undeveloped * self.config['evaluation']['undeveloped_penalty']
+            score = undeveloped * self.config.get(self.ruleset, {}).get('undeveloped_penalty', 0.0)
 
         return score
 
@@ -1145,7 +1185,7 @@ class EvaluationEngine:
         # Count legal moves for each piece type
         for piece_type in [chess.PAWN, chess.KNIGHT, chess.BISHOP, chess.ROOK, chess.QUEEN]:
             for square in board.pieces(piece_type, color):
-                score += len(board.attacks(square)) * self.config['evaluation']['piece_mobility_bonus']
+                score += len(board.attacks(square)) * self.config.get(self.ruleset, {}).get('piece_mobility_bonus', 0.0)
 
         return score
     
@@ -1155,12 +1195,12 @@ class EvaluationEngine:
         
         # En passant
         if board.ep_square:
-            score += self.config['evaluation']['en_passant_bonus']
+            score += self.config.get(self.ruleset, {}).get('en_passant_bonus', 0.0)
         
         # Promotion opportunities
         for move in board.legal_moves:
             if move.promotion:
-                score += self.config['evaluation']['pawn_promotion_bonus']
+                score += self.config.get(self.ruleset, {}).get('pawn_promotion_bonus', 0.0)
         
         return score
 
@@ -1171,13 +1211,13 @@ class EvaluationEngine:
         # Captures
         for move in board.legal_moves:
             if board.is_capture(move):
-                score += self.config['evaluation']['capture_bonus']
+                score += self.config.get(self.ruleset, {}).get('capture_bonus', 0.0)
         
         # Checks
         for move in board.legal_moves:
             board.push(move)
             if board.is_check():
-                score += self.config['evaluation']['check_bonus']
+                score += self.config.get(self.ruleset, {}).get('check_bonus', 0.0)
             board.pop()
         
         return score
@@ -1186,7 +1226,7 @@ class EvaluationEngine:
         """Evaluate castling rights and opportunities"""
         score = 0.0
         if board.has_castling_rights(color):
-            score += self.config['evaluation']['castling_protection_bonus']
+            score += self.config.get(self.ruleset, {}).get('castling_protection_bonus', 0.0)
         
         return score
 
@@ -1202,7 +1242,7 @@ class EvaluationEngine:
                     target_piece = board.piece_at(target)
                     # If the attacked square is occupied by a friendly piece, count as coordination
                     if target_piece and target_piece.color == color:
-                        score += self.config['evaluation']['piece_coordination_bonus']
+                        score += self.config.get(self.ruleset, {}).get('piece_coordination_bonus', 0.0)
         return score
     
     def _pawn_structure(self, board, color):
@@ -1214,19 +1254,23 @@ class EvaluationEngine:
             file = chess.square_file(square)
             rank = chess.square_rank(square)
             if board.piece_at(chess.square(file, rank + 1)) and board.piece_at(chess.square(file, rank + 1)).piece_type == chess.PAWN:
-                score -= self.config['evaluation']['doubled_pawn_penalty']
+                score -= self.config.get(self.ruleset, {}).get('doubled_pawn_penalty', 0.0)
         
         # Count isolated pawns
         for square in board.pieces(chess.PAWN, color):
             file = chess.square_file(square)
-            if not (board.piece_at(chess.square(file - 1, chess.square_rank(square))) or board.piece_at(chess.square(file + 1, chess.square_rank(square)))):
-                score -= self.config['evaluation']['isolated_pawn_penalty']
+            left = file - 1
+            right = file + 1
+            has_left = left >= 0 and any(board.piece_at(chess.square(left, r)) and board.piece_at(chess.square(left, r)).piece_type == chess.PAWN and board.piece_at(chess.square(left, r)).color == color for r in range(8))
+            has_right = right < 8 and any(board.piece_at(chess.square(right, r)) and board.piece_at(chess.square(right, r)).piece_type == chess.PAWN and board.piece_at(chess.square(right, r)).color == color for r in range(8))
+            if not has_left and not has_right:
+                score -= self.config.get(self.ruleset, {}).get('isolated_pawn_penalty', 0.0)
         
         if score > 0:
-            score += self.config['evaluation']['pawn_structure_bonus']
+            score += self.config.get(self.ruleset, {}).get('pawn_structure_bonus', 0.0)
 
         return score
-    
+
     def _pawn_weaknesses(self, board, color):
         """Evaluate pawn weaknesses"""
         score = 0.0
@@ -1236,10 +1280,10 @@ class EvaluationEngine:
             file = chess.square_file(square)
             rank = chess.square_rank(square)
             if rank < 7 and not board.piece_at(chess.square(file, rank + 1)):
-                score -= self.config['evaluation']['backward_pawn_penalty']
+                score -= self.config.get(self.ruleset, {}).get('backward_pawn_penalty', 0.0)
         
         return score
-    
+
     def _pawn_majority(self, board, color):
         """Evaluate pawn majority on the queenside or kingside"""
         score = 0.0
@@ -1250,53 +1294,44 @@ class EvaluationEngine:
         
         if color == chess.WHITE:
             if white_pawns > black_pawns:
-                score += self.config['evaluation']['pawn_majority_bonus']
+                score += self.config.get(self.ruleset, {}).get('pawn_majority_bonus', 0.0)
             elif white_pawns < black_pawns:
-                score -= self.config['evaluation']['pawn_minority_penalty']
+                score -= self.config.get(self.ruleset, {}).get('pawn_minority_penalty', 0.0)
         else:
             if black_pawns > white_pawns:
-                score += self.config['evaluation']['pawn_majority_bonus']
+                score += self.config.get(self.ruleset, {}).get('pawn_majority_bonus', 0.0)
             elif black_pawns < white_pawns:
-                score -= self.config['evaluation']['pawn_minority_penalty']
+                score -= self.config.get(self.ruleset, {}).get('pawn_minority_penalty', 0.0)
         
         return score
-    
+
     def _passed_pawns(self, board, color):
         """Basic pawn structure evaluation"""
         score = 0.0
         
         # Check for passed pawns
-        for color in [chess.WHITE, chess.BLACK]:
-            for square in board.pieces(chess.PAWN, color):
-                file = chess.square_file(square)
-                rank = chess.square_rank(square)
-                
-                # Simple passed pawn detection
-                is_passed = True
-                direction = 1 if color == chess.WHITE else -1
-                
-                # Check if there are opponent pawns blocking or attacking
-                for check_rank in range(rank + direction, 8 if color == chess.WHITE else -1, direction):
-                    if 0 <= check_rank < 8:
-                        for check_file in [file - 1, file, file + 1]:
-                            if 0 <= check_file < 8:
-                                check_square = chess.square(check_file, check_rank)
-                                piece = board.piece_at(check_square)
-                                if piece and piece.piece_type == chess.PAWN and piece.color != color:
-                                    is_passed = False
-                                    break
-                    if not is_passed:
-                        break
-                
-                if is_passed:
-                    passed_bonus = self.config['evaluation']['passed_pawn_bonus']
-                    if color == chess.WHITE:
-                        score += passed_bonus
-                    else:
-                        score -= passed_bonus
-        
+        for square in board.pieces(chess.PAWN, color):
+            file = chess.square_file(square)
+            rank = chess.square_rank(square)
+            is_passed = True
+            direction = 1 if color == chess.WHITE else -1
+            for check_rank in range(rank + direction, 8 if color == chess.WHITE else -1, direction):
+                if 0 <= check_rank < 8:
+                    for check_file in [file - 1, file, file + 1]:
+                        if 0 <= check_file < 8:
+                            check_square = chess.square(check_file, check_rank)
+                            piece = board.piece_at(check_square)
+                            if piece and piece.piece_type == chess.PAWN and piece.color != color:
+                                is_passed = False
+                                break
+                if not is_passed:
+                    break
+            if is_passed:
+                passed_bonus = self.config.get(self.ruleset, {}).get('passed_pawn_bonus', 0.0)
+                score += passed_bonus if color == chess.WHITE else -passed_bonus
+
         return score
-    
+
     def _knight_pair(self, board, color):
         """Evaluate knight pair bonus"""
         score = 0.0
@@ -1306,9 +1341,8 @@ class EvaluationEngine:
             if piece and piece.color == color:
                 if piece.piece_type == chess.KNIGHT:
                     knights.append(square)
-                    
         if len(knights) >= 2:
-            score += len(knights) * self.config['evaluation']['knight_pair_bonus']
+            score += len(knights) * self.config.get(self.ruleset, {}).get('knight_pair_bonus', 0.0)
         return score
 
     def _bishop_pair(self, board, color):
@@ -1320,9 +1354,8 @@ class EvaluationEngine:
             if piece and piece.color == color:
                 if piece.piece_type == chess.BISHOP:
                     bishops.append(square)
-
         if len(bishops) >= 2:
-            score += len(bishops) * self.config['evaluation']['bishop_pair_bonus']
+            score += len(bishops) * self.config.get(self.ruleset, {}).get('bishop_pair_bonus', 0.0)
         return score
 
     def _bishop_vision(self, board, color):
@@ -1332,63 +1365,51 @@ class EvaluationEngine:
             if piece and piece.color == color:
                 if piece.piece_type == chess.BISHOP:
                     if len(board.attacks(square)) > 3:
-                        score += self.config['evaluation']['bishop_vision_bonus']
+                        score += self.config.get(self.ruleset, {}).get('bishop_vision_bonus', 0.0)
         return score
-    
+
     def _rook_coordination(self, board, color):
         """Calculate bonus for rook pairs on same file/rank"""
         score = 0.0
         rooks = [sq for sq in chess.SQUARES 
                 if board.piece_at(sq) == chess.Piece(chess.ROOK, color)]
-        
         # Check all unique rook pairs
-        if rooks:  # Ensure rooks is not None
+        if rooks:
             for i in range(len(rooks)):
                 for j in range(i+1, len(rooks)):
                     sq1, sq2 = rooks[i], rooks[j]
-                    
-                    # Same file bonus (15 centipawns)
+                    # Same file bonus
                     if chess.square_file(sq1) == chess.square_file(sq2):
-                        score += self.config['evaluation']['stacked_rooks_bonus']
-                        
-                    # Same rank bonus (10 centipawns)
+                        score += self.config.get(self.ruleset, {}).get('stacked_rooks_bonus', 0.0)
+                    # Same rank bonus
                     if chess.square_rank(sq1) == chess.square_rank(sq2):
-                        score += self.config['evaluation']['coordinated_rooks_bonus']
-                    
+                        score += self.config.get(self.ruleset, {}).get('coordinated_rooks_bonus', 0.0)
                     # If rooks are on the 7th rank, give a bonus
                     if chess.square_rank(sq1) == 6 or chess.square_rank(sq2) == 6:
-                        score += self.config['evaluation']['rook_positioning_bonus']
-        
+                        score += self.config.get(self.ruleset, {}).get('rook_position_bonus', 0.0)
         return score
-    
+
     def _open_files(self, board, color):
         """Evaluate open files for rooks"""
         score = 0.0
         open_files = 0
-        
-        # Count open files for the given color
         for file in range(8):
             if all(board.piece_at(chess.square(file, rank)) is None for rank in range(8)):
                 open_files += 1
-        
-        # Bonus for each open file
-        score += open_files * self.config['evaluation']['open_file_bonus']
-
-        # If the player has rooks on open files, give a bonus
+        score += open_files * self.config.get(self.ruleset, {}).get('open_file_bonus', 0.0)
         for square in board.pieces(chess.ROOK, color):
             if chess.square_file(square) in range(8) and all(board.piece_at(chess.square(chess.square_file(square), rank)) is None for rank in range(8)):
-                score += self.config['evaluation']['file_control_bonus']
-        
+                score += self.config.get(self.ruleset, {}).get('file_control_bonus', 0.0)
         # If the king is on an open file, give an exposed king penalty
-        if board.king(color) in range(8):
-            score -= self.config['evaluation']['exposed_king_penalty']
-
+        king_sq = board.king(color)
+        if king_sq is not None and chess.square_file(king_sq) in range(8) and all(board.piece_at(chess.square(chess.square_file(king_sq), rank)) is None for rank in range(8)):
+            score -= self.config.get(self.ruleset, {}).get('exposed_king_penalty', 0.0)
         return score
     
     def _stalemate(self, board: chess.Board):
         """Check if the position is a stalemate"""
         if board.is_stalemate():
-            return self.config['evaluation']['stalemate_penalty']
+            return self.config.get(self.ruleset, {}).get('stalemate_penalty', 0.0)
         return 0.0
 
     # ================================

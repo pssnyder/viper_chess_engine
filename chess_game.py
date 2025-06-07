@@ -39,11 +39,12 @@ def get_log_file_path():
     log_dir = "logging"
     if not os.path.exists(log_dir):
         os.makedirs(log_dir, exist_ok=True)
-    return os.path.join(log_dir, f"eval_game_{timestamp}.log")
+    return os.path.join(log_dir, f"chess_game.log")
 
 chess_game_logger = logging.getLogger("chess_game")
 chess_game_logger.setLevel(logging.DEBUG)
-if not getattr(chess_game_logger, "_initialized", False):
+_init_status = globals().get("_init_status", {})
+if not _init_status.get("initialized", False):
     log_file_path = get_log_file_path()
     from logging.handlers import RotatingFileHandler
     file_handler = RotatingFileHandler(
@@ -58,9 +59,9 @@ if not getattr(chess_game_logger, "_initialized", False):
     file_handler.setFormatter(formatter)
     chess_game_logger.addHandler(file_handler)
     chess_game_logger.propagate = False
-    chess_game_logger._initialized = True
+    _init_status["initialized"] = True
     # Store the log file path for later use (e.g., to match with PGN/config)
-    chess_game_logger._log_file_path = log_file_path
+    _init_status["log_file_path"] = log_file_path
 
 class ChessGame:
     def __init__(self, fen_position=None):
@@ -347,10 +348,6 @@ class ChessGame:
                 turn_text = f"Turn: {'White' if self.current_player == chess.BLACK else 'Black'}"
                 turn_surface = self.font.render(turn_text, True, (0, 0, 0))
                 self.screen.blit(turn_surface, (WIDTH-150, 60))
-            elif self.puzzle_mode:
-                turn_text = f"{'White' if self.current_player == chess.BLACK else 'Black'} to move"
-                turn_surface = self.font.render(turn_text, True, (0, 0, 0))
-                self.screen.blit(turn_surface, (WIDTH-150, 60))
 
     def chess_to_screen(self, square):
         """Convert chess board square to screen coordinates"""
@@ -426,7 +423,7 @@ class ChessGame:
             self.game_node = self.game.end()
             result = self.board.result()
             self.game.headers["Result"] = result
-            self.save_pgn()
+            self.save_game_data()
             print(f"\nGame over: {result}")
             return True
         
@@ -441,18 +438,8 @@ class ChessGame:
                 print("\nGame drawn by fifty-move rule!")
             else:
                 print("\nGame drawn!")
-                
             self.game.headers["Result"] = result
-            self.save_pgn()
-            print(f"Game over: {result}")
-            return True
-        
-        # Additional check for automatic fivefold repetition (since July 2014 rules)
-        if self.board.is_fivefold_repetition():
-            result = "1/2-1/2"
-            print("\nGame automatically drawn by fivefold repetition!")
-            self.game.headers["Result"] = result
-            self.save_pgn()
+            self.save_game_data()
             print(f"Game over: {result}")
             return True
         
@@ -461,7 +448,7 @@ class ChessGame:
             result = "1/2-1/2"
             print("\nGame automatically drawn by seventy-five move rule!")
             self.game.headers["Result"] = result
-            self.save_pgn()
+            self.save_game_data()
             print(f"Game over: {result}")
             return True
         
@@ -507,7 +494,7 @@ class ChessGame:
             print(f"Error saving configuration: {e}")
         try:
             # Export all evaluation_engine.log files (including rotated logs)
-            log_filepath = f"eval_game_{timestamp}.log"
+            log_filepath = f"games/eval_game_{timestamp}.log"
             eval_log_dir = "logging"
             eval_log_base = "evaluation_engine.log"
             eval_log_files = [os.path.join(eval_log_dir, f) for f in os.listdir(eval_log_dir)

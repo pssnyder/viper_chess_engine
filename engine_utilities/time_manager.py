@@ -142,7 +142,7 @@ class TimeManager:
         elapsed = time.time() - self.start_time
 
         # Always stop if we exceed maximum time
-        if elapsed >= self.max_time:
+        if self.max_time is not None and elapsed >= self.max_time:
             return True
 
         # Stop if we've used allocated time

@@ -9,11 +9,10 @@ import yaml
 import random
 import logging
 import os
-from typing import Optional, Callable
+from typing import Optional, Callable, Dict, Any
 from engine_utilities.piece_square_tables import PieceSquareTables
 from engine_utilities.time_manager import TimeManager
 from engine_utilities.opening_book import OpeningBook
-from engine_utilities.puzzle_manager import PuzzleManager
 from collections import OrderedDict
 
 # At module level, define a single logger for this file
@@ -50,12 +49,11 @@ class LimitedSizeDict(OrderedDict):
             del self[oldest]
 
 class EvaluationEngine:
-    def __init__(self, board, player, ai_config=None):
+    def __init__(self, board: chess.Board = chess.Board(), player: chess.Color = chess.WHITE, ai_config=None):
         self.board = board
         self.current_player = player
         self.time_manager = TimeManager()
         self.opening_book = OpeningBook()
-        self.puzzle_manager = PuzzleManager()
 
         # Variable init
         self.nodes_searched = 0
@@ -215,44 +213,63 @@ class EvaluationEngine:
         if self.show_thoughts:
             self.logger.debug(f"== EVALUATION (Player: {'White' if player == chess.WHITE else 'Black'}) == | AI Type: {ai_config['ai_type']} | Depth: {ai_config['depth']} ==")
 
-        # Check if the position is already in our solution knowledge base
-        if self.solutions_enabled and self.puzzle_manager and self.puzzle_manager.positional_solutions:
-            solution = self.puzzle_manager.find_puzzle_solution(self.board.fen())
-            if solution:
-                best_move = solution[0]
-                if self.show_thoughts and self.logger:
-                    self.logger.debug(f"Found positional solution: {best_move} for position {self.board.fen()}")
-                return best_move
-        
+        # Check if the position is already in our transposition table
+        trans_move, _ = self.get_transposition_move(board, self.depth)
+        if trans_move:
+            if self.show_thoughts and self.logger:
+                self.logger.debug(f"Transposition table hit: {trans_move} | FEN: {board.fen()}")
+            return trans_move
         # AI Search Type Selection
-        if self.ai_type == 'deepsearch':
+        elif self.ai_type == 'deepsearch':
             # Use deep search with iterative deepening time control
+            if self.show_thoughts and self.logger:
+                self.logger.debug("Using deep search with iterative deepening time control")
             best_move = self._deepsearch(self.board.copy(), self.depth, self.time_control, stop_callback=self.time_manager.should_stop)
         elif self.ai_type == 'minimax':
             # Use minimax algorithm with alpha-beta pruning
+            if self.show_thoughts and self.logger:
+                self.logger.debug("Using minimax algorithm with alpha-beta pruning")
             best_move = self._minimax(self.board.copy(), self.depth, -float('inf'), float('inf'), self.current_player == chess.WHITE, stop_callback=self.time_manager.should_stop)
         elif self.ai_type == 'negamax':
             # Use negamax algorithm with alpha-beta pruning
+            if self.show_thoughts and self.logger:
+                self.logger.debug("Using negamax algorithm with alpha-beta pruning")
             best_move = self._negamax(self.board.copy(), self.depth, -float('inf'), float('inf'), stop_callback=self.time_manager.should_stop)
         elif self.ai_type == 'negascout':
             # Use negascout algorithm with alpha-beta pruning
+            if self.show_thoughts and self.logger:
+                self.logger.debug("Using negascout algorithm with alpha-beta pruning")
             best_move = self._negascout(self.board.copy(), self.depth, -float('inf'), float('inf'), stop_callback=self.time_manager.should_stop)
         elif self.ai_type == 'lookahead':
             # Use lookahead search with static depth
+            if self.show_thoughts and self.logger:
+                self.logger.debug("Using lookahead search with static depth")
             best_move = self._lookahead_search(self.board.copy(), self.depth, -float('inf'), float('inf'), stop_callback=self.time_manager.should_stop)
         elif self.ai_type == 'simple_search':
             # Use simple 1-ply search algorithm with special features available
+            if self.show_thoughts and self.logger:
+                self.logger.debug("Using simple search algorithm with special features")
             best_move = self._simple_search()
         elif self.ai_type == 'evaluation_only':
             # Use evaluation only with no special features (no depth, no quiescence, no move ordering)
+            if self.show_thoughts and self.logger:
+                self.logger.debug("Using evaluation only with no special features")
             best_move = self._evaluation_only()
         elif self.ai_type == 'random':
             # Select a random move from the available moves
+            if self.show_thoughts and self.logger:
+                self.logger.debug("Using random search selection")
             best_move = self._random_search()
         else: 
             # make a random move if no AI type is specified
+            if self.show_thoughts and self.logger:
+                self.logger.debug("No AI type specified, using random search selection")
             best_move = self._random_search()
 
+        # save the best move to the transposition table
+        if best_move:
+            if isinstance(best_move, chess.Move) or best_move is None:
+                self.update_transposition_table(self.board, self.depth, best_move, self.evaluate_position(self.board))
         return best_move if best_move else None
     
     # =================================
@@ -302,22 +319,12 @@ class EvaluationEngine:
     # ======= HELPER FUNCTIONS ==========
     
     def order_moves(self, board: chess.Board, moves: list[chess.Move], hash_move: Optional[chess.Move] = None, depth: int = 0):
-        """
-        Order moves for better alpha-beta pruning efficiency
-
-        Args:
-            board: The current chess board state
-            moves: List of legal moves to order
-            hash_move: Move from transposition table if available
-            depth: Current search depth
-
-        Returns:
-            Ordered list of moves
-        """
+        """Order moves for better alpha-beta pruning efficiency"""
         # Store move scores for later sorting
         move_scores = []
         if moves is None or len(moves) == 0:
             moves =  list(board.legal_moves)  # Ensure we have legal moves to work with
+        score = 0.0  # Initialize score to avoid unbound variable error
         for move in moves:
             # Checks and Mates
             if move not in board.legal_moves :  # Add validation check
@@ -414,10 +421,7 @@ class EvaluationEngine:
         return score if score is not None else 0.0
     
     def _quiescence_search(self, board: chess.Board, alpha: float, beta: float, depth: int = 0, stop_callback: Optional[Callable[[], bool]] = None):
-        """
-        Quiescence search to avoid horizon effect.
-        Returns an evaluation score.
-        """
+        """Quiescence search to avoid horizon effect."""
         if stop_callback and stop_callback():
             return self.evaluate_position_from_perspective(board, board.turn)
 
@@ -553,6 +557,7 @@ class EvaluationEngine:
         if self.move_ordering_enabled:
             moves = self.order_moves(board, moves)
         for move in moves:
+            score = 0.0
             if self.show_thoughts and self.logger:
                     self.logger.debug(f"Evaluating move: {move} | Score: {score:.3f} | Best score: {best_score:.3f} | FEN: {board.fen()}")
             board.push(move)
@@ -953,9 +958,11 @@ class EvaluationEngine:
         score += self.scoring_modifier * (self._center_control(board) or 0.0)
         score += self.scoring_modifier * (self._pawn_structure(board, color) or 0.0)
         score += self.scoring_modifier * (self._pawn_weaknesses(board, color) or 0.0)
-        score += self.scoring_modifier * (self._passed_pawns(board) or 0.0)
-        score += self.scoring_modifier * (self._knight_pair(board) or 0.0)
-        score += self.scoring_modifier * (self._bishop_vision(board) or 0.0)
+        score += self.scoring_modifier * (self._passed_pawns(board, color) or 0.0)
+        score += self.scoring_modifier * (self._pawn_majority(board, color) or 0.0) # TODO
+        score += self.scoring_modifier * (self._bishop_pair(board, color) or 0.0)
+        score += self.scoring_modifier * (self._knight_pair(board, color) or 0.0)
+        score += self.scoring_modifier * (self._bishop_vision(board, color) or 0.0)
         score += self.scoring_modifier * (self._rook_coordination(board, color) or 0.0)
         score += self.scoring_modifier * (self._castling_evaluation(board, color) or 0.0)
         
@@ -1233,7 +1240,28 @@ class EvaluationEngine:
         
         return score
     
-    def _passed_pawns(self, board):
+    def _pawn_majority(self, board, color):
+        """Evaluate pawn majority on the queenside or kingside"""
+        score = 0.0
+        
+        # Count pawns on each side
+        white_pawns = len(board.pieces(chess.PAWN, chess.WHITE))
+        black_pawns = len(board.pieces(chess.PAWN, chess.BLACK))
+        
+        if color == chess.WHITE:
+            if white_pawns > black_pawns:
+                score += self.config['evaluation']['pawn_majority_bonus']
+            elif white_pawns < black_pawns:
+                score -= self.config['evaluation']['pawn_minority_penalty']
+        else:
+            if black_pawns > white_pawns:
+                score += self.config['evaluation']['pawn_majority_bonus']
+            elif black_pawns < white_pawns:
+                score -= self.config['evaluation']['pawn_minority_penalty']
+        
+        return score
+    
+    def _passed_pawns(self, board, color):
         """Basic pawn structure evaluation"""
         score = 0.0
         
@@ -1269,12 +1297,13 @@ class EvaluationEngine:
         
         return score
     
-    def _knight_pair(self, board):
+    def _knight_pair(self, board, color):
+        """Evaluate knight pair bonus"""
         score = 0.0
         knights = []
         for square in chess.SQUARES:
             piece = board.piece_at(square)
-            if piece and piece.color == board.turn:
+            if piece and piece.color == color:
                 if piece.piece_type == chess.KNIGHT:
                     knights.append(square)
                     
@@ -1282,11 +1311,25 @@ class EvaluationEngine:
             score += len(knights) * self.config['evaluation']['knight_pair_bonus']
         return score
 
-    def _bishop_vision(self, board):
+    def _bishop_pair(self, board, color):
+        """Evaluate bishop pair bonus"""
+        score = 0.0
+        bishops = []
+        for square in chess.SQUARES:
+            piece = board.piece_at(square)
+            if piece and piece.color == color:
+                if piece.piece_type == chess.BISHOP:
+                    bishops.append(square)
+
+        if len(bishops) >= 2:
+            score += len(bishops) * self.config['evaluation']['bishop_pair_bonus']
+        return score
+
+    def _bishop_vision(self, board, color):
         score = 0.0
         for square in chess.SQUARES:
             piece = board.piece_at(square)
-            if piece and piece.color == board.turn:
+            if piece and piece.color == color:
                 if piece.piece_type == chess.BISHOP:
                     if len(board.attacks(square)) > 3:
                         score += self.config['evaluation']['bishop_vision_bonus']

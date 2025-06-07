@@ -10,7 +10,7 @@ def compile_eval_games_pgn():
     os.makedirs(folder, exist_ok=True)
     
     timestamp = datetime.now().strftime('%Y%m%d_%H%M%S')
-    export_filename = f'export_all_eval_games_{timestamp}.pgn'
+    export_filename = f'games/export_all_eval_games_{timestamp}.pgn'
     
     # Get matching files (case-sensitive)
     files_to_compile = [f for f in os.listdir(folder) 

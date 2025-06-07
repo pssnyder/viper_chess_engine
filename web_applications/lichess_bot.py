@@ -285,12 +285,18 @@ class LichessBot:
 
         try:
             # Get best move from engine
-            best_move = self.engine.search(board, time_control)
+            best_move = self.engine.search(board, board.turn, time_control)
 
             if best_move:
                 # Make the move
-                self.send_move(game_id, best_move)
-                logger.info(f"Played {best_move.uci()} in game {game_id}")
+                if isinstance(best_move, chess.Move):
+                    self.send_move(game_id, best_move)
+                else:
+                    logger.error(f"Invalid move type for game {game_id}: {type(best_move)}")
+                if isinstance(best_move, chess.Move):
+                    logger.info(f"Played {best_move.uci()} in game {game_id}")
+                else:
+                    logger.error(f"Invalid move type for game {game_id}: {type(best_move)}")
             else:
                 logger.error(f"No move found for game {game_id}")
 

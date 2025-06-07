@@ -71,10 +71,10 @@ starting_positions:
 
 # AI vs AI settings
 white_ai_config:
-  ai_type: minimax                # Move search type for White (see ai_types above for options)
+  ai_type: simple_search          # Move search type for White (see ai_types above for options)
   ai_color: white                 # Color code for AI identification, use "white" or "black" as string for clarity
-  depth: 5                        # Depth of search for AI, 1 for random, 2 for simple search, 3+ for more complex searches
-  use_solutions: true             # Use known positional solutions for evaluation
+  depth: 3                        # Depth of search for AI, 1 for random, 2 for simple search, 3+ for more complex searches
+  use_solutions: true             # Use known positional solutions for evaluation (based on known puzzle solutions)
   pst: true                       # Use piece-square tables for evaluation
   pst_weight: 1.5                 # Weight for piece-square table evaluation
   move_ordering: true             # Enable move ordering for better performance

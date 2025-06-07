@@ -1,3 +1,6 @@
+# metrics_dashboard.py
+# A dashboard to visualize chess engine metrics using Dash and Plotly
+
 import os
 import glob
 import time
@@ -283,7 +286,7 @@ def update_system_graphs(_):
     sys_metrics = get_system_metrics()
     read_speed, write_speed = get_disk_speed()
     proc_cpu, proc_mem, proc_threads = get_process_metrics()
-    gauge_layout = dict(height=250, width=250, margin=dict(t=40, b=0, l=0, r=0))
+    gauge_layout_dict = dict(height=250, width=250, margin=dict(t=40, b=0, l=0, r=0))
     thresholds = [
         {"range": [0, 50], "color": "lightgreen"},
         {"range": [50, 75], "color": "yellow"},
@@ -320,8 +323,15 @@ def update_system_graphs(_):
             }
         }
     ))
-    cpu_fig.update_layout(**gauge_layout)
-    ram_fig.update_layout(**gauge_layout)
+    cpu_fig.update_layout(
+        height=gauge_layout_dict["height"],
+        width=gauge_layout_dict["width"],
+        margin=gauge_layout_dict["margin"])
+    ram_fig.update_layout(
+        height=gauge_layout_dict["height"],
+        width=gauge_layout_dict["width"],
+        margin=gauge_layout_dict["margin"]
+    )
 
     # Disk performance: show read/write speed as a bar chart
     disk_fig = go.Figure(data=[
@@ -353,7 +363,10 @@ def update_system_graphs(_):
             }
         }
     ))
-    proc_cpu_fig.update_layout(**gauge_layout)
+    proc_cpu_fig.update_layout(
+        height=gauge_layout_dict["height"],
+        width=gauge_layout_dict["width"],
+        margin=gauge_layout_dict["margin"])
 
     # Process memory usage gauge
     proc_mem_fig = go.Figure(go.Indicator(
@@ -365,7 +378,11 @@ def update_system_graphs(_):
             "bar": {"color": "orange"},
         }
     ))
-    proc_mem_fig.update_layout(**gauge_layout)
+    proc_mem_fig.update_layout(
+        height=gauge_layout_dict["height"],
+        width=gauge_layout_dict["width"],
+        margin=gauge_layout_dict["margin"]
+    )
 
     # Process thread count gauge
     proc_thread_fig = go.Figure(go.Indicator(
@@ -377,7 +394,10 @@ def update_system_graphs(_):
             "bar": {"color": "teal"},
         }
     ))
-    proc_thread_fig.update_layout(**gauge_layout)
+    proc_thread_fig.update_layout(
+        height=gauge_layout_dict["height"],
+        width=gauge_layout_dict["width"],
+        margin=gauge_layout_dict["margin"])
 
     return cpu_fig, ram_fig, disk_fig, proc_cpu_fig, proc_mem_fig, proc_thread_fig
 

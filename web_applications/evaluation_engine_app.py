@@ -12,7 +12,7 @@ if st.sidebar.button("Reset Game"):
     st.session_state.board = chess.Board()
     st.session_state.engine = EvaluationEngine(st.session_state.board, st.session_state.board.turn)
     st.session_state.move_history = []
-    st.experimental_rerun()
+    st.experimental_set_query_params()
 st.sidebar.info(
     "After the AI moves, if the board does not update automatically, "
     "please press 'Evaluate Position' or interact with the board to refresh the display."
@@ -41,7 +41,7 @@ if st.button("Set Position from FEN"):
 st.write("### Chess Board")
 try:
     board_svg = chess.svg.board(st.session_state.board, size=400, flipped=flip_board)
-    st.image(board_svg, use_container_width=True, output_format="svg")
+    st.markdown(f'<div>{board_svg}</div>', unsafe_allow_html=True)
 except Exception as e:
     st.warning("SVG board rendering failed. Showing text board instead.")
     st.text(str(st.session_state.board))
@@ -82,15 +82,15 @@ if st.button("Play Move") and move_input_san:
             "ruleset": "evaluation"
         }
         ai_move = st.session_state.engine.search(
-            st.session_state.board, ai_config
+            st.session_state.board, st.session_state.board.turn, **ai_config
         )
-        if ai_move:
+        if isinstance(ai_move, chess.Move):
             ai_move_san = st.session_state.board.san(ai_move)  # Get SAN before pushing
             st.session_state.board.push(ai_move)
             st.session_state.move_history.append(ai_move.uci())
             st.success(f"AI played: {ai_move_san}")
         else:
-            st.info("AI has no legal moves.")
+            st.info("AI has no legal moves or search did not return a valid move.")
     else:
         st.error("Illegal move.")
 

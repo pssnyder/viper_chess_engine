@@ -186,7 +186,7 @@ class ChessGame:
             self.draw_board()
             self.draw_pieces()
             self.update_display()
-            if self.game_count > 1:
+            if self.game_count > 1: 
                 print(f"Starting new game, currently playing {self.game_count} game series")
             else:    
                 print("Starting new game...")
@@ -195,12 +195,12 @@ class ChessGame:
         # Set initial PGN headers
         if self.ai_vs_ai:
             self.game.headers["Event"] = "AI vs. AI Game"
-            self.game.headers["White"] = f"AI: {self.white_eval_engine} via {self.white_bot_type} ({self.white_ai_config['depth']/2} ply)"
-            self.game.headers["Black"] = f"AI: {self.black_eval_engine} via {self.black_bot_type} ({self.black_ai_config['depth']/2} ply)"
+            self.game.headers["White"] = f"AI: {self.white_eval_engine} via {self.white_bot_type} (rounddown({self.white_ai_config['depth']/2} ply)"
+            self.game.headers["Black"] = f"AI: {self.black_eval_engine} via {self.black_bot_type} (rounddown({self.black_ai_config['depth']/2} ply)"
         else:
             self.game.headers["Event"] = "Human vs. AI Game"
-            self.game.headers["White"] = f"AI: {self.white_eval_engine} via {self.white_bot_type} ({self.white_ai_config['depth']/2} ply)" if self.ai_color == chess.WHITE else "Human"
-            self.game.headers["Black"] = "Human" if self.ai_color == chess.WHITE else f"AI: {self.black_eval_engine} via {self.black_bot_type} ({self.black_ai_config['depth']/2} ply)"
+            self.game.headers["White"] = f"AI: {self.white_eval_engine} via {self.white_bot_type} (rounddown({self.white_ai_config['depth']/2} ply)" if self.ai_color == chess.WHITE else "Human"
+            self.game.headers["Black"] = "Human" if self.ai_color == chess.WHITE else f"AI: {self.black_eval_engine} via {self.black_bot_type} (rounddown({self.black_ai_config['depth']/2} ply)"
         self.game.headers["Date"] = datetime.datetime.now().strftime("%Y.%m.%d")
         self.game.headers["Site"] = socket.gethostbyname(socket.gethostname())
         self.game.headers["Round"] = "#"

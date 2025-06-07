@@ -1916,3 +1916,37 @@ Game drawn by threefold repetition!
 14:43:40 | run             | Running chess game loop: 1 remaining
 14:43:40 | process_ai_move | AI (black) played: g8h8 (Eval: 4.25)
 14:43:40 | run             | Running chess game loop: 1 remaining
+16:21:23 | __init__        | Logging enabled for Evaluation Engine
+16:21:23 | __init__        | Running in headless mode - no visual display
+16:21:23 | __init__        | Chess game logger initialized
+16:21:23 | new_game        | Starting new game.
+16:21:23 | run             | Starting AI vs AI mode...
+16:21:23 | run             | Running chess game loop: 0/1 remaining
+16:21:32 | __init__        | Logging enabled for Evaluation Engine
+16:21:32 | __init__        | Running in headless mode - no visual display
+16:21:32 | __init__        | Chess game logger initialized
+16:21:32 | new_game        | Starting new game.
+16:21:32 | run             | Starting AI vs AI mode...
+16:21:33 | run             | Running chess game loop: 0/1 remaining
+16:21:57 | __init__        | Logging enabled for Evaluation Engine
+16:21:57 | __init__        | Running in headless mode - no visual display
+16:21:57 | __init__        | Chess game logger initialized
+16:21:57 | new_game        | Starting new game.
+16:21:57 | run             | Starting AI vs AI mode...
+16:21:57 | run             | Running chess game loop: 0/1 remaining
+16:22:15 | process_ai_move | AI (white) played: h2h4 (Eval: -0.45)
+16:22:15 | run             | Running chess game loop: 0/1 remaining
+16:22:18 | process_ai_move | AI (black) played: g7g5 (Eval: 0.00)
+16:22:18 | run             | Running chess game loop: 0/1 remaining
+16:22:43 | process_ai_move | AI (white) played: g2g4 (Eval: -0.45)
+16:22:43 | run             | Running chess game loop: 0/1 remaining
+16:22:46 | process_ai_move | AI (black) played: h7h5 (Eval: 0.00)
+16:22:46 | run             | Running chess game loop: 0/1 remaining
+16:23:20 | process_ai_move | AI move error: push() expects move to be pseudo-legal, but got b2b4 in rnbqkbnr/p1pppp2/8/1p4pp/PP4PP/8/2PPPP2/RNBQKBNR
+16:23:20 | run             | Running chess game loop: 0/1 remaining
+16:23:53 | process_ai_move | AI move error: push() expects move to be pseudo-legal, but got b2b4 in rnbqkbnr/p1pppp2/8/1p4pp/PP4PP/8/2PPPP2/RNBQKBNR
+16:23:53 | run             | Running chess game loop: 0/1 remaining
+16:24:26 | process_ai_move | AI move error: push() expects move to be pseudo-legal, but got b2b4 in rnbqkbnr/p1pppp2/8/1p4pp/PP4PP/8/2PPPP2/RNBQKBNR
+16:24:26 | run             | Running chess game loop: 0/1 remaining
+16:25:00 | process_ai_move | AI move error: push() expects move to be pseudo-legal, but got b2b4 in rnbqkbnr/p1pppp2/8/1p4pp/PP4PP/8/2PPPP2/RNBQKBNR
+16:25:00 | run             | Running chess game loop: 0/1 remaining

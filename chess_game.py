@@ -15,6 +15,7 @@ import threading
 import time
 import socket
 from evaluation_engine import EvaluationEngine
+from engine_utilities.pgn_watcher import PGNWatcher
 
 # Pygame constants
 WIDTH, HEIGHT = 640, 640
@@ -188,14 +189,16 @@ class ChessGame:
         self.last_ai_move = None # Reset AI's last move
         self.last_move = None # Reset last move made by any player
         self.move_history = []  # Reset move history for display
+        
         # Reset AI engines if they exist
         if hasattr(self, 'white_engine') and self.white_engine:
             self.white_engine.reset(self.board)
         if hasattr(self, 'black_engine') and self.black_engine:
             self.black_engine.reset(self.board)
 
-        # Reset PGN headers
+        # Reset PGN headers and file
         self.set_headers()
+        self.quick_save_pgn("logging/active_game.pgn")
         
         # Reset move history
         self.move_history = []
@@ -859,6 +862,8 @@ class ChessGame:
         self.white_engine = EvaluationEngine(self.board, chess.WHITE)
         self.black_engine = EvaluationEngine(self.board, chess.BLACK)
         self.engine = EvaluationEngine(self.board, self.board.turn) # Dummy engine for general function calls
+        #self.pgn_watcher = PGNWatcher("logging/active_game.pgn")
+        #self.pgn_watcher.run()  # Start the PGN game watcher (testing more efficient always-on watch mode)
 
         while running and ((self.ai_vs_ai and game_count >= 1)):
             if self.logging_enabled and self.logger:

@@ -1847,3 +1847,72 @@ Game drawn by threefold repetition!
 14:39:27 | run             | Running chess game loop: 0/1 remaining
 14:40:00 | process_ai_move | AI move error: push() expects move to be pseudo-legal, but got b2b4 in rnbqkbnr/p1pppp2/8/1p4pp/PP4PP/8/2PPPP2/RNBQKBNR
 14:40:00 | run             | Running chess game loop: 0/1 remaining
+14:40:34 | process_ai_move | AI move error: push() expects move to be pseudo-legal, but got b2b4 in rnbqkbnr/p1pppp2/8/1p4pp/PP4PP/8/2PPPP2/RNBQKBNR
+14:40:34 | run             | Running chess game loop: 0/1 remaining
+14:41:07 | process_ai_move | AI move error: push() expects move to be pseudo-legal, but got b2b4 in rnbqkbnr/p1pppp2/8/1p4pp/PP4PP/8/2PPPP2/RNBQKBNR
+14:41:07 | run             | Running chess game loop: 0/1 remaining
+14:41:41 | process_ai_move | AI move error: push() expects move to be pseudo-legal, but got b2b4 in rnbqkbnr/p1pppp2/8/1p4pp/PP4PP/8/2PPPP2/RNBQKBNR
+14:41:41 | run             | Running chess game loop: 0/1 remaining
+14:42:14 | process_ai_move | AI move error: push() expects move to be pseudo-legal, but got b2b4 in rnbqkbnr/p1pppp2/8/1p4pp/PP4PP/8/2PPPP2/RNBQKBNR
+14:42:14 | run             | Running chess game loop: 0/1 remaining
+14:42:28 | __init__        | Logging enabled for Evaluation Engine
+14:42:28 | __init__        | Running in headless mode - no visual display
+14:42:28 | __init__        | Chess game logger initialized
+14:42:28 | new_game        | Starting new game.
+14:42:28 | run             | Starting AI vs AI mode...
+14:42:28 | run             | Running chess game loop: 0 remaining
+14:42:33 | process_ai_move | AI (white) played: g1h3 (Eval: 0.00)
+14:42:33 | run             | Running chess game loop: 0 remaining
+14:42:33 | process_ai_move | AI (black) played: g8h6 (Eval: 0.00)
+14:42:33 | run             | Running chess game loop: 0 remaining
+14:42:37 | process_ai_move | AI (white) played: h3g5 (Eval: 0.00)
+14:42:37 | run             | Running chess game loop: 0 remaining
+14:42:37 | process_ai_move | AI (black) played: h8g8 (Eval: 0.00)
+14:42:37 | run             | Running chess game loop: 0 remaining
+14:42:44 | process_ai_move | AI (white) played: g5h7 (Eval: 1.00)
+14:42:44 | run             | Running chess game loop: 0 remaining
+14:42:45 | process_ai_move | AI (black) played: g8h8 (Eval: 1.00)
+14:42:45 | run             | Running chess game loop: 0 remaining
+14:42:50 | process_ai_move | AI (white) played: h7f8 (Eval: 4.25)
+14:42:50 | run             | Running chess game loop: 0 remaining
+14:42:50 | process_ai_move | AI (black) played: h8g8 (Eval: 4.25)
+14:42:50 | run             | Running chess game loop: 0 remaining
+14:42:57 | process_ai_move | AI (white) played: f8h7 (Eval: 4.25)
+14:42:57 | run             | Running chess game loop: 0 remaining
+14:42:57 | process_ai_move | AI (black) played: g8h8 (Eval: 4.25)
+14:42:57 | run             | Running chess game loop: 0 remaining
+14:43:04 | process_ai_move | AI (white) played: h7f8 (Eval: 4.25)
+14:43:04 | run             | Running chess game loop: 0 remaining
+14:43:04 | process_ai_move | AI (black) played: h8g8 (Eval: 4.25)
+14:43:04 | run             | Running chess game loop: 0 remaining
+14:43:11 | process_ai_move | AI (white) played: f8h7 (Eval: 4.25)
+14:43:11 | run             | Running chess game loop: 0 remaining
+14:43:11 | process_ai_move | AI (black) played: g8h8 (Eval: 4.25)
+14:43:11 | handle_game_end | 
+Game drawn by threefold repetition!
+14:43:11 | save_game_data  | Game saved to games/eval_game_20250607_144311.pgn
+14:43:11 | save_game_data  | Configuration saved to games/eval_game_20250607_144311.yaml
+14:43:11 | save_game_data  | Log saved to games/eval_game_20250607_144311.log
+14:43:11 | run             | Game 1/500 complete...
+14:43:11 | new_game        | Starting new game.
+14:43:11 | run             | Running chess game loop: 1 remaining
+14:43:16 | process_ai_move | AI (white) played: g1h3 (Eval: 0.00)
+14:43:16 | run             | Running chess game loop: 1 remaining
+14:43:16 | process_ai_move | AI (black) played: g8h6 (Eval: 0.00)
+14:43:16 | run             | Running chess game loop: 1 remaining
+14:43:20 | process_ai_move | AI (white) played: h3g5 (Eval: 0.00)
+14:43:20 | run             | Running chess game loop: 1 remaining
+14:43:20 | process_ai_move | AI (black) played: h8g8 (Eval: 0.00)
+14:43:20 | run             | Running chess game loop: 1 remaining
+14:43:27 | process_ai_move | AI (white) played: g5h7 (Eval: 1.00)
+14:43:27 | run             | Running chess game loop: 1 remaining
+14:43:27 | process_ai_move | AI (black) played: g8h8 (Eval: 1.00)
+14:43:27 | run             | Running chess game loop: 1 remaining
+14:43:33 | process_ai_move | AI (white) played: h7f8 (Eval: 4.25)
+14:43:33 | run             | Running chess game loop: 1 remaining
+14:43:33 | process_ai_move | AI (black) played: h8g8 (Eval: 4.25)
+14:43:33 | run             | Running chess game loop: 1 remaining
+14:43:40 | process_ai_move | AI (white) played: f8h7 (Eval: 4.25)
+14:43:40 | run             | Running chess game loop: 1 remaining
+14:43:40 | process_ai_move | AI (black) played: g8h8 (Eval: 4.25)
+14:43:40 | run             | Running chess game loop: 1 remaining

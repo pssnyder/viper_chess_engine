@@ -9,6 +9,7 @@ import random
 import yaml
 import datetime
 import logging
+import math
 import logging.handlers
 import threading
 import time
@@ -66,7 +67,17 @@ if not _init_status.get("initialized", False):
 
 class ChessGame:
     def __init__(self, fen_position=None):
-        self.fen_position = fen_position
+        if fen_position:
+            if not isinstance(fen_position, str):
+                raise ValueError("FEN position must be a string")
+            # Validate FEN position
+            try:
+                chess.Board(fen_position)  # This will raise ValueError if invalid
+                self.starting_position = fen_position
+            except ValueError as e:
+                raise ValueError(f"Invalid FEN position: {e}")
+        else:
+            self.starting_position = None
 
         # Load configuration
         with open("config.yaml") as f:
@@ -92,6 +103,8 @@ class ChessGame:
         self.small_font = pygame.font.SysFont('Arial', 16)
         self.width = WIDTH  # Ensure width attribute exists
         self.BLACK = (0, 0, 0)  # Ensure BLACK attribute exists
+        if self.starting_position == None:
+            self.starting_position = self.config.get('game_config', {}).get('starting_position', 'default')
         
         # Initialize display, if enabled
         if self.watch_mode:
@@ -136,7 +149,7 @@ class ChessGame:
             self.show_thoughts = False
         
         # Initialize board and new game
-        self.new_game()
+        self.new_game(self.starting_position)
         
         # Set colors
         self.set_colors()
@@ -157,7 +170,13 @@ class ChessGame:
     
     def new_game(self, fen_position=None):
         """Reset the game state for a new game"""
-        self.board = chess.Board(fen=fen_position) if fen_position else chess.Board()
+        fen_to_use = fen_position
+        if fen_position and not fen_position.count('/') == 7:
+            fen_to_use = self.config.get('starting_positions', {}).get(fen_position, None)
+            if fen_to_use is None:
+                # fallback to standard chess starting position
+                fen_to_use = 'rnbqkbnr/pppppppp/8/8/8/8/PPPPPPPP/RNBQKBNR w KQkq - 0 1'
+        self.board = chess.Board(fen=fen_to_use) if fen_to_use else chess.Board()
         self.game = chess.pgn.Game()
         self.game_node = self.game # Initialize new game node
         self.selected_square = None
@@ -193,14 +212,17 @@ class ChessGame:
     
     def set_headers(self):
         # Set initial PGN headers
+        white_depth = math.floor(self.white_ai_config['depth']/2) if self.white_ai_config['depth'] else 0
+        black_depth = math.floor(self.black_ai_config['depth']/2) if self.black_ai_config['depth'] else 0
+
         if self.ai_vs_ai:
             self.game.headers["Event"] = "AI vs. AI Game"
-            self.game.headers["White"] = f"AI: {self.white_eval_engine} via {self.white_bot_type} (rounddown({self.white_ai_config['depth']/2} ply)"
-            self.game.headers["Black"] = f"AI: {self.black_eval_engine} via {self.black_bot_type} (rounddown({self.black_ai_config['depth']/2} ply)"
-        else:
+            self.game.headers["White"] = f"AI: {self.white_eval_engine} via {self.white_bot_type} ({white_depth} ply)"
+            self.game.headers["Black"] = f"AI: {self.black_eval_engine} via {self.black_bot_type} ({black_depth} ply)"
+        elif self.ai_vs_ai is False and self.human_color_pref:
             self.game.headers["Event"] = "Human vs. AI Game"
-            self.game.headers["White"] = f"AI: {self.white_eval_engine} via {self.white_bot_type} (rounddown({self.white_ai_config['depth']/2} ply)" if self.ai_color == chess.WHITE else "Human"
-            self.game.headers["Black"] = "Human" if self.ai_color == chess.WHITE else f"AI: {self.black_eval_engine} via {self.black_bot_type} (rounddown({self.black_ai_config['depth']/2} ply)"
+            self.game.headers["Black"] = "Human" if self.ai_color == chess.WHITE else f"AI: {self.black_eval_engine} via {self.black_bot_type} ({black_depth} ply)"
+            self.game.headers["White"] = "Human" if self.ai_color == chess.BLACK else f"AI: {self.white_eval_engine} via {self.white_bot_type} ({white_depth} ply)"
         self.game.headers["Date"] = datetime.datetime.now().strftime("%Y.%m.%d")
         self.game.headers["Site"] = socket.gethostbyname(socket.gethostname())
         self.game.headers["Round"] = "#"
@@ -430,7 +452,7 @@ class ChessGame:
         """Check and handle game termination with automatic threefold repetition detection"""
         
         # Check for automatic game ending conditions first (these don't require claims)
-        if self.board.is_game_over():
+        if self.board.is_game_over(claim_draw=self.engine._is_draw_condition(self.board)):
             # Update the game node so the saved game is the most up to date record
             self.game_node = self.game.end()
             result = self.board.result()
@@ -440,9 +462,9 @@ class ChessGame:
             return True
         
         # Check for threefold repetition and fifty-move rule (requires claim_draw=True)
-        if self.board.is_game_over(claim_draw=True):
-            result = self.board.result(claim_draw=True)
-            
+        if self.board.is_game_over(claim_draw=self.engine._is_draw_condition(self.board)):
+            result = self.board.result(claim_draw=self.engine._is_draw_condition(self.board))
+
             # Determine the specific draw condition for better feedback
             if self.board.can_claim_threefold_repetition():
                 if self.logging_enabled and self.logger:
@@ -603,11 +625,15 @@ class ChessGame:
         # Allow AI to play both sides in AI vs AI mode
         current_color = "white" if self.board.turn == chess.WHITE else "black"
         self.current_player = self.board.turn
+        move_is_legal = False
         if not self.ai_vs_ai and self.board.turn != self.ai_color:
             return  # Only check AI color in human vs AI mode
         try:
             ai_move = self.ai_move()
-            if ai_move and self.push_move(ai_move):
+            if ai_move and isinstance(ai_move, chess.Move):
+                move_is_legal = self.board.is_legal(ai_move)
+            if ai_move and move_is_legal:
+                self.push_move(ai_move)
                 self.last_ai_move = ai_move if ai_move else None
             else:
                 # Fallback to random legal move
@@ -633,7 +659,7 @@ class ChessGame:
     def process_ai_move_threaded(self):
         """Start AI move calculation in a background thread (watch_mode only)."""
         self.current_player = self.board.turn
-        if self.ai_busy or self.board.is_game_over() or not self.screen_ready:
+        if self.ai_busy or self.board.is_game_over(claim_draw=self.engine._is_draw_condition(self.board)) or not self.screen_ready:
             return
         self.ai_busy = True
         self.ai_move_result = None
@@ -690,7 +716,7 @@ class ChessGame:
             self.board.push(move)
             self.current_player = self.board.turn
             self.record_evaluation()
-            self.quick_save_pgn("games/active_game.pgn")
+            self.quick_save_pgn("logging/active_game.pgn")
             if self.watch_mode:
                 self.mark_display_dirty()
             return True
@@ -768,7 +794,7 @@ class ChessGame:
                 self.board.push(move)
                 self.selected_square = None  # Clear selection after successful move
                 self.record_evaluation()
-                self.quick_save_pgn("games/active_game.pgn")
+                self.quick_save_pgn("logging/active_game.pgn")
                 self.mark_display_dirty()  # <-- Ensure display updates after human move
                 
             # CASE 2C2: Invalid move - deselect and provide feedback
@@ -836,9 +862,9 @@ class ChessGame:
 
         while running and ((self.ai_vs_ai and game_count >= 1)):
             if self.logging_enabled and self.logger:
-                self.logger.info(f"Running chess game loop: {self.game_count - game_count} remaining")
-                self.engine.logger.info(f"Running chess game loop: {self.game_count - game_count} remaining")
-                #self.logger.info(f"AI Busy: {self.ai_busy}, Screen Ready: {self.screen_ready}, Game Over: {self.board.is_game_over()}")
+                self.logger.info(f"Running chess game loop: {self.game_count - game_count}/{self.game_count} remaining")
+                self.engine.logger.info(f"Running chess game loop: {self.game_count - game_count}/{self.game_count} remaining")
+                #self.logger.info(f"AI Busy: {self.ai_busy}, Screen Ready: {self.screen_ready}, Game Over: {self.board.is_game_over(claim_draw=self._is_draw_condition(self.board))}")
             move_start_time = pygame.time.get_ticks()
             move_end_time = 0
             move_duration = 0
@@ -854,12 +880,12 @@ class ChessGame:
                     self.handle_mouse_click(pygame.mouse.get_pos())
                 elif event.type == pygame.USEREVENT and self.ai_vs_ai and self.watch_mode:
                     # Only start AI move if not busy and screen is ready
-                    if not self.ai_busy and self.screen_ready and not self.board.is_game_over() and self.board.is_valid():
+                    if not self.ai_busy and self.screen_ready and not self.board.is_game_over(claim_draw=self.engine._is_draw_condition(self.board)) and self.board.is_valid():
                         self.process_ai_move_threaded()
 
             # In headless AI vs AI mode, call process_ai_move() directly
             if self.ai_vs_ai and not self.watch_mode:
-                if not self.board.is_game_over() and self.board.is_valid():
+                if not self.board.is_game_over(claim_draw=self.engine._is_draw_condition(self.board)) and self.board.is_valid():
                     self.process_ai_move()
 
             # In watch mode, apply AI move result if ready (on main thread)
@@ -892,7 +918,7 @@ class ChessGame:
                 elif self.ai_vs_ai and self.game_count != game_count:
                     if self.logging_enabled and self.logger:
                         self.logger.info(f'Game {self.game_count - game_count}/{self.game_count} complete...')
-                    self.new_game()
+                    self.new_game(self.starting_position)
             else:
                 clock.tick(MAX_FPS)
 

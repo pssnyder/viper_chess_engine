@@ -1,3 +1,9 @@
+# evaluation_engine_app.py
+# A simplified Streamlit app to evaluate chess positions and suggest moves using the EvaluationEngine.
+# This app allows users to set a position using FEN, view the board, make moves, and see AI evaluations.
+# Search is performance limited to a depth of 4 plus quiescence and no move ordering.
+
+
 import streamlit as st
 import chess
 import chess.svg 
@@ -73,13 +79,13 @@ if st.button("Play Move") and move_input_san:
             "ai_type": ai_type,
             "depth": ai_depth,
             "max_depth": ai_depth,
-            "move_ordering_enabled": True,
+            "move_ordering_enabled": False,
             "quiescence_enabled": True,
-            "move_time_limit": 1000,
+            "move_time_limit": 0,
             "pst_enabled": True,
             "pst_weight": 1.0,
             "engine": "viper",
-            "ruleset": "evaluation"
+            "ruleset": "default_evaluation"
         }
         ai_move = st.session_state.engine.search(
             st.session_state.board, st.session_state.board.turn, **ai_config

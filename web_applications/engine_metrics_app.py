@@ -1,7 +1,7 @@
 # engine_metrics_app.
 # A streamlit app version of the metrics_dashboard.py
 # This app is used to display the metrics of the engine and monitor resource usage.
-# run using the command streamlit run c:/Users/Pat/Documents/Programming/v7p3r_chess_bot_simple/engine_metrics_app.py
+# run using the command: streamlit run C:\Users\patss\OneDrive\Documents\Programming\ViperChessEngine\v7p3r_chess_bot_simple\web_applications\engine_metrics_app.py
 
 import streamlit as st
 import psutil
@@ -12,10 +12,102 @@ import pandas as pd
 import yaml
 import re
 from datetime import datetime
+import importlib.util
+import chess
 
-LOGGING_DIR = "../logging"
-GAMES_DIR = "../games"
-METRICS_DIR = "../metrics"
+GAMES_DIR = "games"
+
+# Dynamically import OpeningBook from engine_utilities/opening_book.py
+def load_opening_fens():
+    opening_book_path = os.path.abspath(
+        os.path.join(os.path.dirname(__file__), "../engine_utilities/opening_book.py")
+    )
+    spec = importlib.util.spec_from_file_location("opening_book", opening_book_path)
+    if spec is None or spec.loader is None:
+        raise ImportError(f"Cannot load module. Ensure the file exists at: {opening_book_path}")
+    opening_book_mod = importlib.util.module_from_spec(spec)
+    try:
+        spec.loader.exec_module(opening_book_mod)
+    except Exception as e:
+        raise ImportError(f"Failed to execute module: {e}")
+    book = opening_book_mod.OpeningBook()
+    return set(book.book.keys())
+
+OPENING_FENS = load_opening_fens()
+
+# --- Extract FENs from PGN moves ---
+def extract_fens_from_moves(moves_str, max_depth=12):
+    """Given a moves string, return a list of FENs after each ply up to max_depth."""
+    board = chess.Board()
+    fens = []
+    moves = re.findall(r"\d+\.\s*([^\s]+)(?:\s+([^\s]+))?", moves_str)
+    ply = 0
+    for move_pair in moves:
+        for move in move_pair:
+            if move and ply < max_depth:
+                try:
+                    board.push_san(move)
+                    fens.append(board.fen())
+                    ply += 1
+                except Exception:
+                    continue
+    return fens
+
+# --- Annotate df with detected opening FEN ---
+def annotate_openings(df):
+    detected_openings = []
+    for idx, row in df.iterrows():
+        moves_str = row.get("moves", "")
+        fens = extract_fens_from_moves(moves_str)
+        found = None
+        for fen in fens:
+            # Only match up to the first space (piece placement, not castling/en passant/halfmove/fullmove)
+            fen_key = " ".join(fen.split(" ")[:4])
+            for opening_fen in OPENING_FENS:
+                opening_fen_key = " ".join(opening_fen.split(" ")[:4])
+                if fen_key == opening_fen_key:
+                    found = opening_fen
+                    break
+            if found:
+                break
+        detected_openings.append(found)
+    df["detected_opening_fen"] = detected_openings
+    return df
+
+# --- Match game files ---
+def match_game_files():
+    """Find and return a list of game files in the GAMES_DIR."""
+    game_files = []
+    for file in glob.glob(os.path.join(GAMES_DIR, "eval_game_*.pgn")):
+        prefix = os.path.basename(file).replace(".pgn", "")
+        game_files.append({
+            "prefix": prefix,
+            "pgn_file": file,
+            "config_file": os.path.join(GAMES_DIR, f"{prefix}.yaml"),
+            "log_file": os.path.join(GAMES_DIR, f"{prefix}.log"),
+        })
+    return game_files
+
+# --- Build game dataset ---
+def build_game_dataset():
+    records = []
+    for files in match_game_files():
+        config = load_yaml(files["config_file"]) if files["config_file"] else {}
+        pgn_metrics = parse_pgn_metrics(files["pgn_file"]) if files["pgn_file"] else {}
+        log_metrics = parse_log_metrics(files["log_file"]) if files["log_file"] else {}
+        record = {
+            "timestamp": files["prefix"].replace("eval_game_", ""),
+            "config_file": files["config_file"],
+            "pgn_file": files["pgn_file"],
+            "log_file": files["log_file"],
+            **pgn_metrics,
+            **log_metrics,
+            **{f"cfg_{k}": v for k, v in (config or {}).items()}
+        }
+        records.append(record)
+    df = pd.DataFrame(records)
+    df = annotate_openings(df)
+    return df
 
 def load_yaml(filepath):
     try:
@@ -24,153 +116,263 @@ def load_yaml(filepath):
     except Exception:
         return {}
 
-def parse_pgn(filepath):
-    # Extract result and moves from PGN file
-    result, moves = None, []
+def parse_pgn_metrics(filepath):
+    # Extract result, moves, move count, opening, etc.
+    result, moves, opening = None, [], None
     with open(filepath, "r", encoding="utf-8", errors="ignore") as f:
         for line in f:
             if line.startswith("[Result"):
                 result = line.split('"')[1]
+            if line.startswith("[Opening"):
+                opening = line.split('"')[1]
             if not line.startswith("[") and line.strip():
                 moves.append(line.strip())
+    move_str = " ".join(moves)
+    move_count = len(re.findall(r"\d+\.", move_str))
     return {
         "result": result,
-        "moves": " ".join(moves)
+        "moves": move_str,
+        "move_count": move_count,
+        "opening": opening
     }
 
-def parse_log(filepath):
-    # Read log file as text
-    try:
-        with open(filepath, "r", encoding="utf-8", errors="ignore") as f:
-            return f.read()
-    except Exception:
-        return ""
-
-def parse_csv(filepath):
-    try:
-        return pd.read_csv(filepath)
-    except Exception:
-        return pd.DataFrame()
-
-def collect_files():
-    # Recursively collect all files in logging, games, metrics
-    files = []
-    for folder in [LOGGING_DIR, GAMES_DIR, METRICS_DIR]:
-        for root, _, filenames in os.walk(folder):
-            for fn in filenames:
-                files.append(os.path.join(root, fn))
-    return files
-
-def build_dataset():
-    # Build a consolidated dataset from all sources
-    files = collect_files()
-    # Index configs and games by timestamp
-    config_map = {}
-    game_map = {}
-    for f in files:
-        if re.match(r".*eval_game_\d{8}_\d{6}\.ya?ml$", f):
-            m = re.search(r"eval_game_(\d{8}_\d{6})\.ya?ml$", f)
+def parse_log_metrics(filepath):
+    # Extract metrics like avg time per move, search depth, nodes, errors, etc.
+    if not filepath or not os.path.exists(filepath):
+        return {}
+    times, depths, nodes, errors = [], [], [], 0
+    with open(filepath, "r", encoding="utf-8", errors="ignore") as f:
+        for line in f:
+            # Example: "info depth 12 nodes 123456 time 1234"
+            m = re.search(r"depth (\d+).*nodes (\d+).*time (\d+)", line)
             if m:
-                config_map[m.group(1)] = f
-        elif re.match(r".*eval_game_\d{8}_\d{6}\.pgn$", f):
-            m = re.search(r"eval_game_(\d{8}_\d{6})\.pgn$", f)
-            if m:
-                game_map[m.group(1)] = f
+                depths.append(int(m.group(1)))
+                nodes.append(int(m.group(2)))
+                times.append(int(m.group(3)))
+            if "error" in line.lower():
+                errors += 1
+    avg_time = sum(times) / len(times) if times else None
+    avg_depth = sum(depths) / len(depths) if depths else None
+    avg_nodes = sum(nodes) / len(nodes) if nodes else None
+    return {
+        "avg_time_per_move_ms": avg_time,
+        "avg_search_depth": avg_depth,
+        "avg_nodes": avg_nodes,
+        "error_count": errors
+    }
 
-    # Build records for each game/config pair
-    records = []
-    for ts, game_file in game_map.items():
-        config_file = config_map.get(ts)
-        game_info = parse_pgn(game_file)
-        config_info = load_yaml(config_file) if config_file else {}
-        record = {
-            "timestamp": ts,
-            "game_file": game_file,
-            "config_file": config_file,
-            "result": game_info.get("result"),
-            "moves": game_info.get("moves"),
-            **{f"cfg_{k}": v for k, v in (config_info or {}).items()}
-        }
-        records.append(record)
+# --- Streamlit UI ---
 
-    # Optionally, add metrics and logs as additional columns
-    # Example: add static_metrics.csv if present
-    metrics_files = [f for f in files if f.endswith(".csv")]
-    metrics_df = pd.concat([parse_csv(f) for f in metrics_files], ignore_index=True) if metrics_files else pd.DataFrame()
-    df = pd.DataFrame(records)
-    if not metrics_df.empty:
-        df = pd.concat([df, metrics_df], axis=1)
+st.set_page_config(page_title="Viper Chess Engine Analysis Dashboard", layout="wide")
+st.title("Viper Chess Engine Analysis Dashboard")
 
-    return df
-
-def get_process_metrics():
-    proc = psutil.Process(os.getpid())
-    cpu = proc.cpu_percent(interval=0.1)
-    mem = proc.memory_info().rss / (1024 * 1024)
-    threads = proc.num_threads()
-    return cpu, mem, threads
-
-st.set_page_config(page_title="AI Performance & Tuning Dashboard", layout="wide")
-st.title("AI Performance & Tuning Dashboard")
-
-cpu_placeholder = st.empty()
-mem_placeholder = st.empty()
-threads_placeholder = st.empty()
-
-update_interval = st.slider("Update interval (seconds)", min_value=1, max_value=10, value=2)
-
-st.markdown("---")
-
-df = build_dataset()
+df = build_game_dataset()
 if df.empty:
-    st.warning("No data found in logging, games, or metrics folders.")
+    st.warning("No games found in the games directory.")
     st.stop()
 
-st.subheader("Combined Dataset")
-st.dataframe(df, use_container_width=True)
+# Summary statistics
+st.subheader("Summary Metrics")
+col1, col2, col3, col4, col5 = st.columns(5)
+col1.metric("Total Games", len(df))
+col2.metric("Win Rate as White", f"{100 * (df['result'] == '1-0').mean():.0f}%" if 'result' in df else "N/A")
+col3.metric("Win Rate as Black", f"{100 * (df['result'] == '0-1').mean():.0f}%" if 'result' in df else "N/A")
+col4.metric("Draw Rate", f"{100 * (df['result'] == '1/2-1/2').mean():.0f}%" if 'result' in df else "N/A")
+col5.metric("Avg Game Length", f"{round(df['move_count'].mean()):.0f} moves" if 'move_count' in df else "N/A")
 
-# Filtering and analytics
-st.sidebar.header("Filter & Query")
-result_filter = st.sidebar.multiselect("Game Result", options=df["result"].dropna().unique(), default=list(df["result"].dropna().unique()))
-df_filtered = df[df["result"].isin(result_filter)] if result_filter else df
+# Trends over time
+st.subheader("Trends Over Time")
+if "timestamp" in df and "result" in df:
+    df_sorted = df.sort_values("timestamp")
+    win_trend = df_sorted["result"].eq("1-0").rolling(10, min_periods=1).mean()
+    st.line_chart({"Win Rate (last 10)": win_trend})
 
-# Show config columns for selection
+if "avg_search_depth" in df:
+    st.line_chart({"Avg Search Depth": df.sort_values("timestamp")["avg_search_depth"]})
+
+# Config correlation
+st.subheader("Config Parameter Correlation")
 config_cols = [c for c in df.columns if c.startswith("cfg_")]
 if config_cols:
-    st.sidebar.subheader("Config Parameter Correlation")
-    param = st.sidebar.selectbox("Parameter", config_cols)
-    if param:
-        # Convert dicts/unhashable types to string for grouping
-        if df_filtered[param].apply(lambda x: isinstance(x, dict)).any():
-            df_filtered[param] = df_filtered[param].apply(lambda x: str(x) if isinstance(x, dict) else x)
-        st.write(f"Correlation between `{param}` and game result:")
-        st.bar_chart(df_filtered.groupby([param, "result"]).size().unstack(fill_value=0))
+    param = st.selectbox("Select config parameter", config_cols)
+    if param and "result" in df:
+        # Convert unhashable types (like dict) to string for grouping
+        if df[param].apply(lambda x: not isinstance(x, (str, int, float, bool, type(None)))).any():
+            df[param] = df[param].apply(lambda x: str(x) if not isinstance(x, (str, int, float, bool, type(None))) else x)
+        st.bar_chart(df.groupby([param, "result"]).size().unstack(fill_value=0))
 
-# Analytics: win/loss/draw rates by config
-st.subheader("Win/Loss/Draw Rates by Config Parameter")
+# Opening stats # TODO load opening data from engine_utilities/opening_book.py 
+if "opening" in df or "detected_opening_fen" in df:
+    st.subheader("Most Common Openings (PGN tag or Detected)")
+    # Show both PGN opening tag and detected opening FEN
+    opening_counts = pd.Series(dtype=int)
+    if "opening" in df:
+        opening_counts = df["opening"].value_counts()
+    if "detected_opening_fen" in df:
+        detected_counts = df["detected_opening_fen"].value_counts()
+        # Optionally, merge with opening_counts
+        opening_counts = opening_counts.add(detected_counts, fill_value=0)
+    st.dataframe(opening_counts.head(10))
+
+# Error analysis
+if "error_count" in df:
+    st.subheader("Games with Errors")
+    st.dataframe(df[df["error_count"] > 0][["timestamp", "error_count", "log_file"]])
+
+# Raw data
+st.subheader("Raw Game Data")
+st.dataframe(df, use_container_width=True)
+
+# Download
+st.download_button("Download Dataset (CSV)", df.to_csv(index=False), file_name="chess_engine_eval_dataset.csv")
+
+# --- Correlation Analysis Section ---
+st.subheader("Correlation Analysis & Parameter Tuning Insights")
+
+# Sidebar filters
+with st.sidebar:
+    st.header("Filter Games")
+    # Filter by result
+    result_options = df["result"].dropna().unique().tolist()
+    selected_results = st.multiselect("Game Result", result_options, default=result_options)
+    # Filter by opening
+    opening_options = df["opening"].dropna().unique().tolist() if "opening" in df else []
+    selected_openings = st.multiselect("Opening", opening_options, default=opening_options if opening_options else None)
+    # Filter by config parameter (optional)
+    filter_param = st.selectbox("Filter by Config Parameter", ["None"] + config_cols if config_cols else ["None"])
+    filter_value = None
+    if filter_param != "None":
+        unique_vals = df[filter_param].dropna().unique().tolist()
+        filter_value = st.selectbox("Value", unique_vals)
+
+# Apply filters
+df_corr = df.copy()
+if selected_results:
+    df_corr = df_corr[df_corr["result"].isin(selected_results)]
+if opening_options and selected_openings:
+    df_corr = df_corr[df_corr["opening"].isin(selected_openings)]
+if filter_param != "None" and filter_value is not None:
+    df_corr = df_corr[df_corr[filter_param] == filter_value]
+
+# --- Config Parameter Correlation ---
+st.markdown("#### Win/Draw/Loss Rate by Config Parameter")
 if config_cols:
-    param2 = st.selectbox("Select config parameter for breakdown", config_cols)
-    if param2:
-        # Convert dicts/unhashable types to string for grouping
-        if df_filtered[param2].apply(lambda x: isinstance(x, dict)).any():
-            df_filtered[param2] = df_filtered[param2].apply(lambda x: str(x) if isinstance(x, dict) else x)
-        summary = df_filtered.groupby([param2, "result"]).size().unstack(fill_value=0)
-        st.dataframe(summary)
-        st.bar_chart(summary)
+    param = st.selectbox("Select config parameter for correlation", config_cols, key="corr_param")
+    # Convert unhashable types to string
+    if df_corr[param].apply(lambda x: not isinstance(x, (str, int, float, bool, type(None)))).any():
+        df_corr[param] = df_corr[param].apply(lambda x: str(x) if not isinstance(x, (str, int, float, bool, type(None))) else x)
+    summary = df_corr.groupby([param, "result"]).size().unstack(fill_value=0)
+    st.dataframe(summary)
+    st.bar_chart(summary)
 
-# Show raw logs if desired
-st.subheader("Raw Log Files")
-log_files = [f for f in collect_files() if f.endswith(".log")]
-log_choice = st.selectbox("Select log file", log_files)
-if log_choice:
-    st.text_area("Log Content", parse_log(log_choice), height=300)
+# --- Evaluation Parameter Correlation ---
+eval_cols = [c for c in df.columns if c.startswith("cfg_") and any(x in c for x in [
+    "bonus", "penalty", "weight", "modifier", "multiplier"
+])]
+if eval_cols:
+    st.markdown("#### Evaluation Parameter Impact")
+    eval_param = st.selectbox("Select evaluation parameter", eval_cols, key="eval_param")
+    # Convert unhashable types to string
+    if df_corr[eval_param].apply(lambda x: not isinstance(x, (str, int, float, bool, type(None)))).any():
+        df_corr[eval_param] = df_corr[eval_param].apply(lambda x: str(x) if not isinstance(x, (str, int, float, bool, type(None))) else x)
+    # Show win rate, draw rate, avg game length, avg search depth by parameter value
+    agg = df_corr.groupby(eval_param).agg(
+        games=("result", "count"),
+        win_rate=("result", lambda x: (x == "1-0").mean()),
+        draw_rate=("result", lambda x: (x == "1/2-1/2").mean()),
+        avg_game_length=("move_count", "mean"),
+        avg_search_depth=("avg_search_depth", "mean"),
+        avg_time_per_move_ms=("avg_time_per_move_ms", "mean")
+    ).sort_values("games", ascending=False)
+    st.dataframe(agg)
+    st.line_chart(agg[["win_rate", "draw_rate", "avg_game_length", "avg_search_depth"]])
 
-# Download combined dataset
-st.download_button("Download Combined Dataset (CSV)", df.to_csv(index=False), file_name="combined_ai_dataset.csv")
+# --- Pairwise Correlation Heatmap (numeric config/eval params only) ---
+import numpy as np
+import seaborn as sns
+import matplotlib.pyplot as plt
 
-while True:
-    cpu, mem, threads = get_process_metrics()
-    cpu_placeholder.metric("CPU Usage (%)", f"{cpu:.2f}")
-    mem_placeholder.metric("Memory Usage (MB)", f"{mem:.2f}")
-    threads_placeholder.metric("Thread Count", threads)
-    time.sleep(update_interval)
+numeric_cols = [c for c in df_corr.columns if (str(c).startswith("cfg_") and pd.api.types.is_numeric_dtype(df_corr[c]))]
+if numeric_cols:
+    st.markdown("#### Pairwise Correlation Heatmap (Numeric Config/Eval Params)")
+    corr_matrix = df_corr[numeric_cols + ["move_count", "avg_search_depth", "avg_time_per_move_ms"]].corr()
+    fig, ax = plt.subplots(figsize=(min(12, 1+len(corr_matrix.columns)//2), 8))
+    sns.heatmap(corr_matrix, annot=True, fmt=".2f", cmap="coolwarm", ax=ax)
+    st.pyplot(fig)
+
+# --- Scatter Plot for Custom Parameter vs. Metric ---
+st.markdown("#### Custom Parameter vs. Metric Scatter Plot")
+scatter_param = st.selectbox("X-axis: Config/Eval Parameter", numeric_cols, key="scatter_param")
+scatter_metric = st.selectbox("Y-axis: Metric", ["move_count", "avg_search_depth", "avg_time_per_move_ms"], key="scatter_metric")
+if scatter_param and scatter_metric:
+    st.scatter_chart(df_corr[[scatter_param, scatter_metric]].dropna())
+
+# --- Sidebar: Specific Config Filters ---
+with st.sidebar:
+    st.header("Filter by AI Config & Evaluation Rules")
+    # AI config fields from your TODO
+    ai_fields = [
+        "cfg_ai_type", "cfg_ai_color", "cfg_depth", "cfg_use_solutions", "cfg_pst", "cfg_pst_weight",
+        "cfg_move_ordering", "cfg_quiescence", "cfg_time_limit", "cfg_engine", "cfg_personality",
+        "cfg_ruleset", "cfg_scoring_modifier"
+    ]
+    eval_fields = [
+        "cfg_checkmate_bonus", "cfg_repetition_penalty", "cfg_center_control_bonus", "cfg_knight_activity_bonus",
+        "cfg_bishop_activity_bonus", "cfg_king_safety_bonus", "cfg_king_threat_penalty", "cfg_undeveloped_penalty",
+        "cfg_check_bonus", "cfg_in_check_penalty", "cfg_capture_bonus", "cfg_castling_bonus", "cfg_en_passant_bonus",
+        "cfg_pawn_promotion_bonus", "cfg_passed_pawn_bonus", "cfg_hanging_piece_bonus", "cfg_trapped_piece_penalty",
+        "cfg_piece_development_bonus", "cfg_piece_activity_bonus", "cfg_knight_pair_bonus", "cfg_knight_vision_penalty",
+        "cfg_pawn_advancement_bonus", "cfg_rook_development_penalty", "cfg_castling_protection_bonus",
+        "cfg_castling_protection_penalty", "cfg_material_weight", "cfg_piece_coordination_bonus",
+        "cfg_doubled_pawn_penalty", "cfg_isolated_pawn_penalty", "cfg_backward_pawn_penalty", "cfg_bishop_vision_bonus",
+        "cfg_tempo_bonus", "cfg_stacked_rooks_bonus", "cfg_coordinated_rooks_bonus", "cfg_stalemate_penalty",
+        "cfg_draw_penalty", "cfg_undefended_piece_penalty", "cfg_pawn_structure_bonus", "cfg_file_control_bonus",
+        "cfg_open_file_bonus", "cfg_rook_position_bonus", "cfg_exposed_king_penalty", "cfg_piece_mobility_bonus",
+        "cfg_checkmate_move_bonus", "cfg_check_move_bonus", "cfg_hash_move_bonus", "cfg_capture_move_bonus",
+        "cfg_promotion_move_bonus", "cfg_killer_move_bonus", "cfg_history_move_bonus", "cfg_counter_move_bonus"
+    ]
+    # Only show filters for fields present in the dataframe
+    ai_fields_present = [f for f in ai_fields if f in df.columns]
+    eval_fields_present = [f for f in eval_fields if f in df.columns]
+
+    ai_filters = {}
+    for f in ai_fields_present:
+        vals = df[f].dropna().unique().tolist()
+        if vals:
+            ai_filters[f] = st.selectbox(f"AI Config: {f.replace('cfg_', '')}", ["All"] + [str(v) for v in sorted(vals)], key=f"ai_{f}")
+
+    eval_filters = {}
+    for f in eval_fields_present:
+        vals = df[f].dropna().unique().tolist()
+        if vals:
+            eval_filters[f] = st.selectbox(f"Eval Rule: {f.replace('cfg_', '')}", ["All"] + [str(v) for v in sorted(vals)], key=f"eval_{f}")
+
+# --- Apply specific config filters ---
+df_filtered = df.copy()
+for f, v in ai_filters.items():
+    if v != "All":
+        df_filtered = df_filtered[df_filtered[f].astype(str) == v]
+for f, v in eval_filters.items():
+    if v != "All":
+        df_filtered = df_filtered[df_filtered[f].astype(str) == v]
+
+# --- Correlation Table/Plot for Filtered Data ---
+st.subheader("Outcome Correlation for Selected Config/Rule Values")
+if not df_filtered.empty and "result" in df_filtered:
+    outcome_counts = df_filtered["result"].value_counts()
+    st.write("Game Outcomes (filtered):")
+    st.bar_chart(outcome_counts)
+    # Show win/draw/loss rates
+    st.write({
+        "Win Rate (White)": f"{100 * (df_filtered['result'] == '1-0').mean():.1f}%",
+        "Win Rate (Black)": f"{100 * (df_filtered['result'] == '0-1').mean():.1f}%",
+        "Draw Rate": f"{100 * (df_filtered['result'] == '1/2-1/2').mean():.1f}%"
+    })
+    # Show average game length and search metrics
+    st.write({
+        "Avg Game Length": f"{df_filtered['move_count'].mean():.1f}" if 'move_count' in df_filtered else "N/A",
+        "Avg Search Depth": f"{df_filtered['avg_search_depth'].mean():.1f}" if 'avg_search_depth' in df_filtered else "N/A",
+        "Avg Time/Move (ms)": f"{df_filtered['avg_time_per_move_ms'].mean():.1f}" if 'avg_time_per_move_ms' in df_filtered else "N/A"
+    })
+else:
+    st.info("No games match the selected config/rule filters.")

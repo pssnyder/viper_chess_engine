@@ -12,6 +12,7 @@ import logging
 import logging.handlers
 import threading
 import time
+import socket
 from evaluation_engine import EvaluationEngine
 
 # Pygame constants
@@ -74,7 +75,16 @@ class ChessGame:
         # Initialize Pygame
         pygame.init()
         self.clock = pygame.time.Clock()
-        
+        # Enable logging
+        self.logging_enabled = self.config['debug']['enable_logging']
+        self.show_thoughts = self.config['debug']['show_thinking']
+        self.logger = chess_game_logger  # Use the module-level logger
+        if self.logging_enabled:
+            self.logger.debug("Logging enabled for Evaluation Engine")
+        else:
+            self.show_thoughts = False
+    
+
         # Initialize game settings
         self.human_color_pref = self.config['game_config']['human_color']
         self.watch_mode = self.config['game_config']['watch_mode']
@@ -90,9 +100,10 @@ class ChessGame:
             self.load_images()
         else:
             self.screen = None
-            print("Running in headless mode - no visual display")
+            if self.logging_enabled and self.logger:
+                self.logger.info("Running in headless mode - no visual display")
             self.headless_mode()
-        
+
         # Initialize piece fallback values
         self.piece_values = {
             chess.KING: 0,
@@ -146,14 +157,6 @@ class ChessGame:
     
     def new_game(self, fen_position=None):
         """Reset the game state for a new game"""
-        # Clear the log file at the start of each new game
-        log_path = "logging/chess_game.log"
-        #try:
-        #    with open(log_path, "w"):
-        #        pass  # Truncate the file
-        #except Exception as e:
-        #    print(f"Could not clear log file: {e}")
-
         self.board = chess.Board(fen=fen_position) if fen_position else chess.Board()
         self.game = chess.pgn.Game()
         self.game_node = self.game # Initialize new game node
@@ -178,20 +181,28 @@ class ChessGame:
         # Reset move history
         self.move_history = []
         if self.logging_enabled and self.logger:
-            self.logger.info("Starting new game...")
-
+            self.logger.info(f"Starting new game.")
+        if self.watch_mode:
+            self.draw_board()
+            self.draw_pieces()
+            self.update_display()
+            if self.game_count > 1:
+                print(f"Starting new game, currently playing {self.game_count} game series")
+            else:    
+                print("Starting new game...")
+    
     def set_headers(self):
         # Set initial PGN headers
         if self.ai_vs_ai:
             self.game.headers["Event"] = "AI vs. AI Game"
-            self.game.headers["White"] = f"AI: {self.white_eval_engine} via {self.white_bot_type}"
-            self.game.headers["Black"] = f"AI: {self.black_eval_engine} via {self.black_bot_type}"
+            self.game.headers["White"] = f"AI: {self.white_eval_engine} via {self.white_bot_type} ({self.white_ai_config['depth']/2} ply)"
+            self.game.headers["Black"] = f"AI: {self.black_eval_engine} via {self.black_bot_type} ({self.black_ai_config['depth']/2} ply)"
         else:
             self.game.headers["Event"] = "Human vs. AI Game"
-            self.game.headers["White"] = f"AI: {self.white_eval_engine} via {self.white_bot_type}" if self.ai_color == chess.WHITE else "Human"
-            self.game.headers["Black"] = "Human" if self.ai_color == chess.WHITE else f"AI: {self.black_eval_engine} via {self.black_bot_type}"
+            self.game.headers["White"] = f"AI: {self.white_eval_engine} via {self.white_bot_type} ({self.white_ai_config['depth']/2} ply)" if self.ai_color == chess.WHITE else "Human"
+            self.game.headers["Black"] = "Human" if self.ai_color == chess.WHITE else f"AI: {self.black_eval_engine} via {self.black_bot_type} ({self.black_ai_config['depth']/2} ply)"
         self.game.headers["Date"] = datetime.datetime.now().strftime("%Y.%m.%d")
-        self.game.headers["Site"] = "Local Computer"
+        self.game.headers["Site"] = socket.gethostbyname(socket.gethostname())
         self.game.headers["Round"] = "#"
         
     def set_colors(self):
@@ -225,7 +236,8 @@ class ChessGame:
                     (SQ_SIZE, SQ_SIZE)
                 )
             except pygame.error:
-                print(f"Warning: Could not load image for {piece}")
+                if self.logging_enabled and self.logger:
+                    self.logger.warning(f"Could not load image for {piece}")
 
     def draw_board(self):
         if not self.watch_mode or self.screen is None:
@@ -433,11 +445,14 @@ class ChessGame:
             
             # Determine the specific draw condition for better feedback
             if self.board.can_claim_threefold_repetition():
-                print("\nGame drawn by threefold repetition!")
+                if self.logging_enabled and self.logger:
+                    self.logger.info("\nGame drawn by threefold repetition!")
             elif self.board.can_claim_fifty_moves():
-                print("\nGame drawn by fifty-move rule!")
+                if self.logging_enabled and self.logger:
+                    self.logger.info("\nGame drawn by fifty-move rule!")
             else:
-                print("\nGame drawn!")
+                if self.logging_enabled and self.logger:
+                    self.logger.info("\nGame drawn!")
             self.game.headers["Result"] = result
             self.save_game_data()
             print(f"Game over: {result}")
@@ -446,12 +461,12 @@ class ChessGame:
         # Additional check for automatic 75-move rule (since July 2014 rules)
         if self.board.is_seventyfive_moves():
             result = "1/2-1/2"
-            print("\nGame automatically drawn by seventy-five move rule!")
+            if self.logging_enabled and self.logger:
+                self.logger.info("\nGame automatically drawn by seventy-five move rule!")
             self.game.headers["Result"] = result
             self.save_game_data()
             print(f"Game over: {result}")
             return True
-        
         return False
     
     def record_evaluation(self):
@@ -469,8 +484,9 @@ class ChessGame:
         
         if not os.path.exists(games_dir):
             os.makedirs(games_dir, exist_ok=True)
-            print(f"Created directory: {games_dir}")
-        
+            if self.logging_enabled and self.logger:
+                self.logger.info(f"Created directory: {games_dir}")
+
         # Generate filename with timestamp if not provided
         timestamp = get_timestamp()
         
@@ -481,17 +497,21 @@ class ChessGame:
             with open(pgn_filepath, "w") as f:
                 exporter = chess.pgn.FileExporter(f)
                 self.game.accept(exporter)
-            print(f"Game saved to {pgn_filepath}")
+            if self.logging_enabled and self.logger:
+                self.logger.info(f"Game saved to {pgn_filepath}")
         except IOError as e:
-            print(f"Error saving game: {e}")
+            if self.logging_enabled and self.logger:
+                self.logger.error(f"Unexpected problem saving game: {e}")
         try:
             # Save the configuration to YAML file
             config_filepath = f"games/eval_game_{timestamp}.yaml"
             with open(config_filepath, "w") as f:
                 yaml.dump(self.config, f)
-            print(f"Configuration saved to {config_filepath}")
+            if self.logging_enabled and self.logger:
+                self.logger.info(f"Configuration saved to {config_filepath}")
         except IOError as e:
-            print(f"Error saving configuration: {e}")
+            if self.logging_enabled and self.logger:
+                self.logger.error(f"Unexpected problem saving configuration: {e}")
         try:
             # Export all evaluation_engine.log files (including rotated logs)
             log_filepath = f"games/eval_game_{timestamp}.log"
@@ -508,10 +528,13 @@ class ChessGame:
                             outfile.write(f"\n--- {os.path.basename(log_file)} ---\n")
                             outfile.write(infile.read())
                     except Exception as e:
-                        print(f"Warning: Could not read {log_file}: {e}")
-            print(f"Log saved to {log_filepath}")
+                        if self.logging_enabled and self.logger:
+                            self.logger.warning(f"Could not read {log_file}: {e}")
+            if self.logging_enabled and self.logger:
+                self.logger.info(f"Log saved to {log_filepath}")
         except IOError as e:
-            print(f"Error saving log: {e}")
+            if self.logging_enabled and self.logger:
+                self.logger.error(f"Unexpected problem saving log: {e}")
 
     def quick_save_pgn(self, filename):
         with open(filename, "w") as f:
@@ -520,10 +543,8 @@ class ChessGame:
     
     def headless_mode(self):
         """Initialize pygame for headless mode - minimal setup"""
-        print("Initializing headless AI vs AI mode...")
-        print("No visual display will be shown.")
-        print("Game progress will be shown in terminal.")
-        print("Press Ctrl+C to stop the game early.")     
+        print("Initializing headless AI vs AI mode. No chess GUI will be shown.")
+        print("Press Ctrl+C in the terminal to stop the game early.")
     
     def import_fen(self, fen_string):
         """Import a position from FEN notation"""
@@ -533,9 +554,10 @@ class ChessGame:
             
             # Validate the board is legal
             if not new_board.is_valid():
-                print(f"Error: Invalid FEN position: {fen_string}")
+                if self.logging_enabled and self.logger:
+                    self.logger.error(f"Invalid FEN position: {fen_string}")
                 return False
-            
+
             # Update the main board
             self.board = new_board
             
@@ -559,15 +581,18 @@ class ChessGame:
             self.game.headers["Event"] = "Custom Position Game"
             self.game.headers["SetUp"] = "1"
             self.game.headers["FEN"] = fen_string
-            
-            print(f"Successfully imported FEN: {fen_string}")
+
+            if self.logging_enabled and self.logger:
+                self.logger.info(f"Successfully imported FEN: {fen_string}")
             return True
-            
+
         except ValueError as e:
-            print(f"Error: Could not import FEN starting position: {e}")
+            if self.logging_enabled and self.logger:
+                self.logger.error(f"Could not import FEN starting position: {e}")
             return False
         except Exception as e:
-            print(f"Unexpected error importing FEN: {e}")
+            if self.logging_enabled and self.logger:
+                self.logger.error(f"Unexpected problem importing FEN: {e}")
             return False
 
     # ===================================
@@ -586,7 +611,8 @@ class ChessGame:
                 self.last_ai_move = ai_move if ai_move else None
             else:
                 # Fallback to random legal move
-                print(f"AI falling back on random legal move, {ai_move} invalid!")
+                if self.logging_enabled and self.logger:
+                    self.logger.warning(f"Could not process AI move, falling back on random legal move: {ai_move} invalid for {current_color}. | FEN: {self.board.fen()}")
                 legal_moves = list(self.board.legal_moves)
                 if legal_moves:
                     fallback = random.choice(legal_moves)
@@ -600,6 +626,8 @@ class ChessGame:
                 self.logger.info("AI (%s) played: %s (Eval: %.2f)", current_color, ai_move, self.current_eval)
         except Exception as e:
             print(f"AI move error: {e}")
+            if self.logging_enabled and self.logger:
+                self.logger.error(f"AI move error: {e}")
             #self.quick_save_pgn("games/game_error_dump.pgn")
 
     def process_ai_move_threaded(self):
@@ -617,6 +645,8 @@ class ChessGame:
                 self.ai_move_result = ai_move
             except Exception as e:
                 print(f"AI move error (thread): {e}")
+                if self.logging_enabled and self.logger:
+                    self.logger.error(f"AI move error (thread): {e}")
                 self.ai_move_result = None
             finally:
                 self.ai_busy = False
@@ -652,7 +682,8 @@ class ChessGame:
             if isinstance(move, str):
                 move = chess.Move.from_uci(move)
             if not self.board.is_legal(move):
-                print(f"Illegal move blocked: {move}")
+                if self.logging_enabled and self.logger:
+                    self.logger.info(f"Illegal move blocked: {move}")
                 return False
 
             self.game_node = self.game_node.add_variation(move)
@@ -694,24 +725,28 @@ class ChessGame:
             # Only select if there's a piece and it belongs to the current human player
             if piece and piece.color == self.board.turn and self.board.turn == self.human_color:
                 self.selected_square = square
-                print(f"Selected piece at {chess.square_name(square)}")
+                if self.logging_enabled and self.logger:
+                    self.logger.info(f"Selected piece at {chess.square_name(square)}")
             else:
-                print(f"No valid piece to select at {chess.square_name(square)}")
-                
+                if self.logging_enabled and self.logger:
+                    self.logger.info(f"No valid piece to select at {chess.square_name(square)}")
+
         # CASE 2: A piece is already selected
         else:
             # CASE 2A: Clicking on the same square again - DESELECT
             if square == self.selected_square:
                 self.selected_square = None
-                print(f"Deselected piece at {chess.square_name(square)}")
+                if self.logging_enabled and self.logger:
+                    self.logger.info(f"Deselected piece at {chess.square_name(square)}")
                 return
-                
+
             # CASE 2B: Clicking on another piece of the same color - SWITCH SELECTION
             if piece and hasattr(piece, "color") and piece.color == self.human_color and self.board.turn == self.human_color:
                 self.selected_square = square
-                print(f"Switched selection to piece at {chess.square_name(square)}")
+                if self.logging_enabled and self.logger:
+                    self.logger.info(f"Switched selection to piece at {chess.square_name(square)}")
                 return
-                
+
             # CASE 2C: Attempting to make a move
             move = chess.Move(self.selected_square, square)
             
@@ -727,7 +762,8 @@ class ChessGame:
 
             # CASE 2C1: Valid move - execute it
             if move in self.board.legal_moves:
-                print(f"Human plays: {move}")
+                if self.logging_enabled and self.logger:
+                    self.logger.info(f"Human plays: {move}")
                 self.game_node = self.game_node.add_variation(move)
                 self.board.push(move)
                 self.selected_square = None  # Clear selection after successful move
@@ -737,7 +773,8 @@ class ChessGame:
                 
             # CASE 2C2: Invalid move - deselect and provide feedback
             else:
-                print(f"Invalid move: {move} - deselecting piece")
+                if self.logging_enabled and self.logger:
+                    self.logger.info(f"Invalid move: {move} - deselecting piece")
                 self.selected_square = None  # Clear selection on invalid move
 
     # ==========================================
@@ -749,7 +786,8 @@ class ChessGame:
         chosen_move = None
         # Validate current board state
         if not self.board.is_valid():
-            print(f"ERROR: Invalid board state detected! | FEN: {self.board.fen()}")
+            if self.logging_enabled and self.logger:
+                self.logger.error(f"Invalid board state detected! | FEN: {self.board.fen()}")
             return None
         if not self.board.legal_moves:
             return None
@@ -784,7 +822,9 @@ class ChessGame:
         # Initialize game mode
         if self.ai_vs_ai:
             # AI vs AI mode - no human interaction
-            print("Starting AI vs AI mode...")
+            if self.logging_enabled and self.logger:
+                self.logger.info("Starting AI vs AI mode...")
+                print(f"White AI: {self.white_eval_engine} via {self.white_bot_type} vs Black AI: {self.black_eval_engine} via {self.black_bot_type}")
             if self.watch_mode:
                 # Visual mode - use timer events
                 pygame.time.set_timer(pygame.USEREVENT, 2000)  # 2 second visual updates to make it easier to watch the ai vs ai game
@@ -792,11 +832,13 @@ class ChessGame:
         # Configure AI engines per color
         self.white_engine = EvaluationEngine(self.board, chess.WHITE)
         self.black_engine = EvaluationEngine(self.board, chess.BLACK)
+        self.engine = EvaluationEngine(self.board, self.board.turn) # Dummy engine for general function calls
 
         while running and ((self.ai_vs_ai and game_count >= 1)):
             if self.logging_enabled and self.logger:
                 self.logger.info(f"Running chess game loop: {self.game_count - game_count} remaining")
-                self.logger.info(f"AI Busy: {self.ai_busy}, Screen Ready: {self.screen_ready}, Game Over: {self.board.is_game_over()}")
+                self.engine.logger.info(f"Running chess game loop: {self.game_count - game_count} remaining")
+                #self.logger.info(f"AI Busy: {self.ai_busy}, Screen Ready: {self.screen_ready}, Game Over: {self.board.is_game_over()}")
             move_start_time = pygame.time.get_ticks()
             move_end_time = 0
             move_duration = 0
@@ -827,6 +869,7 @@ class ChessGame:
                 move_duration = move_end_time - move_start_time
                 if self.logging_enabled and self.logger:
                     self.logger.info("AI move took %d ms", move_duration)
+                    self.engine.logger.info("AI move took %d ms", move_duration)
 
             if self.watch_mode:
                 # Update the display if in watch mode
@@ -841,11 +884,14 @@ class ChessGame:
                     self.record_evaluation()
                     self.save_game_data()
                     if self.ai_vs_ai and self.game_count > 1 and self.game_count != game_count:
-                        print(f'All {self.game_count} games complete, exiting...')
+                        if self.logging_enabled and self.logger:
+                            self.logger.info(f'All {self.game_count} games complete, exiting...')
                     elif self.ai_vs_ai and self.game_count != game_count:
-                        print('Game complete')
+                        if self.logging_enabled and self.logger:
+                            self.logger.info('Game complete')
                 elif self.ai_vs_ai and self.game_count != game_count:
-                    print(f'Game {self.game_count - game_count}/{self.game_count} complete...')
+                    if self.logging_enabled and self.logger:
+                        self.logger.info(f'Game {self.game_count - game_count}/{self.game_count} complete...')
                     self.new_game()
             else:
                 clock.tick(MAX_FPS)

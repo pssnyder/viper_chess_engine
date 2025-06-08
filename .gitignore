@@ -2,6 +2,7 @@
 
 # ignore puzzles directory
 /puzzles/
+puzzles/
 
 # ignore .csv files
 *.csv
@@ -11,28 +12,21 @@
 
 # ignore the evaluation directory
 /evaluation/
+evaluation/
 
 # ignore the training directory
 /training/
+training/
 
 # ignore the models directory
 /models/
-
-# ignore the data directory
-/data/
+models/
 
 # ignor pytorch model files
 *.pt
 
 # ignore tensorflow model files
 *.h5
-
-# ignore the db files, directory, and sqlite files
-/db/
-db/
-
-#*.db # Accounted for via git-lfs
-*.sqlite
 
 # ignore logging directory
 /logging/

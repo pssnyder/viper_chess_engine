@@ -652,6 +652,15 @@ class ChessGame:
                     fallback = random.choice(legal_moves)
                     ai_move = fallback
                     self.push_move(fallback)
+                # Exclude this AI config from metrics due to invalid move
+                if self.current_player == chess.WHITE:
+                    self.white_ai_config['exclude_from_metrics'] = True
+                    if self.logging_enabled and self.logger:
+                        self.logger.info(f"White AI ({self.white_bot_type}) excluded from metrics this game due to invalid move.")
+                else:
+                    self.black_ai_config['exclude_from_metrics'] = True
+                    if self.logging_enabled and self.logger:
+                        self.logger.info(f"Black AI ({self.black_bot_type}) excluded from metrics this game due to invalid move.")
             if self.show_eval:
                 print(f"AI ({current_color}) plays: {ai_move} (Eval: {self.current_eval:.2f})")
             else:

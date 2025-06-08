@@ -89,18 +89,18 @@ white_ai_config:
 
 black_ai_config:
   exclude_from_metrics: true
-  ai_type: lookahead
+  ai_type: random
   ai_color: black                 
-  depth: 2
+  depth: 1
   use_solutions: false
-  pst: true
-  pst_weight: 1.0
+  pst: false
+  pst_weight: 0.0
   move_ordering: false
   quiescence: false
   time_limit: 0
   engine: Viper
   ruleset: simple_evaluation
-  scoring_modifier: 1.0
+  scoring_modifier: 0.8
 
 # Evaluation Rule settings (all scores in centipawns)
 default_evaluation:

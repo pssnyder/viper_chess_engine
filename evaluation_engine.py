@@ -295,6 +295,13 @@ class EvaluationEngine:
         # Enforce strict draw prevention before returning
         if self.strict_draw_prevention:
             best_move = self._enforce_strict_draw_prevention(self.board, best_move if isinstance(best_move, chess.Move) or best_move is None else None)
+        
+        # Validate the move before returning
+        if isinstance(best_move, chess.Move) and best_move not in self.board.legal_moves:
+            if self.logger:
+                self.logger.error(f"Invalid move generated: {best_move} | FEN: {self.board.fen()}")
+            return None
+
         return best_move if best_move else None
 
     # =================================

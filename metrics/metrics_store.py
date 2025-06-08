@@ -188,6 +188,15 @@ class MetricsStore:
             cursor.execute('CREATE INDEX IF NOT EXISTS idx_metrics_side ON metrics(side)')
             
             connection.commit()
+        
+            # Add missing columns white_ai_type and black_ai_type to config_settings table
+            try:
+                cursor.execute('ALTER TABLE config_settings ADD COLUMN white_ai_type TEXT')
+                cursor.execute('ALTER TABLE config_settings ADD COLUMN black_ai_type TEXT')
+            except sqlite3.OperationalError as e:
+                # Ignore error if columns already exist
+                if "duplicate column name" not in str(e):
+                    raise
     
     def start_collection(self, interval=60):
         """Start periodic data collection with the specified interval in seconds."""

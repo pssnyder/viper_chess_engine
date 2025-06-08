@@ -3,15 +3,14 @@
 
 # Game settings
 game_config:
-  starting_position: default     # TODO Implement - Name of the starting position, can be a FEN string or a predefined position name
+  starting_position: default     # TODO Test Name of the starting position, can be a FEN string or a predefined position name
   ai_vs_ai: true                 # Set to true for AI vs AI matches
-  ai_game_count: 1              # Number of games to play in AI vs AI mode
-  watch_mode: false              # Set to true to watch the AI play on a UI board (terminal and pgn output only otherwise)
+  ai_game_count: 100             # Number of games to play in AI vs AI mode
   human_color: random            # Options: white, black, random
   game_type: standard            # Options: standard, chess960, king_of_the_hill, three_check, antichess, atomic, racing_kings
   game_clock: 0 #300             # Time in seconds for each player, 0 for no clock
   game_increment: 0 #2           # Increment in seconds per move, 0 for no increment
-  strict_draw_prevention: true  # Enforce strict draw rules to fully block drawing moves that would lead to stalemate, insufficient material, and threefold repetition
+  strict_draw_prevention: true   # Enforce strict draw rules to fully block drawing moves that would lead to stalemate, insufficient material, and threefold repetition
 
 # Performance settings
 performance:
@@ -27,22 +26,7 @@ performance:
 debug:
   enable_logging: true            # Turn logging on or off, auto-disables thoughts if false
   show_evaluation: true           # Show the evaluation during a game
-  show_thinking: true             # Show what the AI is thinking during the game # TODO add thinking time to the log
-
-# Puzzle settings - # TODO convert puzzles to more efficient format before re-implementing (currently CSV format with over 4,000,000 puzzles)
-puzzle_config:
-  puzzle_import_limit: 0                        # Limit the number of puzzles to import from the file, 0 for no limit
-  puzzle_import_offset: 0                       # Offset for importing puzzles, useful for pagination 
-  puzzle_count: 2                               # Number of puzzles to solve
-  puzzle_solution_limit: 4                      # Length of solution in move count, 0 for any length, default is 4 (less than 4 will truncate solutions)
-  puzzle_difficulty: 0                           # Difficulty rating of puzzles in ELO rating level, 0 for any difficulty
-  puzzle_time_limit: 0                          # TODO Implement- Time limit in seconds to solve each puzzle, only required once iterative deepening is functioning within time controls, 0 for no limit
-  puzzle_types: [                               # Type of puzzles, examples: advantage attraction fork middlegame checkmate sacrifice
-    mate,
-    mateIn1,
-    mateIn2,
-    mateIn3
-  ]     
+  show_thinking: true            # Show what the AI is thinking during the game # TODO add thinking time to the log for each color
 
 # AI Types
 ai_types: [
@@ -74,7 +58,7 @@ starting_positions:
 # AI vs AI settings
 white_ai_config:
   exclude_from_metrics: false     # Flag to exclude this AI from metrics collection, useful for testing or non-competitive AIs who's performance should not be counted
-  ai_type: minimax                # Move search type for White (see ai_types above for options)
+  ai_type: random                # Move search type for White (see ai_types above for options)
   ai_color: white                 # Color code for AI identification, use "white" or "black" as string for clarity
   depth: 3                        # Depth of search for AI, 1 for random, 2 for simple search, 3+ for more complex searches
   use_solutions: false            # Use known positional solutions for evaluation (based on known puzzle solutions)

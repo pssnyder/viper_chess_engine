@@ -57,8 +57,8 @@ starting_positions:
 
 # AI vs AI settings
 white_ai_config:
-  exclude_from_metrics: false     # Flag to exclude this AI from metrics collection, useful for testing or non-competitive AIs who's performance should not be counted
   ai_type: random                # Move search type for White (see ai_types above for options)
+  exclude_from_metrics: false     # Flag to exclude this AI from metrics collection, useful for testing or non-competitive AIs who's performance should not be counted
   ai_color: white                 # Color code for AI identification, use "white" or "black" as string for clarity
   depth: 3                        # Depth of search for AI, 1 for random, 2 for simple search, 3+ for more complex searches
   use_solutions: false            # Use known positional solutions for evaluation (based on known puzzle solutions)
@@ -72,8 +72,8 @@ white_ai_config:
   scoring_modifier: 1.0           # Optional overall scoring multiplier/divider
 
 black_ai_config:
-  exclude_from_metrics: true
   ai_type: random
+  exclude_from_metrics: true
   ai_color: black                 
   depth: 1
   use_solutions: false

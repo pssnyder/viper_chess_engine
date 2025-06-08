@@ -73,6 +73,7 @@ starting_positions:
 
 # AI vs AI settings
 white_ai_config:
+  exclude_from_metrics: false     # Flag to exclude this AI from metrics collection, useful for testing or non-competitive AIs who's performance should not be counted
   ai_type: minimax                # Move search type for White (see ai_types above for options)
   ai_color: white                 # Color code for AI identification, use "white" or "black" as string for clarity
   depth: 3                        # Depth of search for AI, 1 for random, 2 for simple search, 3+ for more complex searches
@@ -87,7 +88,8 @@ white_ai_config:
   scoring_modifier: 1.0           # Optional overall scoring multiplier/divider
 
 black_ai_config:
-  ai_type: lookahead              # Move search type for Black (see ai_types above for options)
+  exclude_from_metrics: true
+  ai_type: lookahead
   ai_color: black                 
   depth: 2
   use_solutions: false

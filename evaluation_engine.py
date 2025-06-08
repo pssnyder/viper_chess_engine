@@ -26,7 +26,8 @@ if not evaluation_logger.handlers:
     file_handler = RotatingFileHandler(
         log_file_path,
         maxBytes=10*1024*1024,
-        backupCount=3
+        backupCount=3,
+        delay=True
     )
     formatter = logging.Formatter(
         '%(asctime)s | %(funcName)-15s | %(message)s',
@@ -148,7 +149,8 @@ class EvaluationEngine:
             self.ai_config = ai_config
         elif self.ai_config is None:
             # Fallback to default configuration
-            self.ai_config = self._get_ai_config('white' if self.board.turn == chess.WHITE else 'black')
+            turn = chess.WHITE if board.turn else chess.BLACK
+            self.ai_config = self._get_ai_config('white' if turn == chess.WHITE else 'black')
 
         # Update AI configuration for this bot
         self.ai_type = self.ai_config.get('ai_type','random')
@@ -186,9 +188,7 @@ class EvaluationEngine:
     def reset(self, board: chess.Board):
         """Reset the evaluation engine to its initial state"""
         self.board = board.copy()
-        # Ensure board.turn is a chess.Color
-        assert self.board.turn in (chess.WHITE, chess.BLACK), f"reset: board.turn is not a chess.Color: {self.board.turn}"
-        self.current_player = self.board.turn
+        self.current_player = chess.WHITE if board.turn else chess.BLACK
         self.nodes_searched = 0
         self.transposition_table.clear()
         self.killer_moves = [[None, None] for _ in range(50)]
@@ -222,10 +222,8 @@ class EvaluationEngine:
         """
         best_move = None
         self.board = board.copy()  # Ensure we work on a copy of the board
-        # Ensure board.turn is a chess.Color
-        assert self.board.turn in (chess.WHITE, chess.BLACK), f"search: board.turn is not a chess.Color: {self.board.turn}"
-        self.current_player = self.board.turn if player not in (chess.WHITE, chess.BLACK) else player
-        
+        self.current_player = chess.WHITE if player == chess.WHITE else chess.BLACK
+
         # Fallback setup, if AI config is not specified, use the configured AI type for that color
         if ai_config is None:
             ai_config = self._get_ai_config('white' if player == chess.WHITE else 'black')
@@ -273,7 +271,7 @@ class EvaluationEngine:
             # Use simple 1-ply search algorithm with special features available
             if self.show_thoughts and self.logger:
                 self.logger.debug("Using simple search algorithm with special features")
-            best_move = self._simple_search()
+            best_move = self._simple_search(self.board.copy())
         elif self.ai_type == 'evaluation_only':
             # Use evaluation only with no special features (no depth, no quiescence, no move ordering)
             if self.show_thoughts and self.logger:
@@ -304,10 +302,9 @@ class EvaluationEngine:
 
     def evaluate_position(self, board: chess.Board):
         """Calculate base position evaluation"""
-        # Ensure board.turn is a chess.Color
-        if board.turn not in (chess.WHITE, chess.BLACK):
+        if not board.is_valid():
             if self.logger:
-                self.logger.error(f"evaluate_position: Invalid board.turn: {board.turn} | FEN: {board.fen()}")
+                self.logger.error(f"evaluate_position: Invalid board state for: {chess.WHITE if board.turn else chess.BLACK} | FEN: {board.fen()}")
             return 0.0
         score = 0.0
         white_score = 0.0
@@ -330,21 +327,29 @@ class EvaluationEngine:
     def evaluate_position_from_perspective(self, board: chess.Board, player: chess.Color):
         """Calculate position evaluation from specified player's perspective"""
         # Add assertion and logging for player
+        if not board.is_valid():
+            if self.logger:
+                self.logger.error(f"Invalid board state for: {chess.WHITE if board.turn else chess.BLACK} | FEN: {board.fen()}")
+            return 0.0
         if player not in (chess.WHITE, chess.BLACK):
             if self.logger:
                 self.logger.error(f"Invalid player value: {player} | FEN: {board.fen()}")
             return 0.0
+
         score = 0.0
+        player_color = 'white' if player == chess.WHITE else 'black'
         try:
             white_score = self._calculate_score(board, chess.WHITE)
             black_score = self._calculate_score(board, chess.BLACK)
-            score = float(white_score - black_score if player == chess.WHITE else black_score - white_score)
+            white_perspective_score = white_score - black_score
+            black_perspective_score = black_score - white_score
+            score = float(white_perspective_score if self.board.turn else black_perspective_score)
             if self.logging_enabled and self.logger:
-                self.logger.debug(f"Position evaluation from {player} perspective: {score:.3f} | FEN: {board.fen()}")
+                self.logger.debug(f"Position evaluation from {player_color} perspective: {score:.3f} | FEN: {board.fen()}")
             return score if score is not None else 0.0
         except Exception as e:
             if self.logging_enabled and self.logger:
-                self.logger.error(f"Error evaluating position from perspective {player}: {e}")
+                self.logger.error(f"Error evaluating position from perspective {player_color}: {e}")
             return 0.0  # Fallback to neutral score
     
     def evaluate_move(self, move: chess.Move = chess.Move.null()):
@@ -471,7 +476,7 @@ class EvaluationEngine:
     def _quiescence_search(self, board: chess.Board, alpha: float, beta: float, depth: int = 0, stop_callback: Optional[Callable[[], bool]] = None):
         """Quiescence search to avoid horizon effect."""
         if stop_callback and stop_callback():
-            return self.evaluate_position_from_perspective(board, board.turn)
+            return self.evaluate_position_from_perspective(board, chess.WHITE if board.turn else chess.BLACK)
 
         def mvv_lva_score(board: chess.Board, move: chess.Move):
             """Most Valuable Victim - Least Valuable Attacker score"""
@@ -488,9 +493,9 @@ class EvaluationEngine:
             return score if score is not None else 0.0
 
         if depth > 2:  # Limit quiescence depth
-            return self.evaluate_position_from_perspective(board, board.turn)
+            return self.evaluate_position_from_perspective(board, chess.WHITE if board.turn else chess.BLACK)
 
-        stand_pat = self.evaluate_position_from_perspective(board, board.turn)
+        stand_pat = self.evaluate_position_from_perspective(board, chess.WHITE if board.turn else chess.BLACK)
         
         if stand_pat >= beta:
             return beta
@@ -629,11 +634,11 @@ class EvaluationEngine:
             self.logger.debug(f"Evaluating position: Score: {evaluation:.3f} FEN: {self.board.fen()}")
         return evaluation
     
-    def _simple_search(self):
+    def _simple_search(self, board: chess.Board):
         """Simple search that evaluates all legal moves and picks the best one at 1/2 ply."""
         best_move = None
-        best_score = -float('inf') if self.board.turn == chess.WHITE else float('inf')
-        board = self.board.copy()
+        best_score = -float('inf') if board.turn else float('inf')
+        board = board.copy()
         if self.depth == 0 or board.is_game_over():
             return None
         
@@ -671,13 +676,6 @@ class EvaluationEngine:
             if self.quiescence_enabled:
                 return self._quiescence_search(board, alpha, beta, depth, stop_callback)
             else:
-                # PROBLEM AREA: player argument
-                # The following line is likely the source of the bug:
-                # score = self.evaluate_position_from_perspective(board, board.turn)
-                # board.turn is a bool (True for white, False for black), but evaluate_position_from_perspective expects chess.WHITE or chess.BLACK.
-                # However, in python-chess, chess.WHITE == True and chess.BLACK == False, so this is usually fine.
-                # The bug can occur if somewhere a plain True/False is passed instead of chess.WHITE/chess.BLACK.
-                # To be explicit and safe, always use chess.WHITE/chess.BLACK.
                 score = self.evaluate_position_from_perspective(board, chess.WHITE if board.turn else chess.BLACK)
                 if self.show_thoughts and self.logger:
                     if score is None:
@@ -689,22 +687,18 @@ class EvaluationEngine:
         if self.move_ordering_enabled:
             moves = self.order_moves(board, moves)
         best_move = None
-        best_score = -float('inf') if board.turn == chess.WHITE else float('inf')
+        best_score = -float('inf') if board.turn else float('inf')
         best_move_board = None  # Track the board for logging
         for move in moves:
             new_board = board.copy()
             new_board.push(move)
             try:
                 if depth - 1 == 0 or new_board.is_game_over(claim_draw=self._is_draw_condition(new_board)):
-                    # PROBLEM AREA: player argument
-                    # score = self.evaluate_position_from_perspective(board, board.turn)
                     score = self.evaluate_position_from_perspective(new_board, chess.WHITE if board.turn else chess.BLACK)
                 else:
                     next_move = self._lookahead_search(new_board, depth - 1, alpha, beta, stop_callback)
                     if isinstance(next_move, chess.Move):
                         new_board.push(next_move)
-                    # PROBLEM AREA: player argument
-                    # score = self.evaluate_position_from_perspective(board, board.turn)
                     score = self.evaluate_position_from_perspective(new_board, chess.WHITE if board.turn else chess.BLACK)
             except Exception as e:
                 if self.show_thoughts and self.logger:
@@ -716,7 +710,7 @@ class EvaluationEngine:
                     self.logger.debug(f"Score is None for move {move} at depth {depth} | FEN: {new_board.fen()}")
                 else:
                     self.logger.debug(f"Score for move {move}: {score} at depth {depth} | FEN: {new_board.fen()}")
-            if board.turn == chess.WHITE:
+            if board.turn:
                 if score > best_score:
                     best_score = score
                     best_move = move
@@ -745,8 +739,6 @@ class EvaluationEngine:
             if self.quiescence_enabled:
                 return self._quiescence_search(board, alpha, beta, depth, stop_callback)
             else:
-                # PROBLEM AREA: player argument
-                # return self.evaluate_position_from_perspective(board, board.turn)
                 return self.evaluate_position_from_perspective(board, chess.WHITE if board.turn else chess.BLACK)
         moves = list(board.legal_moves)
         if self.move_ordering_enabled:
@@ -845,8 +837,6 @@ class EvaluationEngine:
             if self.quiescence_enabled:
                 return self._quiescence_search(board, alpha, beta, depth, stop_callback)
             else:
-                # PROBLEM AREA: player argument
-                # return self.evaluate_position_from_perspective(board, board.turn)
                 return self.evaluate_position_from_perspective(board, chess.WHITE if board.turn else chess.BLACK)
         moves = list(board.legal_moves)
         if self.move_ordering_enabled:
@@ -897,8 +887,6 @@ class EvaluationEngine:
             if self.quiescence_enabled:
                 return self._quiescence_search(board, alpha, beta, depth, stop_callback)
             else:
-                # PROBLEM AREA: player argument
-                # return self.evaluate_position_from_perspective(board, board.turn)
                 return self.evaluate_position_from_perspective(board, chess.WHITE if board.turn else chess.BLACK)
         moves = list(board.legal_moves)
         if self.move_ordering_enabled:
@@ -1052,7 +1040,7 @@ class EvaluationEngine:
         if hash_move:
             if self.show_thoughts and self.logger:
                 self.logger.debug(f"Using transposition move: {hash_move} at depth {depth}")
-            return hash_move, self.evaluate_position_from_perspective(board, board.turn)
+            return hash_move, self.evaluate_position_from_perspective(board, chess.WHITE if board.turn else chess.BLACK)
 
         # Determine the search depth dynamically
         dynamic_depth = self._get_dynamic_depth(board, depth)
@@ -1110,67 +1098,85 @@ class EvaluationEngine:
             self.logger.debug(f"PST score: {score:.3f} | FEN: {board.fen()}")
 
         # Piece coordination and control
-        score += self.scoring_modifier * (self._piece_coordination(board, color) or 0.0)
+        piece_coordination_score = self.scoring_modifier * (self._piece_coordination(board, color) or 0.0)
+        score += piece_coordination_score
         if self.show_thoughts and self.logger:
-            self.logger.debug(f"Piece coordination score: {score:.3f} | FEN: {board.fen()}")
-        score += self.scoring_modifier * (self._center_control(board) or 0.0)
+            self.logger.debug(f"Piece coordination score: {piece_coordination_score:.3f} | FEN: {board.fen()}")
+        center_control_score = self.scoring_modifier * (self._center_control(board) or 0.0)
+        score += center_control_score
         if self.show_thoughts and self.logger:
-            self.logger.debug(f"Center control score: {score:.3f} | FEN: {board.fen()}")
-        score += self.scoring_modifier * (self._pawn_structure(board, color) or 0.0)
+            self.logger.debug(f"Center control score: {center_control_score:.3f} | FEN: {board.fen()}")
+        pawn_structure_score = self.scoring_modifier * (self._pawn_structure(board, color) or 0.0)
+        score += pawn_structure_score
         if self.show_thoughts and self.logger:
-            self.logger.debug(f"Pawn structure score: {score:.3f} | FEN: {board.fen()}")
-        score += self.scoring_modifier * (self._pawn_weaknesses(board, color) or 0.0)
+            self.logger.debug(f"Pawn structure score: {pawn_structure_score:.3f} | FEN: {board.fen()}")
+        pawn_weaknesses_score = self.scoring_modifier * (self._pawn_weaknesses(board, color) or 0.0)
+        score += pawn_weaknesses_score
         if self.show_thoughts and self.logger:
-            self.logger.debug(f"Pawn weaknesses score: {score:.3f} | FEN: {board.fen()}")
-        score += self.scoring_modifier * (self._passed_pawns(board, color) or 0.0)
+            self.logger.debug(f"Pawn weaknesses score: {pawn_weaknesses_score:.3f} | FEN: {board.fen()}")
+        passed_pawns_score = self.scoring_modifier * (self._passed_pawns(board, color) or 0.0)
+        score += passed_pawns_score
         if self.show_thoughts and self.logger:
-            self.logger.debug(f"Passed pawns score: {score:.3f} | FEN: {board.fen()}")
-        score += self.scoring_modifier * (self._pawn_majority(board, color) or 0.0) # TODO
+            self.logger.debug(f"Passed pawns score: {passed_pawns_score:.3f} | FEN: {board.fen()}")
+        pawn_majority_score = self.scoring_modifier * (self._pawn_majority(board, color) or 0.0) # TODO
+        score += pawn_majority_score
         if self.show_thoughts and self.logger:
-            self.logger.debug(f"Pawn majority score: {score:.3f} | FEN: {board.fen()}")
-        score += self.scoring_modifier * (self._bishop_pair(board, color) or 0.0)
+            self.logger.debug(f"Pawn majority score: {pawn_majority_score:.3f} | FEN: {board.fen()}")
+        bishop_pair_score = self.scoring_modifier * (self._bishop_pair(board, color) or 0.0)
+        score += bishop_pair_score
         if self.show_thoughts and self.logger:
-            self.logger.debug(f"Bishop pair score: {score:.3f} | FEN: {board.fen()}")
-        score += self.scoring_modifier * (self._knight_pair(board, color) or 0.0)
+            self.logger.debug(f"Bishop pair score: {bishop_pair_score:.3f} | FEN: {board.fen()}")
+        knight_pair_score = self.scoring_modifier * (self._knight_pair(board, color) or 0.0)
+        score += knight_pair_score
         if self.show_thoughts and self.logger:
-            self.logger.debug(f"Knight pair score: {score:.3f} | FEN: {board.fen()}")
-        score += self.scoring_modifier * (self._bishop_vision(board, color) or 0.0)
+            self.logger.debug(f"Knight pair score: {knight_pair_score:.3f} | FEN: {board.fen()}")
+        bishop_vision_score = self.scoring_modifier * (self._bishop_vision(board, color) or 0.0)
+        score += bishop_vision_score
         if self.show_thoughts and self.logger:
-            self.logger.debug(f"Bishop vision score: {score:.3f} | FEN: {board.fen()}")
-        score += self.scoring_modifier * (self._rook_coordination(board, color) or 0.0)
+            self.logger.debug(f"Bishop vision score: {bishop_vision_score:.3f} | FEN: {board.fen()}")
+        rook_coordination_score = self.scoring_modifier * (self._rook_coordination(board, color) or 0.0)
+        score += rook_coordination_score
         if self.show_thoughts and self.logger:
-            self.logger.debug(f"Rook coordination score: {score:.3f} | FEN: {board.fen()}")
-        score += self.scoring_modifier * (self._castling_evaluation(board, color) or 0.0)
+            self.logger.debug(f"Rook coordination score: {rook_coordination_score:.3f} | FEN: {board.fen()}")
+        castling_evaluation_score = self.scoring_modifier * (self._castling_evaluation(board, color) or 0.0)
         if self.show_thoughts and self.logger:
-            self.logger.debug(f"Castling evaluation score: {score:.3f} | FEN: {board.fen()}")
-        
+            self.logger.debug(f"Castling evaluation score: {castling_evaluation_score:.3f} | FEN: {board.fen()}")
+
         # Piece development and mobility
-        score += self.scoring_modifier * (self._piece_activity(board, color) or 0.0)
+        piece_activity_score = self.scoring_modifier * (self._piece_activity(board, color) or 0.0)
+        score += piece_activity_score
         if self.show_thoughts and self.logger:
-            self.logger.debug(f"Piece activity score: {score:.3f} | FEN: {board.fen()}")
-        score += self.scoring_modifier * (self._improved_minor_piece_activity(board, color) or 0.0)
+            self.logger.debug(f"Piece activity score: {piece_activity_score:.3f} | FEN: {board.fen()}")
+        improved_minor_piece_activity_score = self.scoring_modifier * (self._improved_minor_piece_activity(board, color) or 0.0)
+        score += improved_minor_piece_activity_score
         if self.show_thoughts and self.logger:
-            self.logger.debug(f"Improved minor piece activity score: {score:.3f} | FEN: {board.fen()}")
-        score += self.scoring_modifier * (self._mobility_score(board, color) or 0.0)
+            self.logger.debug(f"Improved minor piece activity score: {improved_minor_piece_activity_score:.3f} | FEN: {board.fen()}")
+        mobility_score = self.scoring_modifier * (self._mobility_score(board, color) or 0.0)
+        score += mobility_score
         if self.show_thoughts and self.logger:
-            self.logger.debug(f"Mobility score: {score:.3f} | FEN: {board.fen()}")
-        score += self.scoring_modifier * (self._undeveloped_pieces(board, color) or 0.0)
+            self.logger.debug(f"Mobility score: {mobility_score:.3f} | FEN: {board.fen()}")
+        undeveloped_pieces_score = self.scoring_modifier * (self._undeveloped_pieces(board, color) or 0.0)
+        score += undeveloped_pieces_score
         if self.show_thoughts and self.logger:
-            self.logger.debug(f"Undeveloped pieces score: {score:.3f} | FEN: {board.fen()}")
-        
+            self.logger.debug(f"Undeveloped pieces score: {undeveloped_pieces_score:.3f} | FEN: {board.fen()}")
+
         # Tactical and strategic considerations
-        score += self.scoring_modifier * (self._tactical_evaluation(board) or 0.0)
+        tactical_evaluation_score = self.scoring_modifier * (self._tactical_evaluation(board) or 0.0)
+        score += tactical_evaluation_score
         if self.show_thoughts and self.logger:
-            self.logger.debug(f"Tactical evaluation score: {score:.3f} | FEN: {board.fen()}")
-        score += self.scoring_modifier * (self._tempo_bonus(board, color) or 0.0)
+            self.logger.debug(f"Tactical evaluation score: {tactical_evaluation_score:.3f} | FEN: {board.fen()}")
+        tempo_bonus_score = self.scoring_modifier * (self._tempo_bonus(board, color) or 0.0)
+        score += tempo_bonus_score
         if self.show_thoughts and self.logger:
-            self.logger.debug(f"Tempo bonus score: {score:.3f} | FEN: {board.fen()}")
-        score += self.scoring_modifier * (self._special_moves(board) or 0.0)
+            self.logger.debug(f"Tempo bonus score: {tempo_bonus_score:.3f} | FEN: {board.fen()}")
+        special_moves_score = self.scoring_modifier * (self._special_moves(board) or 0.0)
+        score += special_moves_score
         if self.show_thoughts and self.logger:
-            self.logger.debug(f"Special moves score: {score:.3f} | FEN: {board.fen()}")
-        score += self.scoring_modifier * (self._open_files(board, color) or 0.0)
+            self.logger.debug(f"Special moves score: {special_moves_score:.3f} | FEN: {board.fen()}")
+        open_files_score = self.scoring_modifier * (self._open_files(board, color) or 0.0)
+        score += open_files_score
         if self.show_thoughts and self.logger:
-            self.logger.debug(f"Open files score: {score:.3f} | FEN: {board.fen()}")
+            self.logger.debug(f"Open files score: {open_files_score:.3f} | FEN: {board.fen()}")
 
         return score
 
@@ -1240,7 +1246,8 @@ class EvaluationEngine:
 
     def _tempo_bonus(self, board, color):
         """If it's the player's turn and the game is still ongoing, give a small tempo bonus"""
-        if not board.is_game_over() and board.turn == color:
+        turn = chess.WHITE if board.turn else chess.BLACK
+        if not board.is_game_over() and turn == color:
             return self.ai_config.get(self.ruleset, {}).get('tempo_bonus', 0.0)  # Small tempo bonus
         return 0.0
 
@@ -1265,7 +1272,7 @@ class EvaluationEngine:
         score = 0.0
         center = [chess.D4, chess.D5, chess.E4, chess.E5]
         for square in center:
-            if board.piece_at(square) and board.piece_at(square).color == board.turn:
+            if board.piece_at(square) and board.piece_at(square).color == (chess.WHITE if board.turn else chess.BLACK):
                 score += self.ai_config.get(self.ruleset, {}).get('center_control_bonus', 0.0)
         return score
 
@@ -1287,7 +1294,7 @@ class EvaluationEngine:
         if king is None:
             return score
 
-        direction = 1 if color == board.turn else -1
+        direction = 1 if color == (chess.WHITE if board.turn else chess.BLACK) else -1
         shield_squares = [
             king + 8 * direction + delta
             for delta in [-1, 0, 1]
@@ -1617,7 +1624,7 @@ if __name__ == "__main__":
         if not fen_position:
             fen_position = "rnbqkbnr/pppppppp/8/8/8/8/PPPPPPPP/RNBQKBNR w KQkq - 0 1"
         board = chess.Board(fen_position)
-        engine = EvaluationEngine(board, board.turn)
+        engine = EvaluationEngine(board, chess.WHITE if board.turn else chess.BLACK)
         score = engine.evaluate_position(board)
         if score is not None:
             print(f"Current Evaluation: {score}")

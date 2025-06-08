@@ -176,7 +176,7 @@ class OpeningPrinciples:
         score += OpeningPrinciples._evaluate_queen_development(board)
 
         # Return score from perspective of current player
-        return score if board.turn == chess.WHITE else -score
+        return score if (chess.WHITE if board.turn else chess.BLACK) else -score
 
     @staticmethod
     def _evaluate_center_control(board):

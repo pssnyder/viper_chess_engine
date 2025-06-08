@@ -14,6 +14,7 @@ import re
 from datetime import datetime
 import importlib.util
 import chess
+import sqlite3
 
 GAMES_DIR = "games"
 
@@ -90,24 +91,7 @@ def match_game_files():
 
 # --- Build game dataset ---
 def build_game_dataset():
-    records = []
-    for files in match_game_files():
-        config = load_yaml(files["config_file"]) if files["config_file"] else {}
-        pgn_metrics = parse_pgn_metrics(files["pgn_file"]) if files["pgn_file"] else {}
-        log_metrics = parse_log_metrics(files["log_file"]) if files["log_file"] else {}
-        record = {
-            "timestamp": files["prefix"].replace("eval_game_", ""),
-            "config_file": files["config_file"],
-            "pgn_file": files["pgn_file"],
-            "log_file": files["log_file"],
-            **pgn_metrics,
-            **log_metrics,
-            **{f"cfg_{k}": v for k, v in (config or {}).items()}
-        }
-        records.append(record)
-    df = pd.DataFrame(records)
-    df = annotate_openings(df)
-    return df
+    return fetch_game_data()
 
 def load_yaml(filepath):
     try:
@@ -161,6 +145,24 @@ def parse_log_metrics(filepath):
         "error_count": errors
     }
 
+def get_database_connection():
+    """Establish a connection to the metrics database."""
+    db_path = os.path.abspath(os.path.join(os.path.dirname(__file__), "../metrics/chess_metrics.db"))
+    return sqlite3.connect(db_path)
+
+def fetch_game_data():
+    """Fetch game data from the database."""
+    connection = get_database_connection()
+    query = """
+    SELECT gr.game_id, gr.timestamp, gr.winner, gr.game_length, 
+           cs.white_ai_type, cs.black_ai_type, cs.white_engine, cs.black_engine
+    FROM game_results gr
+    LEFT JOIN config_settings cs ON gr.game_id = cs.game_id
+    """
+    df = pd.read_sql_query(query, connection)
+    connection.close()
+    return df
+
 # --- Streamlit UI ---
 
 st.set_page_config(page_title="Viper Chess Engine Analysis Dashboard", layout="wide")
@@ -168,23 +170,23 @@ st.title("Viper Chess Engine Analysis Dashboard")
 
 df = build_game_dataset()
 if df.empty:
-    st.warning("No games found in the games directory.")
+    st.warning("No games found in the database.")
     st.stop()
 
 # Summary statistics
 st.subheader("Summary Metrics")
 col1, col2, col3, col4, col5 = st.columns(5)
 col1.metric("Total Games", len(df))
-col2.metric("Win Rate as White", f"{100 * (df['result'] == '1-0').mean():.0f}%" if 'result' in df else "N/A")
-col3.metric("Win Rate as Black", f"{100 * (df['result'] == '0-1').mean():.0f}%" if 'result' in df else "N/A")
-col4.metric("Draw Rate", f"{100 * (df['result'] == '1/2-1/2').mean():.0f}%" if 'result' in df else "N/A")
-col5.metric("Avg Game Length", f"{round(df['move_count'].mean()):.0f} moves" if 'move_count' in df else "N/A")
+col2.metric("Win Rate as White", f"{100 * (df['winner'] == '1-0').mean():.0f}%" if 'winner' in df else "N/A")
+col3.metric("Win Rate as Black", f"{100 * (df['winner'] == '0-1').mean():.0f}%" if 'winner' in df else "N/A")
+col4.metric("Draw Rate", f"{100 * (df['winner'] == '1/2-1/2').mean():.0f}%" if 'winner' in df else "N/A")
+col5.metric("Avg Game Length", f"{round(df['game_length'].mean()):.0f} moves" if 'game_length' in df else "N/A")
 
 # Trends over time
 st.subheader("Trends Over Time")
-if "timestamp" in df and "result" in df:
+if "timestamp" in df and "winner" in df:
     df_sorted = df.sort_values("timestamp")
-    win_trend = df_sorted["result"].eq("1-0").rolling(10, min_periods=1).mean()
+    win_trend = df_sorted["winner"].eq("1-0").rolling(10, min_periods=1).mean()
     st.line_chart({"Win Rate (last 10)": win_trend})
 
 if "avg_search_depth" in df:
@@ -195,11 +197,11 @@ st.subheader("Config Parameter Correlation")
 config_cols = [c for c in df.columns if c.startswith("cfg_")]
 if config_cols:
     param = st.selectbox("Select config parameter", config_cols)
-    if param and "result" in df:
+    if param and "winner" in df:
         # Convert unhashable types (like dict) to string for grouping
         if df[param].apply(lambda x: not isinstance(x, (str, int, float, bool, type(None)))).any():
             df[param] = df[param].apply(lambda x: str(x) if not isinstance(x, (str, int, float, bool, type(None))) else x)
-        st.bar_chart(df.groupby([param, "result"]).size().unstack(fill_value=0))
+        st.bar_chart(df.groupby([param, "winner"]).size().unstack(fill_value=0))
 
 # Opening stats # TODO load opening data from engine_utilities/opening_book.py 
 if "opening" in df or "detected_opening_fen" in df:
@@ -233,7 +235,7 @@ st.subheader("Correlation Analysis & Parameter Tuning Insights")
 with st.sidebar:
     st.header("Filter Games")
     # Filter by result
-    result_options = df["result"].dropna().unique().tolist()
+    result_options = df["winner"].dropna().unique().tolist()
     selected_results = st.multiselect("Game Result", result_options, default=result_options)
     # Filter by opening
     opening_options = df["opening"].dropna().unique().tolist() if "opening" in df else []
@@ -248,7 +250,7 @@ with st.sidebar:
 # Apply filters
 df_corr = df.copy()
 if selected_results:
-    df_corr = df_corr[df_corr["result"].isin(selected_results)]
+    df_corr = df_corr[df_corr["winner"].isin(selected_results)]
 if opening_options and selected_openings:
     df_corr = df_corr[df_corr["opening"].isin(selected_openings)]
 if filter_param != "None" and filter_value is not None:
@@ -261,7 +263,7 @@ if config_cols:
     # Convert unhashable types to string
     if df_corr[param].apply(lambda x: not isinstance(x, (str, int, float, bool, type(None)))).any():
         df_corr[param] = df_corr[param].apply(lambda x: str(x) if not isinstance(x, (str, int, float, bool, type(None))) else x)
-    summary = df_corr.groupby([param, "result"]).size().unstack(fill_value=0)
+    summary = df_corr.groupby([param, "winner"]).size().unstack(fill_value=0)
     st.dataframe(summary)
     st.bar_chart(summary)
 
@@ -277,10 +279,10 @@ if eval_cols:
         df_corr[eval_param] = df_corr[eval_param].apply(lambda x: str(x) if not isinstance(x, (str, int, float, bool, type(None))) else x)
     # Show win rate, draw rate, avg game length, avg search depth by parameter value
     agg = df_corr.groupby(eval_param).agg(
-        games=("result", "count"),
-        win_rate=("result", lambda x: (x == "1-0").mean()),
-        draw_rate=("result", lambda x: (x == "1/2-1/2").mean()),
-        avg_game_length=("move_count", "mean"),
+        games=("winner", "count"),
+        win_rate=("winner", lambda x: (x == "1-0").mean()),
+        draw_rate=("winner", lambda x: (x == "1/2-1/2").mean()),
+        avg_game_length=("game_length", "mean"),
         avg_search_depth=("avg_search_depth", "mean"),
         avg_time_per_move_ms=("avg_time_per_move_ms", "mean")
     ).sort_values("games", ascending=False)
@@ -295,7 +297,7 @@ import matplotlib.pyplot as plt
 numeric_cols = [c for c in df_corr.columns if (str(c).startswith("cfg_") and pd.api.types.is_numeric_dtype(df_corr[c]))]
 if numeric_cols:
     st.markdown("#### Pairwise Correlation Heatmap (Numeric Config/Eval Params)")
-    corr_matrix = df_corr[numeric_cols + ["move_count", "avg_search_depth", "avg_time_per_move_ms"]].corr()
+    corr_matrix = df_corr[numeric_cols + ["game_length", "avg_search_depth", "avg_time_per_move_ms"]].corr()
     fig, ax = plt.subplots(figsize=(min(12, 1+len(corr_matrix.columns)//2), 8))
     sns.heatmap(corr_matrix, annot=True, fmt=".2f", cmap="coolwarm", ax=ax)
     st.pyplot(fig)
@@ -303,7 +305,7 @@ if numeric_cols:
 # --- Scatter Plot for Custom Parameter vs. Metric ---
 st.markdown("#### Custom Parameter vs. Metric Scatter Plot")
 scatter_param = st.selectbox("X-axis: Config/Eval Parameter", numeric_cols, key="scatter_param")
-scatter_metric = st.selectbox("Y-axis: Metric", ["move_count", "avg_search_depth", "avg_time_per_move_ms"], key="scatter_metric")
+scatter_metric = st.selectbox("Y-axis: Metric", ["game_length", "avg_search_depth", "avg_time_per_move_ms"], key="scatter_metric")
 if scatter_param and scatter_metric:
     st.scatter_chart(df_corr[[scatter_param, scatter_metric]].dropna())
 
@@ -358,19 +360,19 @@ for f, v in eval_filters.items():
 
 # --- Correlation Table/Plot for Filtered Data ---
 st.subheader("Outcome Correlation for Selected Config/Rule Values")
-if not df_filtered.empty and "result" in df_filtered:
-    outcome_counts = df_filtered["result"].value_counts()
+if not df_filtered.empty and "winner" in df_filtered:
+    outcome_counts = df_filtered["winner"].value_counts()
     st.write("Game Outcomes (filtered):")
     st.bar_chart(outcome_counts)
     # Show win/draw/loss rates
     st.write({
-        "Win Rate (White)": f"{100 * (df_filtered['result'] == '1-0').mean():.1f}%",
-        "Win Rate (Black)": f"{100 * (df_filtered['result'] == '0-1').mean():.1f}%",
-        "Draw Rate": f"{100 * (df_filtered['result'] == '1/2-1/2').mean():.1f}%"
+        "Win Rate (White)": f"{100 * (df_filtered['winner'] == '1-0').mean():.1f}%",
+        "Win Rate (Black)": f"{100 * (df_filtered['winner'] == '0-1').mean():.1f}%",
+        "Draw Rate": f"{100 * (df_filtered['winner'] == '1/2-1/2').mean():.1f}%"
     })
     # Show average game length and search metrics
     st.write({
-        "Avg Game Length": f"{df_filtered['move_count'].mean():.1f}" if 'move_count' in df_filtered else "N/A",
+        "Avg Game Length": f"{df_filtered['game_length'].mean():.1f}" if 'game_length' in df_filtered else "N/A",
         "Avg Search Depth": f"{df_filtered['avg_search_depth'].mean():.1f}" if 'avg_search_depth' in df_filtered else "N/A",
         "Avg Time/Move (ms)": f"{df_filtered['avg_time_per_move_ms'].mean():.1f}" if 'avg_time_per_move_ms' in df_filtered else "N/A"
     })

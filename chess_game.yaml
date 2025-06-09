@@ -20,7 +20,7 @@ game_config:
   
   # AI vs Human game_config settings
   human_color: random            # Options: white, black, random (for human vs AI)
-  human_elo: 800                # Elo rating for human player, used for AI vs Human games to adapt Engine to human skill level               
+  human_elo: 100                # Elo rating for human player, used for AI vs Human games to adapt Engine to human skill level               
 
 # Engine configurations
 # These configurations are for the AI engines used in the game, such as Viper and Stockfish.

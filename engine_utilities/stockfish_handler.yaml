@@ -17,11 +17,11 @@ stockfish:
   skill_level: 1          # Stockfish skill level (0 = weakest, 20 = strongest)
   elo_rating: 100         # Set an ELO rating (e.g., 1000, 2000, null for max strength)
   uci_limit_strength: true # If true, Stockfish will use ELO rating (set UCI_LimitStrength)
-  contempt: 0             # Contempt value (-100 to 100, 0 = neutral, positive = prefer draws as White, negative = as Black)
+  contempt: 100             # Contempt value (-100 to 100, 0 = neutral, positive = prefer draws as White, negative = as Black)
   threads: 1              # Number of threads Stockfish should use
   hash: 64                # Hash size in MB
   ponder: false           # Enable pondering (thinking on opponent's time)
-  multi_pv: 1             # Number of principal variations to calculate (1 = best line only)
+  multi_pv: 2             # Number of principal variations to calculate (1 = best line only)
   debug_stockfish: false  # Enable debug logging for Stockfish engine (can be very verbose)
 
   # Additional UCI options for advanced testing

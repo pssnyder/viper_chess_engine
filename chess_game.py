@@ -373,17 +373,29 @@ class ChessGame:
 
     def get_board_result(self):
         """Return the result string for the current board state."""
+        # Explicitly handle all draw and win/loss cases, fallback to "*"
         if self.board.is_checkmate():
+            # The side to move is checkmated, so the other side wins
             return "1-0" if self.board.turn == chess.BLACK else "0-1"
-        elif self.board.is_stalemate() or self.board.is_insufficient_material() or \
-             self.board.can_claim_fifty_moves() or self.board.can_claim_threefold_repetition() or \
-             self.board.is_seventyfive_moves():
+        # Explicit draw conditions
+        if (
+            self.board.is_stalemate()
+            or self.board.is_insufficient_material()
+            or self.board.can_claim_fifty_moves()
+            or self.board.can_claim_threefold_repetition()
+            or self.board.is_seventyfive_moves()
+            or self.board.is_fivefold_repetition()
+            or self.board.is_variant_draw()
+        ):
             return "1/2-1/2"
-        elif self.board.is_game_over():
-            # fallback to board.result() if available
-            return self.board.result()
-        else:
-            return "*"
+        # If the game is over but not by checkmate or above draws, fallback to chess.Board.result()
+        if self.board.is_game_over():
+            result = self.board.result()
+            # Defensive: If result is not a valid string, force draw string
+            if result not in ("1-0", "0-1", "1/2-1/2"):
+                return "1/2-1/2"
+            return result
+        return "*"
 
     def handle_game_end(self):
         # Before ending the game due to draw conditions, attempt strict draw prevention if enabled.
@@ -437,20 +449,8 @@ class ChessGame:
         timestamp = self.game_start_timestamp
 
         # --- Ensure the result is written to the PGN file ---
-        # Manually determine the result string for the PGN
-        if self.board.is_checkmate():
-            # If it's checkmate, the side to move lost
-            result = "1-0" if self.board.turn == chess.BLACK else "0-1"
-        elif self.board.is_stalemate() or self.board.is_insufficient_material() or \
-             self.board.can_claim_fifty_moves() or self.board.can_claim_threefold_repetition() or \
-             self.board.is_seventyfive_moves():
-            result = "1/2-1/2"
-        elif self.board.is_game_over():
-            # fallback to board.result() if available
-            result = self.board.result()
-        else:
-            result = "*"
-
+        # Always use get_board_result to get a valid string
+        result = self.get_board_result()
         self.game.headers["Result"] = result
         self.game_node = self.game.end()
 
@@ -458,7 +458,7 @@ class ChessGame:
         with open(pgn_filepath, "w") as f:
             exporter = chess.pgn.FileExporter(f)
             self.game.accept(exporter)
-            # Ensure the result is at the end of the PGN (for some PGN readers)
+            # Always append the result string at the end for compatibility
             if result != "*":
                 f.write(f"\n{result}\n")
         if self.logging_enabled and self.logger:

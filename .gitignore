@@ -1,95 +1,114 @@
-# gitiggnore file for ViperChessEngine
+# gitignore file for ViperChessEngine
 
-# general catch for do-not-commit files
+# General catch-all for do-not-commit files
 *.do-not-commit
 *.do-not-track
 *.do-not-push
 *.wip*
 
-# ignore project resource files
+# Project-specific resource files and directories
 *.viper_chess_engine
 *.viper_chess_engine.*
-
-# ignore project resource directories
 .viper_chess_engine_project_files/
-/.viper_chess_engine_project_files/*
 
-# ignore puzzles directory
-/puzzles/
+# Directories to ignore
 puzzles/
-
-# ignore .csv files
-*.csv
-
-# ignore .jsonl files
-*.jsonl
-
-# ignore the evaluation directory
-/evaluation/
 evaluation/
-
-# ignore the training directory
-/training/
 training/
-
-# ignore the testing directory
-/testing/
 testing/
-
-# ignore the models directory
-/models/
 models/
-
-# ignor pytorch model files
-*.pt
-
-# ignore tensorflow model files
-*.h5
-
-# ignore logging directory
-/logging/
 logging/
-
-# ignore _pycache directory
-__pycache__/
-
-# ignore .pyc files
-*.pyc
-
-# ignore .pyo files
-*.pyo
-
-# ignore .pyd files
-*.pyd   
-
-# ignore .egg-info directory
-*.egg-info/
-
-# ignore .egg files
-*.egg
-
-# ignore .DS_Store files
-.DS_Store
-
-# ignore .vscode directory
-.vscode/
-
-# ignore .history directory
+external_engines/
+venv/
 .history/
 
-# ignore the stockfish directory
-/stockfish/
-stockfish/
+# Python specific
+__pycache__/
+*.py[cod]
+*$py.class
+*.so
+*.egg-info/
+*.egg
+build/
+develop-eggs/
+dist/
+downloads/
+eggs/
+.eggs/
+lib/
+lib64/
+parts/
+sdist/
+var/
+.installed.cfg
+.Python
+# PyInstaller
+*.manifest
+*.spec
 
-# ignore unecessary files in the root directory
+# Virtual environment
+pipenv.lock # For pipenv
+.python-version # For pyenv
+
+# Compiled files / caches
+*.pyc
+*.pyo
+*.pyd
+
+# Distribution / packaging
+# ... (keep existing if not covered above, review for redundancy)
+
+# Logs and temporary files
 *.log
 *.tmp
 *.bak
+pip-log.txt
+pip-delete-this-directory.txt
 
-# ignore the venv directory
-/venv/
-venv/
+# IDE / Editor specific
+.vscode/
+.idea/ # Common for PyCharm/IntelliJ
 
-# ignore docker files
+# OS specific
+.DS_Store # macOS
+Thumbs.db # Windows
+
+# Data files
+*.csv
+*.jsonl
+
+# Model files
+*.pt
+*.pth
+*.ckpt
+*.h5
+
+# Testing and coverage
+htmlcov/
+.tox/
+.nox/
+.coverage
+.coverage.*
+.cache/ # General cache, also used by pytest
+nosetests.xml
+coverage.xml
+*.cover
+*.py,cover # Note: this might be too broad, consider if it's `*.py.cover`
+.hypothesis/
+.pytest_cache/
+
+# Jupyter Notebook
+.ipynb_checkpoints
+
+# Type checking
+.mypy_cache/
+.dmypy.json
+dmypy.json
+.pyre/
+
+# Profiling
+.prof
+
+# Docker
 Dockerfile
 docker-compose.yml

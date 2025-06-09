@@ -118,6 +118,39 @@ class TimeManager:
         # Limit multiplier range
         return max(0.3, min(multiplier, 2.5))
 
+    def get_dynamic_depth(self, depth: int, max_depth: int, time_control: Dict[str, Any], nodes: int) -> Optional[int]:
+        """
+        Get dynamic search depth based on time control and nodes searched
+
+        Args:
+            depth: Current search depth
+            max_depth: Maximum search depth
+            time_control: Time control parameters
+            nodes: Nodes searched so far
+
+        Returns:
+            Dynamic depth to use for search, or None if no limit
+        """
+        if time_control.get('depth'):
+            return time_control['depth']
+        if time_control.get('movetime'):
+            return None
+        if time_control.get('infinite'):
+            return None
+        if time_control.get('wtime') or time_control.get('btime'):
+            # Use a heuristic based on nodes searched
+            if nodes < 1000:
+                return max(1, depth)
+            elif nodes < 5000:
+                return max(2, depth)
+            elif nodes < 10000:
+                return max(3, depth)
+            elif nodes < 20000:
+                return max(4, depth)
+            elif nodes < 50000:
+                return max(5, depth)
+            else:
+                return max(max_depth, depth)
     def start_timer(self, allocated_time: float):
         """Start the timer for current move"""
         self.start_time = time.time()

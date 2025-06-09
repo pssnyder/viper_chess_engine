@@ -1,0 +1,100 @@
+
+# TODO Lichess CSV puzzle files contain puzzle positions and their move sequence solutions along with other relevant puzzle info, this data can be used to create a puzzle tester where the engines performance on randomly selected puzzles can be logged and those values added to a persistent transposition table (almost like the engine gets to learn from positions its seen before. so instead of just loading all the millions of available evaluation scores and going through them each game, instead for each new pgn that is added to the games directory, break apart the game into each of its positions and search for those positions, FEN i believe as a key? double check, within the evaluations file and only pull in the positions we had in our game. this saves us memory and time by only queuing up evaluations for moves we have played, especially useful if the engine ends up playing the same lines a lot)
+csv_puzzle_filepath = "puzzles/puzzles.csv"  # Path to the CSV file containing puzzle solutions
+csv_puzzle_headers = "PuzzleId,FEN,Moves,Rating,RatingDeviation,Popularity,NbPlays,Themes,GameUrl,OpeningTags"
+csv_puzzle_example1 = "00sHx,q3k1nr/1pp1nQpp/3p4/1P2p3/4P3/B1PP1b2/B5PP/5K2 b k - 0 17,e8d7 a2e6 d7d8 f7f8,1760,80,83,72,mate mateIn2 middlegame short,https://lichess.org/yyznGmXs/black#34,Italian_Game Italian_Game_Classical_Variation"
+csv_puzzle_example2 = "00sJ9,r3r1k1/p4ppp/2p2n2/1p6/3P1qb1/2NQR3/PPB2PP1/R1B3K1 w - - 5 18,e3g3 e8e1 g1h2 e1c1 a1c1 f4h6 h2g1 h6c1,2671,105,87,325,advantage attraction fork middlegame sacrifice veryLong,https://lichess.org/gyFeQsOE#35,French_Defense French_Defense_Exchange_Variation"
+
+# Lichess JSON evaluation files contain evaluation records from engine analysis and can be used to prepopulate the transposition table
+json_evaluation_filepath = "evaluations/evaluations.jsonl"  # Path to the JSON file containing evaluation records
+json_evaluation_format = {          # json_evaluation_format describes the expected JSON structure
+    "fen": "",                      #   "fen": the position FEN only contains pieces, active color, castling rights, and en passant square.
+    "evals": [                      #   List of evaluations at different depths
+        {                           #   Each evaluation contains:
+            "knodes": 0,            #       "knodes": number of kilo-nodes searched by the engine
+            "depth": 0,             #       "depth": depth reached by the engine
+            "pvs": [                #       "pvs": list of principal variations
+                {                   #       Each PV contains:
+                    "cp": 0,        #           "cp": centipawn evaluation. Omitted if mate is certain.
+                    "mate": None,   #           "mate": mate evaluation. Omitted if mate is not certain.
+                    "line": ""      #           "line": principal variation, in UCI format.
+                }
+            ]
+        }
+    ]
+}
+json_evaluation_example = {
+  "fen": "2bq1rk1/pr3ppn/1p2p3/7P/2pP1B1P/2P5/PPQ2PB1/R3R1K1 w - -",
+  "evals": [
+    {
+      "pvs": [
+        {
+          "cp": 311,
+          "line": "g2e4 f7f5 e4b7 c8b7 f2f3 b7f3 e1e6 d8h4 c2h2 h4g4"
+        }
+      ],
+      "knodes": 206765,
+      "depth": 36
+    },
+    {
+      "pvs": [
+        {
+          "cp": 292,
+          "line": "g2e4 f7f5 e4b7 c8b7 f2f3 b7f3 e1e6 d8h4 c2h2 h4g4"
+        },
+        {
+          "cp": 277,
+          "line": "f4g3 f7f5 e1e5 d8f6 a1e1 b7f7 g2c6 f8d8 d4d5 e6d5"
+        }
+      ],
+      "knodes": 92958,
+      "depth": 34
+    },
+    {
+      "pvs": [
+        {
+          "cp": 190,
+          "line": "h5h6 d8h4 h6g7 f8d8 f4g3 h4g4 c2e4 g4e4 g2e4 g8g7"
+        },
+        {
+          "cp": 186,
+          "line": "g2e4 f7f5 e4b7 c8b7 f2f3 b7f3 e1e6 d8h4 c2h2 h4g4"
+        },
+        {
+          "cp": 176,
+          "line": "f4g3 f7f5 e1e5 f5f4 g2e4 h7f6 e4b7 c8b7 g3f4 f6g4"
+        }
+      ],
+      "knodes": 162122,
+      "depth": 31
+    }
+  ]
+}
+
+# PGN files contain game results and move sequences.
+# PGN files are used to store chess games in a standard format, including metadata like event, site, date, players, and the moves played.
+pgn_game_filepath = "games/eval_game_%d%Y%m%d_%H%M%S.pgn"  # Path to the PGN file containing game results
+"""
+Example PGN file content:
+```
+[Event "AI vs. AI Game"]
+[Site "Local Computer"]
+[Date "2025.06.06"]
+[Round "#"]
+[White "AI: viper via minimax"]
+[Black "AI: None via random"]
+[Result "1-0"]
+
+1. Nh3 { Eval: 0.14 } 1... h6 { Eval: 0.72 } 2. Nf4 { Eval: 1.37 } 2... b5
+{ Eval: 2.02 } 3. Nc3 { Eval: 2.74 } 3... Ba6 { Eval: 2.74 } 4. Nd3
+{ Eval: 2.74 } 4... Nc6 { Eval: 2.02 } 5. Nc5 { Eval: 2.02 } 5... Rc8
+{ Eval: 2.02 } 6. Nxa6 { Eval: 3.82 } 6... Rb8 { Eval: 3.82 } 7. Nxb8
+{ Eval: 7.97 } 7... d5 { Eval: 9.83 } 8. Nxc6 { Eval: 11.30 } 8... a6
+{ Eval: 13.38 } 9. Nxd8 { Eval: 18.43 } 9... g6 { Eval: 20.51 } 10. Nxd5
+{ Eval: 20.31 } 10... Rh7 { Eval: 24.74 } 11. Nc6 { Eval: 23.82 } 11... f6
+{ Eval: 27.25 } 12. Nxc7+ { Eval: 25.48 } 12... Kd7 { Eval: 29.98 } 13. Nxb5
+{ Eval: 26.35 } 13... Ke6 { Eval: 30.85 } 14. Nd8+ { Eval: 24.28 } 14... Kd5
+{ Eval: 30.28 } 15. Nc7+ { Eval: 25.78 } 15... Ke4 { Eval: 30.13 } 16. d4
+{ Eval: 25.27 } 16... h5 { Eval: 1000025.49 } 1-0
+```
+"""

@@ -1,36 +1,25 @@
 
 # Viper Engine Configuration
 # TODO: Adjust available configuration setup references as needed, and implement the TODOs in the code below.
+
+# Viper Engine Options
+# These are the options for the Viper chess engine, which is a custom chess engine designed for analytical research and development.
 viper:
-  ruleset: default_evaluation  # TODO: Implenent code or test Name of the evaluation rule set to use, see below for available options
+  ruleset: default_evaluation         # TODO: Implement code or test Name of the evaluation rule set to use, see below for available options
   scoring_method: _calculate_score    # TODO Implement then mark done - Overrides the scoring method, viper engine defaults to the inbuilt _viper_scoring_calculation() function
   scoring_path: engine_utilities/viper_scoring_calculation  # TODO Implement then mark done - Import path to the scoring function, used for custom scoring methods, 
-  search_algorithm: deepsearch  # TODO Implement then mark done - Move search type for White (see search_algorithms above for options)
-  depth: 3                # TODO Implement then mark done - Depth of search for AI, 1 for random, 2 for simple search, 3+ for more complex searches
-  max_depth: 8            # TODO Implement then mark done - Max depth of search for AI, 1 for random, 2 for simple search, 3+ for more complex searches
-  use_solutions: true            # Use known positional solutions for evaluation (based on known puzzle solutions)
-  pst: true                       # Use piece-square tables for evaluation
-  pst_weight: 1.0                 # Weight for piece-square table evaluation
-  move_ordering: true              # Enable move ordering for better performance
-  quiescence: true                 # Enable quiescence search for tactical positions
-  time_limit: 0                   # Time limit for move calculation in milliseconds, 0 for no limit
-  scoring_modifier: 1.0           # Optional overall scoring multiplier/divider
-
-# Stockfish Engine Configuration
-stockfish:
-  depth: 20                # Depth of search for Stockfish, 1 for random, 2 for simple search, 3+ for more complex searches
-  max_depth: 20           # Max depth of search for Stockfish, 1 for random, 2 for simple search, 3+ for more complex searches
-  skill_level: 20         # Skill level of Stockfish, 0 for weakest, 20 for strongest
-  rating: 3000            # ELO rating of Stockfish, 1000 for weakest, 3000 for strongest
-
-# =================================================================
-
-# Additional Engine Configurations go here as new engines are added
-
-# =================================================================
-
-
-
+  search_algorithm: deepsearch        # TODO Implement then mark done - Move search type for White (see search_algorithms above for options)
+  depth: 3                            # TODO Implement then mark done - Depth of search for AI, 1 for random, 2 for simple search, 3+ for more complex searches
+  max_depth: 8                        # TODO Implement then mark done - Max depth of search for AI, 1 for random, 2 for simple search, 3+ for more complex searches
+  use_solutions: true                 # Use known positional solutions for evaluation (based on known puzzle solutions)
+  pst: true                           # Use piece-square tables for evaluation
+  pst_weight: 1.0                     # Weight for piece-square table evaluation
+  move_ordering: true                 # Enable move ordering for better performance
+  quiescence: true                    # Enable quiescence search for tactical positions
+  time_limit: 0                       # Time limit for move calculation in milliseconds, 0 for no limit
+  scoring_modifier: 1.0               # Optional overall scoring multiplier/divider
+  game_phase_awareness: true          # Enable/disable game phase-specific evaluation (opening, middlegame, endgame)
+  
 # Viper Engine Evaluation Rule settings (all scores in centipawns)
 default_evaluation:
   checkmate_bonus: 1000000.0        # Bonus for checkmate threats

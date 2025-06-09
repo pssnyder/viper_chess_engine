@@ -50,7 +50,7 @@ collection_thread.start()
 
 # Load AI types from config.yaml (for dropdowns)
 try:
-    with open("config.yaml", "r") as config_file:
+    with open("chess_game.yaml", "r") as config_file:
         config_data = yaml.safe_load(config_file)
         AI_TYPES = config_data.get("ai_types", [])
         # Extract unique AI types and ensure 'Viper' and 'Stockfish' are present

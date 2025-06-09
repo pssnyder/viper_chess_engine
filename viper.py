@@ -64,8 +64,8 @@ class ViperEvaluationEngine: # Renamed class from EvaluationEngine
         self.opening_book = OpeningBook()
 
         self.nodes_searched = 0
-        self.transposition_table = LimitedSizeDict(maxlen=1000000)
-        self.killer_moves = [[None, None] for _ in range(50)]
+        self.transposition_table = LimitedSizeDict(maxlen=1000000) 
+        self.killer_moves = [[None, None] for _ in range(50)] 
         self.history_table = {}
         self.counter_moves = {}
 
@@ -79,107 +79,176 @@ class ViperEvaluationEngine: # Renamed class from EvaluationEngine
         }
 
         try:
-            with open("config.yaml") as f:
-                self.config = yaml.safe_load(f)
+            with open("viper.yaml") as f:
+                viper_data = yaml.safe_load(f) or {}
+                self.viper_config_data = viper_data.get('viper', {})
+            with open("chess_game.yaml") as f:
+                game_data = yaml.safe_load(f) or {}
+                self.game_settings_config_data = game_data
         except Exception as e:
-            print(f"Error loading config: {e}")
+            viper_engine_logger.error(f"Error loading Viper or game settings YAML files: {e}")
+            self.viper_config_data = {}
+            self.game_settings_config_data = {}
 
-        self.hash_size = self.config.get('performance', {}).get('hash_size', 1024)
-        self.threads = self.config.get('performance', {}).get('thread_limit', 1)
+        # Performance settings from viper_config_data, with fallbacks to game_settings_config_data
+        viper_perf = self.viper_config_data.get('performance', {})
+        game_perf = self.game_settings_config_data.get('performance', {})
+        
+        self.hash_size = viper_perf.get('hash_size', game_perf.get('hash_size', 1024*1024))
+        self.transposition_table.maxlen = self.hash_size // 100 # Approximate entry size
+        self.threads = viper_perf.get('thread_limit', game_perf.get('thread_limit', 1))
 
-        self.logging_enabled = self.config.get('monitor', {}).get('enable_logging', False)
-        self.show_thoughts = self.config.get('debug', {}).get('show_thinking', False)
-        self.logger = viper_engine_logger # Use the renamed logger
+        # Monitoring settings primarily from game_settings_config_data
+        monitoring_settings = self.game_settings_config_data.get('monitoring', {}) if self.game_settings_config_data else {}
+        self.logging_enabled = monitoring_settings.get('enable_logging', True)
+        self.show_thoughts = monitoring_settings.get('show_thinking', True)
+        
+        self.logger = viper_engine_logger
         if not self.logging_enabled:
             self.show_thoughts = False
         if self.logging_enabled:
             self.logger.debug("Logging enabled for ViperEvaluationEngine")
 
+        # Initial ai_config resolution
         self.ai_config = self._ensure_ai_config(ai_config, player)
-        self.configure_for_side(self.board, self.ai_config)
+        self.configure_for_side(self.board, self.ai_config) 
+        
         self.pst = PieceSquareTables()
 
         self.scoring_calculator = ViperScoringCalculation(
-            config=self.config,
-            ai_config=self.ai_config,
+            viper_yaml_config=self.viper_config_data, # Pass full viper.yaml data
+            ai_config=self.ai_config, # Pass resolved ai_config
             piece_values=self.piece_values,
             pst=self.pst
         )
-
-        self.strict_draw_prevention = self.config.get('game_config', {}).get('strict_draw_prevention', False)
-        self.game_phase_awareness = self.config.get('game_config', {}).get('game_phase_awareness', False)
+        
+        game_rules = self.game_settings_config_data.get('game_config', {})
+        self.strict_draw_prevention = game_rules.get('strict_draw_prevention', False)
+        self.game_phase_awareness = self.ai_config.get('game_phase_awareness', True)
         self.endgame_factor = 0.0
 
         self.reset(self.board)
 
-    def _ensure_ai_config(self, ai_config, player):
-        if ai_config is None or not isinstance(ai_config, dict):
-            ai_config = self.config.get('white_ai_config' if player == chess.WHITE else 'black_ai_config', {})
-        ai_config['ai_type'] = ai_config.get('ai_type', 'random')
-        ai_config['depth'] = ai_config.get('depth', 1)
-        ai_config['max_depth'] = self.config.get('performance', {}).get('max_depth', 5)
-        return ai_config
+    def _ensure_ai_config(self, ai_config_runtime: Optional[Dict[str, Any]], player: chess.Color) -> Dict[str, Any]:
+        # 1. Start with base Viper engine settings from viper.yaml
+        final_config = self.viper_config_data.copy()
 
-    def _get_ai_config(self, player_config: str):
-        if player_config not in ['white_ai_config', 'black_ai_config']:
-            raise ValueError("player_color for config retrieval must be 'white_ai_config' or 'black_ai_config'")
+        # 2. Merge/override with player-specific AI config from chess_game.yaml
+        player_specific_key = 'white_ai_config' if player == chess.WHITE else 'black_ai_config'
+        player_specific_game_config = self.game_settings_config_data.get(player_specific_key, {}) if self.game_settings_config_data else {}
         
-        ai_config_data = self.config.get(player_config, {})
+        # Deep merge player_specific_game_config into final_config
+        # This ensures nested dictionaries are merged, not just overwritten at the top level.
+        # A simple helper for deep merging:
+        def deep_merge(source, destination):
+            for key, value in source.items():
+                if isinstance(value, dict):
+                    # get node or create one
+                    node = destination.setdefault(key, {})
+                    deep_merge(value, node)
+                else:
+                    destination[key] = value
+            return destination
 
-        return {
-            'exclude_from_metrics': ai_config_data.get('exclude_from_metrics', False),
-            'ai_type': ai_config_data.get('ai_type', 'random'),
-            'ai_color': ai_config_data.get('ai_color', 'white' if player_config == 'white_ai_config' else 'black'),
-            'depth': ai_config_data.get('depth', 1),
-            'max_depth': self.config.get('performance', {}).get('max_depth', 5),
-            'use_solutions': ai_config_data.get('use_solutions', False),
-            'pst_enabled': ai_config_data.get('pst', False),
-            'pst_weight': ai_config_data.get('pst_weight', 1.0),
-            'move_ordering_enabled': ai_config_data.get('move_ordering', False),
-            'quiescence_enabled': ai_config_data.get('quiescence', False),
-            'move_time_limit': ai_config_data.get('time_limit', 0),
-            'engine': ai_config_data.get('engine', 'viper'),
-            'ruleset': ai_config_data.get('ruleset', 'default_evaluation'),
-            'scoring_modifier': ai_config_data.get('scoring_modifier', 1.0)
-        }
+        final_config = deep_merge(player_specific_game_config, final_config)
 
-    def configure_for_side(self, board: chess.Board, ai_config: dict):
-        self.ai_config = self._ensure_ai_config(ai_config, board.turn)
+        # 3. Merge/override with runtime ai_config (highest precedence)
+        if ai_config_runtime and isinstance(ai_config_runtime, dict):
+            final_config = deep_merge(ai_config_runtime, final_config)
 
-        self.ai_type = self.ai_config.get('ai_type','random')
-        self.ai_color = self.ai_config.get('ai_color', 'white')
-        self.depth = self.ai_config.get('depth', 1)
-        self.max_depth = self.config.get('performance', {}).get('max_depth', self.ai_config.get('max_depth', 5))
-        self.solutions_enabled = self.ai_config.get('use_solutions', False)
-        self.move_ordering_enabled = self.ai_config.get('move_ordering', False)
-        self.quiescence_enabled = self.ai_config.get('quiescence', False)
-        self.move_time_limit = self.ai_config.get('time_limit', 0)
-        self.pst_enabled = self.ai_config.get('pst', False)
-        self.pst_weight = self.ai_config.get('pst_weight', 1.0)
-        self.eval_engine = self.ai_config.get('engine','viper')
-        self.ruleset = self.ai_config.get('ruleset','default_evaluation')
-        self.scoring_modifier = self.ai_config.get('scoring_modifier',1.0)
+        # Ensure critical keys have defaults if not set anywhere
+        # Default search_algorithm from viper.yaml if ai_type not specified
+        final_config.setdefault('ai_type', self.viper_config_data.get('search_algorithm', 'random'))
+        # Default depth: viper.yaml -> chess_game.yaml (performance) -> fallback
+        final_config.setdefault('depth', self.viper_config_data.get('depth', self.game_settings_config_data.get('performance', {}).get('max_depth', 3) if self.game_settings_config_data else 3))
+        # Default ruleset from viper.yaml
+        final_config.setdefault('ruleset', self.viper_config_data.get('ruleset', 'default_evaluation'))
+        # Default max_depth: chess_game.yaml (performance) -> fallback
+        final_config.setdefault('max_depth', self.game_settings_config_data.get('performance', {}).get('max_depth', 5) if self.game_settings_config_data else 5)
+        # Default scoring_modifier from viper.yaml
+        final_config.setdefault('scoring_modifier', self.viper_config_data.get('scoring_modifier', 1.0))
+        
+        # Ensure nested structures like 'pst', 'move_ordering', 'quiescence' have defaults if not present
+        if not isinstance(final_config.get('pst'), dict):
+            final_config['pst'] = {}
+        final_config['pst'].setdefault('enabled', True)
+        final_config.setdefault('pst', {}).setdefault('weight', 1.0)
+        if not isinstance(final_config.get('move_ordering'), dict):
+            final_config['move_ordering'] = {}
+        final_config['move_ordering'].setdefault('enabled', True)
+        if not isinstance(final_config.get('quiescence'), dict):
+            final_config['quiescence'] = {}
+        final_config['quiescence'].setdefault('enabled', True)
+        final_config['quiescence'].setdefault('max_depth', 5)
+        final_config.setdefault('use_opening_book', self.viper_config_data.get('use_opening_book', True))
+
+        # Performance related defaults that might be in chess_game.yaml
+        final_config.setdefault('move_time_limit', self.game_settings_config_data.get('performance', {}).get('default_move_time_ms', 0) if self.game_settings_config_data else 0)
+        final_config.setdefault('max_moves_evaluated', self.game_settings_config_data.get('performance', {}).get('max_moves_evaluated', None) if self.game_settings_config_data else None)
+
 
         if self.logging_enabled and self.logger:
-            self.logger.debug(f"Configuring AI for {self.ai_color} with type={self.ai_type}, depth={self.depth}/{self.max_depth}, solutions={self.solutions_enabled}, move_ordering={self.move_ordering_enabled}, "
-                             f"quiescence={self.quiescence_enabled}, move_time={self.move_time_limit}, pst_enabled={self.pst_enabled}, pst_weight={self.pst_weight}, engine={self.eval_engine}, scoring_mod={self.scoring_modifier}, ruleset={self.ruleset}")
+            self.logger.debug(f"Resolved AI config for player {'WHITE' if player == chess.WHITE else 'BLACK'}: {final_config}")
+        return final_config
+
+    def _get_ai_config(self, player_config: str): # This method is largely superseded by _ensure_ai_config but kept for now if direct access is needed.
+        # player_config would be 'white_ai_config' or 'black_ai_config'
+        player_color = chess.WHITE if player_config == 'white_ai_config' else chess.BLACK
+        # Use _ensure_ai_config with None for runtime_config to get the base + player_specific config
+        return self._ensure_ai_config(None, player_color)
+
+    def configure_for_side(self, board: chess.Board, ai_config_resolved: dict):
+        self.ai_config = ai_config_resolved # This is the fully resolved config
+
+        self.ai_type = self.ai_config.get('ai_type') # Already defaulted in _ensure_ai_config
+        self.ai_color = 'white' if board.turn == chess.WHITE else 'black'
+        self.depth = self.ai_config.get('depth')
+        self.max_depth = self.ai_config.get('max_depth')
         
+        self.solutions_enabled = self.ai_config.get('use_opening_book') # 'use_solutions' was an old key
+        self.move_ordering_enabled = self.ai_config.get('move_ordering', {}).get('enabled')
+        self.quiescence_enabled = self.ai_config.get('quiescence', {}).get('enabled')
+        self.move_time_limit = self.ai_config.get('move_time_limit')
+        
+        self.pst_enabled = self.ai_config.get('pst', {}).get('enabled')
+        self.pst_weight = self.ai_config.get('pst', {}).get('weight')
+        
+        self.eval_engine = self.ai_config.get('engine', 'viper') # Should be 'viper'
+        self.ruleset = self.ai_config.get('ruleset')
+        self.scoring_modifier = self.ai_config.get('scoring_modifier')
+
+        if self.logging_enabled and self.logger:
+            self.logger.debug(f"Configuring Viper AI for {'White' if board.turn == chess.WHITE else 'Black'} with resolved config: {self.ai_config}")
+        
+        if self.move_time_limit is None:
+            self.move_time_limit = 0
+
         if self.move_time_limit > 0:
             self.time_control = {"movetime": self.move_time_limit}
         else:
-            self.time_control = {"infinite": True}
+            time_control_settings = self.game_settings_config_data.get('time_control', {}) if self.game_settings_config_data else {}
+            total_time_s = time_control_settings.get('total_time_s')
+            increment_s = time_control_settings.get('increment_s')
+            if total_time_s is not None and increment_s is not None:
+                 self.time_control = {
+                    "wtime": total_time_s * 1000, "btime": total_time_s * 1000,
+                    "winc": increment_s * 1000, "binc": increment_s * 1000
+                }
+            else:
+                self.time_control = {"infinite": True}
         
-        self.scoring_calculator.ai_config = self.ai_config
-        self.scoring_calculator.ruleset_name = self.ruleset
-        self.scoring_calculator.current_ruleset = self.scoring_calculator.rulesets.get(self.ruleset, {})
-        self.scoring_calculator.scoring_modifier = self.scoring_modifier
-        self.scoring_calculator.pst_enabled = self.pst_enabled
-        self.scoring_calculator.pst_weight = self.pst_weight
-
+        if hasattr(self, 'scoring_calculator') and self.scoring_calculator:
+            self.scoring_calculator.ai_config = self.ai_config # Update with the latest resolved config
+            self.scoring_calculator.ruleset_name = self.ruleset
+            # scoring_calculator's __init__ now takes viper_yaml_config, so it has all rulesets.
+            # It will internally select the current_ruleset based on self.ruleset_name.
+            self.scoring_calculator.current_ruleset = self.scoring_calculator.rulesets.get(self.ruleset, {}) # Ensure this is updated
+            self.scoring_calculator.scoring_modifier = self.scoring_modifier
+            self.scoring_calculator.pst_enabled = self.pst_enabled # pst_enabled from resolved config
+            self.scoring_calculator.pst_weight = self.pst_weight   # pst_weight from resolved config
 
         if self.show_thoughts and self.logger:
-            self.logger.debug(f"AI configured for {'White' if self.ai_color == 'white' else 'Black'}: type={self.ai_type} depth={self.depth}, ordering={self.move_ordering_enabled}, "
-                             f"quiescence={self.quiescence_enabled}, pst_enabled={self.pst_enabled} pst_weight={self.pst_weight}")
+            self.logger.debug(f"Viper AI configured for {'White' if board.turn == chess.WHITE else 'Black'}: type={self.ai_type} depth={self.depth}, ruleset={self.ruleset}")
 
     def reset(self, board: chess.Board):
         self.board = board.copy()
@@ -248,141 +317,153 @@ class ViperEvaluationEngine: # Renamed class from EvaluationEngine
         search_start_time = time.perf_counter()
 
         self.sync_with_game_board(board)
-        best_move = chess.Move.null()
-        self.board = board.copy()
-        self.current_player = chess.WHITE if player == chess.WHITE else chess.BLACK
+        self.current_player = player
 
-        self.ai_config = self._ensure_ai_config(ai_config, player)
-        self.configure_for_side(self.board, self.ai_config)
+        # Resolve the configuration for this specific search call
+        resolved_search_config = self._ensure_ai_config(ai_config, player) # Pass runtime ai_config and player
+        self.configure_for_side(self.board, resolved_search_config) # Re-configure based on this specific search's config
 
-        self.ai_type = self.ai_config.get('ai_type', 'random')
-        self.depth = self.ai_config.get('depth', 1)
-        self.max_depth = self.config.get('performance', {}).get('max_depth', self.ai_config.get('max_depth', 5))
-
-        self.time_manager.start_timer(self.ai_config.get('move_time_limit', 0) / 1000.0)
+        current_move_time_limit_ms = self.ai_config.get('move_time_limit')
+        if current_move_time_limit_ms is None:
+            current_move_time_limit_ms = 0
+        self.time_manager.start_timer(current_move_time_limit_ms / 1000.0 if current_move_time_limit_ms > 0 else 0)
         
-        if self.solutions_enabled:
+        if self.solutions_enabled: # solutions_enabled is set by configure_for_side
             book_move = self.opening_book.get_book_move(self.board)
             if book_move and self.board.is_legal(book_move):
                 if self.show_thoughts and self.logger:
                     self.logger.debug(f"Opening book move found: {book_move} | FEN: {board.fen()}")
-                
                 search_duration = time.perf_counter() - search_start_time
                 if self.logging_enabled and self.logger:
                     self.logger.debug(f"Opening book search took {search_duration:.4f} seconds and searched {self.nodes_searched} nodes.")
                 return book_move
         
-        trans_move, trans_score = self.get_transposition_move(board, self.depth)
+        # Transposition table depth check uses self.depth which is set by configure_for_side
+        trans_move, trans_score = self.get_transposition_move(board, self.depth if self.depth is not None else 1)
         if trans_move:
             if self.show_thoughts and self.logger:
                 self.logger.debug(f"Transposition table hit: {trans_move} (Score: {trans_score:.2f}) | FEN: {board.fen()}")
-            
             search_duration = time.perf_counter() - search_start_time
             if self.logging_enabled and self.logger:
                 self.logger.debug(f"Transposition table hit search took {search_duration:.4f} seconds and searched {self.nodes_searched} nodes.")
             return trans_move
 
         if self.show_thoughts:
-            self.logger.debug(f"== EVALUATION (Player: {'White' if player == chess.WHITE else 'Black'}) == | AI Type: {self.ai_config['ai_type']} | Depth: {self.ai_config['depth']} | Max Depth: {self.max_depth} ==")
+            # self.ai_config['ai_type'] and self.ai_config['depth'] are now correct
+            self.logger.debug(f"== EVALUATION (Player: {'White' if player == chess.WHITE else 'Black'}) == | AI Type: {self.ai_config.get('ai_type')} | Depth: {self.ai_config.get('depth')} | Max Depth: {self.max_depth} == ")
 
-        
         legal_moves = list(self.board.legal_moves)
         if not legal_moves:
             return chess.Move.null()
 
-        if self.move_ordering_enabled:
-            hash_move, _ = self.get_transposition_move(board, self.depth)
-            ordered_moves = self.order_moves(board, legal_moves, hash_move=hash_move, depth=self.depth)
+        if self.move_ordering_enabled: # move_ordering_enabled is set by configure_for_side
+            hash_move, _ = self.get_transposition_move(board, self.depth if self.depth is not None else 1) 
+            ordered_moves = self.order_moves(board, legal_moves, hash_move=hash_move, depth=self.depth if self.depth is not None else 1)
         else:
-            ordered_moves = legal_moves
+            ordered_moves = legal_moves # No ordering if disabled
         
         best_score_overall = -float('inf')
-        if self.current_player == chess.BLACK:
+        if self.current_player == chess.BLACK: # Correct for black's perspective
             best_score_overall = float('inf')
 
         best_move = ordered_moves[0] if ordered_moves else chess.Move.null()
 
         for move in ordered_moves:
-            if self.time_manager.should_stop(self.depth, self.nodes_searched):
+            if self.time_manager.should_stop(self.depth if self.depth is not None else 1):
                 if self.logging_enabled and self.logger:
                     self.logger.info(f"Search stopped due to time limit during move iteration at root. Best move so far: {best_move}")
                 break
 
             temp_board = self.board.copy()
             temp_board.push(move)
-
             current_move_score = 0.0
 
             try:
+                # self.ai_type is correctly set by configure_for_side
                 if self.ai_type == 'deepsearch':
-                    final_deepsearch_move_result = self._deep_search(self.board.copy(), self.depth, self.time_control, stop_callback=self.time_manager.should_stop) # Line 318
+                    # Pass self.depth (from resolved config) to _deep_search
+                    final_deepsearch_move_result = self._deep_search(self.board.copy(), self.depth if self.depth is not None else 1, self.time_control, stop_callback=self.time_manager.should_stop)
                     if final_deepsearch_move_result != chess.Move.null():
                         best_move = final_deepsearch_move_result
-                        if self.board.is_legal(best_move):
+                        if self.board.is_legal(best_move): # Check legality on original board
                             temp_board_after_move = self.board.copy()
                             temp_board_after_move.push(best_move)
+                            # Evaluate from current player's perspective
                             current_move_score = self.evaluate_position_from_perspective(temp_board_after_move, self.current_player)
                         
-                        self.update_transposition_table(self.board, self.depth, best_move, current_move_score)
-                        
+                        self.update_transposition_table(self.board, self.depth if self.depth is not None else 1, best_move, current_move_score)
                         search_duration = time.perf_counter() - search_start_time
                         if self.logging_enabled and self.logger:
                             self.logger.debug(f"Deepsearch final move selection took {search_duration:.4f} seconds and searched {self.nodes_searched} nodes.")
                         return best_move
 
                 elif self.ai_type == 'minimax':
-                    current_move_score = self._minimax_search(temp_board, self.depth -1, -float('inf'), float('inf'), not self.current_player, stop_callback=self.time_manager.should_stop) # Line 336
+                    current_move_score = self._minimax_search(temp_board, (self.depth - 1) if self.depth is not None else 0, -float('inf'), float('inf'), temp_board.turn != self.current_player, stop_callback=self.time_manager.should_stop)
                 elif self.ai_type == 'negamax':
-                    current_move_score = -self._negamax_search(temp_board, self.depth - 1, -float('inf'), float('inf'), stop_callback=self.time_manager.should_stop) # Line 338
+                    current_move_score = -self._negamax_search(temp_board, (self.depth - 1) if self.depth is not None else 0, -float('inf'), float('inf'), stop_callback=self.time_manager.should_stop)
                 elif self.ai_type == 'negascout':
-                    current_move_score = -self._negascout(temp_board, self.depth - 1, -float('inf'), float('inf'), stop_callback=self.time_manager.should_stop) # Line 340
+                    current_move_score = -self._negascout(temp_board, (self.depth - 1) if self.depth is not None else 0, -float('inf'), float('inf'), stop_callback=self.time_manager.should_stop)
                 elif self.ai_type == 'lookahead':
-                    current_move_score = -self._lookahead_search(temp_board, self.depth - 1, -float('inf'), float('inf'), stop_callback=self.time_manager.should_stop) # Line 342
-                elif self.ai_type == 'simple_search':
+                    current_move_score = -self._lookahead_search(temp_board, (self.depth - 1) if self.depth is not None else 0, -float('inf'), float('inf'), stop_callback=self.time_manager.should_stop)
+                elif self.ai_type == 'simple_search': # simple_search itself handles perspective
+                    # simple_search returns a move, not a score. This path needs adjustment if used here directly for score.
+                    # For now, assume simple_search is not called from here directly for score.
+                    # If it were, it would be:
+                    # best_move_from_simple = self._simple_search(temp_board)
+                    # if best_move_from_simple != chess.Move.null():
+                    #    temp_board.push(best_move_from_simple) # Apply the move
+                    #    current_move_score = self.evaluate_position_from_perspective(temp_board, self.current_player)
+                    # else:
+                    #    current_move_score = self.evaluate_position_from_perspective(temp_board, self.current_player) # Fallback
+                    # This branch in root search usually means we evaluate the *result* of the first move.
                     current_move_score = self.evaluate_position_from_perspective(temp_board, self.current_player)
+
                 elif self.ai_type == 'evaluation_only':
                     current_move_score = self.evaluate_position_from_perspective(temp_board, self.current_player)
                 elif self.ai_type == 'random':
-                    best_move = self._random_search(self.board.copy(), self.current_player) # Line 348
+                    best_move = self._random_search(self.board.copy(), self.current_player)
                     search_duration = time.perf_counter() - search_start_time
                     if self.logging_enabled and self.logger:
                         self.logger.debug(f"Random search took {search_duration:.4f} seconds and searched {self.nodes_searched} nodes.")
-                    return best_move
+                    return best_move # Random search returns a move directly
                 else:
                     if self.show_thoughts and self.logger:
-                        self.logger.warning(f"Unrecognized AI type '{self.ai_type}'. Falling back to _simple_search for score evaluation.")
+                        self.logger.warning(f"Unrecognized AI type '{self.ai_type}'. Falling back to evaluation_only for score.")
                     current_move_score = self.evaluate_position_from_perspective(temp_board, self.current_player)
             except Exception as e:
                 if self.logging_enabled and self.logger:
-                    self.logger.error(f"Error in search algorithm '{self.ai_type}' for move {move}: {e}. Using immediate evaluation for this move. | FEN: {temp_board.fen()}")
+                    self.logger.error(f"Error in search algorithm '{self.ai_type}' for move {move}: {e}. Using immediate evaluation. | FEN: {temp_board.fen()}")
                 current_move_score = self.evaluate_position_from_perspective(temp_board, self.current_player)
 
-
+            # Update best move based on score, considering player
             if self.current_player == chess.WHITE:
                 if current_move_score > best_score_overall:
                     best_score_overall = current_move_score
                     best_move = move
-            else:
-                if current_move_score < best_score_overall:
+            else: # Black is minimizing White's score (or maximizing Black's score if eval is from Black's perspective)
+                  # If evaluate_position_from_perspective returns score from self.current_player's view, then Black also maximizes.
+                  # Let's assume evaluate_position_from_perspective always returns higher = better for the player passed to it.
+                if current_move_score > best_score_overall: # This was <, should be > if eval is from perspective
                     best_score_overall = current_move_score
                     best_move = move
             
-            self.update_transposition_table(self.board, self.depth, best_move, best_score_overall)
+            # Update transposition table with the best move found so far at the root
+            self.update_transposition_table(self.board, self.depth if self.depth is not None else 1, best_move, best_score_overall)
 
             if self.show_thoughts and self.logger:
                 self.logger.debug(f"Root search iteration: Move={move}, Score={current_move_score:.2f}, Best Move So Far={best_move}, Best Score={best_score_overall:.2f}")
 
-        if best_move == chess.Move.null() and legal_moves:
-            best_move = random.choice(legal_moves)
+        if best_move == chess.Move.null() and ordered_moves: # Check ordered_moves, not just legal_moves
+            best_move = random.choice(ordered_moves) # Fallback to random from ordered if no best move found
 
         best_move = self._enforce_strict_draw_prevention(self.board, best_move)
         
         if not isinstance(best_move, chess.Move) or not self.board.is_legal(best_move):
             if self.logging_enabled and self.logger:
-                self.logger.error(f"Invalid or illegal move detected after search: {best_move}. Selecting a random legal move as final fallback. | FEN: {self.board.fen()}")
-            legal_moves = list(self.board.legal_moves)
-            if legal_moves:
-                best_move = random.choice(legal_moves)
+                self.logger.error(f"Invalid or illegal move detected after search: {best_move}. Selecting a random legal move. | FEN: {self.board.fen()}")
+            current_legal_moves = list(self.board.legal_moves) # Get current legal moves
+            if current_legal_moves:
+                best_move = random.choice(current_legal_moves)
             else:
                 best_move = chess.Move.null()
         
@@ -479,7 +560,9 @@ class ViperEvaluationEngine: # Renamed class from EvaluationEngine
         move_scores = []
         
         if hash_move and hash_move in moves:
-            move_scores.append((hash_move, self.config.get('evaluation', {}).get('checkmate_move_bonus', 1000000.0) * 2))
+            # Use a very high bonus for hash move, potentially from config if defined
+            hash_move_bonus = self.viper_config_data.get('move_ordering', {}).get('hash_move_bonus', 2000000.0)
+            move_scores.append((hash_move, hash_move_bonus))
             moves = [m for m in moves if m != hash_move]
 
         for move in moves:
@@ -493,7 +576,10 @@ class ViperEvaluationEngine: # Renamed class from EvaluationEngine
 
         move_scores.sort(key=lambda x: x[1], reverse=True)
         
-        max_moves_to_evaluate = self.config.get('performance', {}).get('max_moves_evaluated', None)
+        # max_moves_to_evaluate can come from viper_config_data or game_settings_config_data (performance section)
+        # self.ai_config should have this resolved value
+        max_moves_to_evaluate = self.ai_config.get('max_moves_evaluated', None)
+        
         if max_moves_to_evaluate is not None and max_moves_to_evaluate > 0:
             if self.logging_enabled and self.logger:
                 self.logger.debug(f"Limiting ordered moves from {len(move_scores)} to {max_moves_to_evaluate}")
@@ -504,82 +590,109 @@ class ViperEvaluationEngine: # Renamed class from EvaluationEngine
         
         return [move for move, _ in move_scores]
 
-    def _order_move_score(self, board: chess.Board, move: chess.Move, depth: int) -> float:
+    def _order_move_score(self, board: chess.Board, move: chess.Move, depth: int = 0) -> float:
+        """Calculate a score for a move for ordering purposes."""
         score = 0.0
+        # Access move ordering bonuses from the resolved self.ai_config, which merges viper_config_data
+        move_ordering_cfg = self.ai_config.get('move_ordering', {})
 
         temp_board = board.copy()
         temp_board.push(move)
         if temp_board.is_checkmate():
             temp_board.pop()
-            return self.config.get('evaluation', {}).get('checkmate_move_bonus', 1000000.0)
+            # Checkmate bonus from 'evaluation' part of viper_config_data, or a specific move_ordering config
+            eval_cfg = self.ai_config.get('evaluation', {}) # 'evaluation' might be a sub-key in viper.yaml
+            return move_ordering_cfg.get('checkmate_move_bonus', eval_cfg.get('checkmate_move_bonus', 1000000.0))
         
-        if temp_board.is_check():
-            score += self.config.get('evaluation', {}).get('check_move_bonus', 10000.0)
+        if temp_board.is_check(): # Check after move is made
+            score += move_ordering_cfg.get('check_move_bonus', 10000.0)
+        temp_board.pop() # Pop before is_capture check on original board state
 
         if board.is_capture(move):
-            victim_piece_type = board.piece_type_at(move.to_square)
-            aggressor_piece_type = board.piece_type_at(move.from_square)
-            if victim_piece_type is not None and aggressor_piece_type is not None:
-                victim_value = self.piece_values.get(victim_piece_type, 0)
-                aggressor_value = self.piece_values.get(aggressor_piece_type, 0)
-                score += self.config.get('evaluation', {}).get('capture_move_bonus', 4000.0) + (10 * victim_value - aggressor_value)
-        
-        if move.promotion:
-            score += self.config.get('evaluation', {}).get('promotion_move_bonus', 3000.0)
+            score += move_ordering_cfg.get('capture_bonus', 1000000.0)
+            victim_type = board.piece_type_at(move.to_square)
+            aggressor_type = board.piece_type_at(move.from_square)
+            if victim_type and aggressor_type:
+                score += (self.piece_values.get(victim_type, 0) * 10) - self.piece_values.get(aggressor_type, 0)
 
         if depth < len(self.killer_moves) and move in self.killer_moves[depth]:
-            score += self.config.get('evaluation', {}).get('killer_move_bonus', 2000.0)
+            score += move_ordering_cfg.get('killer_move_bonus', 900000.0)
 
-        piece = board.piece_at(move.from_square)
-        if piece is not None:
-            history_key = (piece.piece_type, move.from_square, move.to_square)
-            score += self.history_table.get(history_key, 0)
+        # Countermove heuristic (if applicable)
+        # if board.move_stack and self.counter_moves.get(board.move_stack[-1], None) == move:
+        # score += move_ordering_cfg.get('counter_move_bonus', 800000.0)
+
+        score += self.history_table.get((board.turn, move.from_square, move.to_square), 0)
         
-        temp_board.pop()
+        if move.promotion:
+            score += move_ordering_cfg.get('promotion_bonus', 700000.0)
+            if move.promotion == chess.QUEEN:
+                score += self.piece_values.get(chess.QUEEN, 9.0) * 100 # Ensure piece_values is used
+
+        # Redundant check for board.is_check() as it was done above.
+        # board.push(move)
+        # if board.is_check():
+        # score += move_ordering_cfg.get('check_bonus', 50000.0) # This was a different key, consolidate
+        # board.pop()
 
         return score
     
-    def _quiescence_search(self, board: chess.Board, alpha: float, beta: float, depth: int = 0, stop_callback: Optional[Callable[[], bool]] = None) -> float:
+    def _quiescence_search(self, board: chess.Board, alpha: float, beta: float, maximizing_player: bool, stop_callback: Optional[Callable[[], bool]] = None, current_ply: int = 0) -> float:
         self.nodes_searched += 1
-        if stop_callback and stop_callback():
-            return self.evaluate_position_from_perspective(board, board.turn)
 
-        if depth >= 5:
-             return self.evaluate_position_from_perspective(board, board.turn)
+        if stop_callback and stop_callback(): # Pass current search depth and nodes
+            return 0 # Or appropriate alpha/beta
 
-        stand_pat = self.evaluate_position_from_perspective(board, board.turn)
+        # Use self.current_player for perspective
+        stand_pat_score = self.evaluate_position_from_perspective(board, self.current_player if maximizing_player else not self.current_player)
+
+        if not maximizing_player: # Minimizing node (opponent's turn from perspective of self.current_player)
+            stand_pat_score = -stand_pat_score # Adjust score if eval is always from white's POV
+
+        if maximizing_player: # Current player (the one who initiated the search) is maximizing
+            if stand_pat_score >= beta:
+                return beta 
+            alpha = max(alpha, stand_pat_score)
+        else: # Opponent is minimizing (from current player's perspective)
+            if stand_pat_score <= alpha:
+                return alpha
+            beta = min(beta, stand_pat_score)
+
+        # Consider only captures and promotions (and maybe checks)
+        # Max quiescence depth from resolved config
+        max_q_depth = self.ai_config.get('quiescence', {}).get('max_depth', 5)
+        if current_ply >= self.depth + max_q_depth: # self.depth is the main search depth
+             return stand_pat_score
+
+
+        capture_moves = [move for move in board.legal_moves if board.is_capture(move) or move.promotion]
+        if not capture_moves and not board.is_check(): # If no captures and not in check, return stand_pat
+             return stand_pat_score
         
-        if stand_pat >= beta:
-            return beta
-        if stand_pat > alpha:
-            alpha = stand_pat
+        # If in check, all legal moves should be considered to escape check.
+        if board.is_check():
+            capture_moves = list(board.legal_moves)
 
-        quiescence_moves = []
-        for move in board.legal_moves:
-            if board.is_capture(move) or board.gives_check(move):
-                quiescence_moves.append(move)
 
-        if self.move_ordering_enabled:
-            quiescence_moves = self.order_moves(board, quiescence_moves, depth=depth)
+        # Order capture moves (e.g., MVV-LVA or simple capture value)
+        # For simplicity, not re-ordering here, but could be beneficial.
+        # ordered_q_moves = self.order_moves(board, capture_moves, depth=current_ply) # Can reuse order_moves logic
 
-        for move in quiescence_moves:
-            if stop_callback and stop_callback():
-                break
-            
+        for move in capture_moves: # Potentially use ordered_q_moves
             board.push(move)
-            score = -self._quiescence_search(board, -beta, -alpha, depth + 1, stop_callback)
+            score = self._quiescence_search(board, alpha, beta, not maximizing_player, stop_callback, current_ply + 1)
             board.pop()
 
-            if score >= beta:
-                self.update_killer_move(move, depth)
-                return beta
-            if score > alpha:
-                alpha = score
+            if maximizing_player:
+                alpha = max(alpha, score)
+                if alpha >= beta:
+                    break 
+            else:
+                beta = min(beta, score)
+                if alpha >= beta:
+                    break
         
-        if self.logging_enabled and self.logger:
-            self.logger.debug(f"Quiescence search at depth {depth} | Alpha: {alpha} Beta: {beta} | Nodes searched: {self.nodes_searched}")
-        
-        return alpha
+        return alpha if maximizing_player else beta
     
     def get_transposition_move(self, board: chess.Board, depth: int) -> Tuple[Optional[chess.Move], Optional[float]]:
         key = board.fen()
@@ -707,7 +820,7 @@ class ViperEvaluationEngine: # Renamed class from EvaluationEngine
             legal_moves = self.order_moves(simple_search_board, legal_moves)
         
         for move in legal_moves:
-            if self.time_manager.should_stop(self.depth, self.nodes_searched):
+            if self.time_manager.should_stop(self.depth if self.depth is not None else 1, self.nodes_searched):
                 break # Stop if time is up
             
             self.nodes_searched += 1 # Increment nodes searched
@@ -744,7 +857,7 @@ class ViperEvaluationEngine: # Renamed class from EvaluationEngine
 
         if depth == 0 or board.is_game_over(claim_draw=self._is_draw_condition(board)):
             if self.quiescence_enabled:
-                return self._quiescence_search(board, alpha, beta, 0, stop_callback)
+                return self._quiescence_search(board, alpha, beta, True, stop_callback)
             else:
                 return self.evaluate_position_from_perspective(board, board.turn)
 
@@ -769,7 +882,7 @@ class ViperEvaluationEngine: # Renamed class from EvaluationEngine
             if alpha >= beta:
                 self.update_killer_move(move, depth)
                 self.update_history_score(board, move, depth) # Update history for cutoff moves
-                break # Alpha-beta cutoff
+                break # Prune remaining moves at this depth
         
         return best_score
 
@@ -786,7 +899,7 @@ class ViperEvaluationEngine: # Renamed class from EvaluationEngine
 
         if depth == 0 or board.is_game_over(claim_draw=self._is_draw_condition(board)):
             if self.quiescence_enabled:
-                return self._quiescence_search(board, alpha, beta, 0, stop_callback)
+                return self._quiescence_search(board, alpha, beta, maximizing_player, stop_callback)
             else:
                 return self.evaluate_position_from_perspective(board, board.turn)
 
@@ -844,7 +957,6 @@ class ViperEvaluationEngine: # Renamed class from EvaluationEngine
         return best_score
 
     def _negamax_search(self, board: chess.Board, depth: int, alpha: float, beta: float, stop_callback: Optional[Callable[[], bool]] = None) -> float:
-        """Negamax search with alpha-beta pruning. Returns score (float)."""
         self.nodes_searched += 1
         if stop_callback and stop_callback():
             return self.evaluate_position_from_perspective(board, board.turn)
@@ -856,7 +968,7 @@ class ViperEvaluationEngine: # Renamed class from EvaluationEngine
 
         if depth == 0 or board.is_game_over(claim_draw=self._is_draw_condition(board)):
             if self.quiescence_enabled:
-                return self._quiescence_search(board, alpha, beta, 0, stop_callback)
+                return self._quiescence_search(board, alpha, beta, True, stop_callback)
             else:
                 return self.evaluate_position_from_perspective(board, board.turn)
 
@@ -887,7 +999,6 @@ class ViperEvaluationEngine: # Renamed class from EvaluationEngine
         return best_score
 
     def _negascout(self, board: chess.Board, depth: int, alpha: float, beta: float, stop_callback: Optional[Callable[[], bool]] = None) -> float:
-        """Negascout search with alpha-beta pruning (Principal Variation Search). Returns score (float)."""
         self.nodes_searched += 1
         if stop_callback and stop_callback():
             return self.evaluate_position_from_perspective(board, board.turn)
@@ -899,7 +1010,7 @@ class ViperEvaluationEngine: # Renamed class from EvaluationEngine
 
         if depth == 0 or board.is_game_over(claim_draw=self._is_draw_condition(board)):
             if self.quiescence_enabled:
-                return self._quiescence_search(board, alpha, beta, 0, stop_callback)
+                return self._quiescence_search(board, alpha, beta, True, stop_callback)
             else:
                 return self.evaluate_position_from_perspective(board, board.turn)
 
@@ -939,49 +1050,60 @@ class ViperEvaluationEngine: # Renamed class from EvaluationEngine
         # Update transposition table for this node (store best score encountered during this sub-search)
         return best_score
     
-    def _deep_search(self, board: chess.Board, initial_depth: int, time_control: Dict[str, Any], stop_callback: Optional[Callable[[], bool]] = None) -> chess.Move:
-        """
-        Perform a search with iterative deepening, move ordering, quiescence search, and dynamic search depth.
-        Returns only the best move found at the root.
-        """
+    def _deep_search(self, board: chess.Board, depth: int, time_control: dict, current_depth: int = 1, stop_callback: Optional[Callable[[], bool]] = None) -> chess.Move:
+        """Iterative deepening search with time management."""
         best_move_root = chess.Move.null() # The best move found at the root of the search
         best_score_root = -float('inf')
-
-        # Use the max_depth from AI config, ensuring it's not less than initial_depth
-        max_search_depth = max(initial_depth, self.max_depth)
         
+        # Define legal_moves at the beginning of the method for the current board state
         legal_moves = list(board.legal_moves)
         if not legal_moves:
-            return chess.Move.null() # No legal moves, likely game over
-        if len(legal_moves) == 1:
-            return legal_moves[0] # Only one move, no need to search
+            return chess.Move.null() # No legal moves to search
 
-        # Iterative Deepening Loop
-        for current_depth in range(1, max_search_depth + 1):
-            if stop_callback and stop_callback():
+        # Use max_depth from the resolved AI config for this search
+        iterative_max_depth = self.ai_config.get('max_depth', self.game_settings_config_data.get('performance', {}).get('max_depth', 5))
+
+        # The 'depth' parameter passed to _deep_search can be the initial target depth from ai_config
+        # Iterative deepening will go from current_depth up to iterative_max_depth or target 'depth'
+        # Ensure we respect the overall max_depth from config.
+        search_depth_limit = min(depth, iterative_max_depth)
+
+
+        for iterative_depth in range(current_depth, search_depth_limit + 1):
+            if stop_callback and stop_callback(): # Call stop_callback without arguments
                 if self.logging_enabled and self.logger:
-                    self.logger.info(f"Deepsearch stopped due to time limit at depth {current_depth-1}.")
+                    self.logger.info(f"Deepsearch stopped due to time limit at depth {iterative_depth-1}.")
                 break # Stop if time runs out
 
-            if self.time_manager.should_stop(current_depth, self.nodes_searched):
+            if self.time_manager.should_stop(self.depth if self.depth is not None else 1):
                 if self.logging_enabled and self.logger:
-                    self.logger.info(f"Deepsearch stopped by time manager at depth {current_depth-1}.")
+                    self.logger.info(f"Deepsearch stopped by time manager at depth {iterative_depth-1}.")
                 break # Stop if time manager says so
+
+            # Get legal moves for the current board state for this iteration
+            # This was the source of the error, legal_moves should be defined before this loop.
+            # It's already defined at the start of the function for the initial board state.
+            # If the board state for ordering changes per iteration (it doesn't here), it would need re-evaluation.
+            # For iterative deepening, we consider moves from the root board state.
+            
+            current_iter_legal_moves = list(board.legal_moves) # Ensure we use the root board's legal moves for each iteration.
+            if not current_iter_legal_moves: # Should not happen if initial check passed, but good for safety.
+                break
 
             # Re-order moves at each iteration if move ordering is enabled
             if self.move_ordering_enabled:
                 # Get hash move from transposition table for current board state
-                hash_move, _ = self.get_transposition_move(board, current_depth)
-                ordered_moves = self.order_moves(board, legal_moves, hash_move=hash_move, depth=current_depth)
+                hash_move, _ = self.get_transposition_move(board, iterative_depth)
+                ordered_moves = self.order_moves(board, current_iter_legal_moves, hash_move=hash_move, depth=iterative_depth)
             else:
-                ordered_moves = legal_moves
+                ordered_moves = current_iter_legal_moves
 
             local_best_move_at_depth = chess.Move.null()
             local_best_score_at_depth = -float('inf')
 
             # Alpha and Beta for the current iteration
-            alpha = -float('inf')
-            beta = float('inf')
+            alpha = -float('inf')  # Ensure alpha is initialized as a float
+            beta = float('inf')    # Ensure beta is initialized as a float
 
             for move in ordered_moves:
                 if stop_callback and stop_callback():
@@ -992,7 +1114,7 @@ class ViperEvaluationEngine: # Renamed class from EvaluationEngine
                 
                 # Recursive call to negamax (or negascout, or minimax)
                 # _negamax_search now always returns a score (float)
-                current_move_score = -self._negamax_search(temp_board, current_depth - 1, -beta, -alpha, stop_callback)
+                current_move_score = -self._negamax_search(temp_board, iterative_depth - 1, -beta, -alpha, stop_callback)
 
                 if current_move_score > local_best_score_at_depth:
                     local_best_score_at_depth = current_move_score
@@ -1001,8 +1123,8 @@ class ViperEvaluationEngine: # Renamed class from EvaluationEngine
                 alpha = max(alpha, current_move_score) # Update alpha for the next sibling move
                 if alpha >= beta:
                     # Beta cutoff, update killer and history
-                    self.update_killer_move(move, current_depth)
-                    self.update_history_score(board, move, current_depth)
+                    self.update_killer_move(move, iterative_depth)
+                    self.update_history_score(board, move, iterative_depth)
                     break # Prune remaining moves at this depth
             
             # After each full depth iteration, update the overall best move
@@ -1010,16 +1132,16 @@ class ViperEvaluationEngine: # Renamed class from EvaluationEngine
                 best_move_root = local_best_move_at_depth
                 best_score_root = local_best_score_at_depth
                 # Store the best move found at this depth in transposition table
-                self.update_transposition_table(board, current_depth, best_move_root, best_score_root)
+                self.update_transposition_table(board, iterative_depth, best_move_root, best_score_root)
 
             # If checkmate is found, stop early
-            if abs(best_score_root) > self.config.get('evaluation', {}).get('checkmate_bonus', 1000000.0) / 2: # Checkmate score is very high
+            if abs(best_score_root) > self.ai_config.get('evaluation', {}).get('checkmate_bonus', 1000000.0) / 2: # Checkmate score is very high
                 if self.logging_enabled and self.logger:
-                    self.logger.info(f"Deepsearch found a potential checkmate at depth {current_depth}. Stopping early.")
+                    self.logger.info(f"Deepsearch found a potential checkmate at depth {iterative_depth}. Stopping early.")
                 break
 
             if self.show_thoughts and self.logger:
-                self.logger.debug(f"Deepsearch finished depth {current_depth}: Best move {best_move_root} with score {best_score_root:.2f}")
+                self.logger.debug(f"Deepsearch finished depth {iterative_depth}: Best move {best_move_root} with score {best_score_root:.2f}")
 
         return best_move_root if best_move_root != chess.Move.null() else self._simple_search(board) # Fallback if no move found
 
@@ -1158,7 +1280,7 @@ if __name__ == "__main__":
         engine_q.ai_type = 'deepsearch'
 
         print(f"\n--- Test 5: Quiescence Search for FEN: {tactical_fen} ---")
-        q_score = engine_q._quiescence_search(tactical_board.copy(), -float('inf'), float('inf'))
+        q_score = engine_q._quiescence_search(tactical_board.copy(), -float('inf'), float('inf'), True)
         print(f"Quiescence search score: {q_score}")
         assert q_score is not None, "Quiescence search returned None"
         print("Test 5: Quiescence Search - PASSED")

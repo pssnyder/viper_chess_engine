@@ -154,16 +154,18 @@ class ChessGame:
         self.current_game_db_id = f"eval_game_{self.game_start_timestamp}.pgn"
 
         # Initialize board and new game
+        # Add rated flag from config
+        self.rated = self.game_config_data.get('game_config', {}).get('rated', True)
         self.new_game(self.starting_position)
         
         # Set colors
         self.set_colors()
         
         # Set headers
-        self.set_headers()
-
         # Add rated flag from config
-        self.rated = self.game_config_data.get('game_config', {}).get('rated', True) # Adjusted path
+        self.rated = self.game_config_data.get('game_config', {}).get('rated', True)
+        # Add rated flag from config
+        self.rated = self.game_config_data.get('game_config', {}).get('rated', True)
 
     # ================================
     # ====== GAME CONFIGURATION ======
@@ -354,13 +356,50 @@ class ChessGame:
             return True
         return False
     
+    def strict_draw_prevention(self):
+        """If strict_draw_prevention is enabled, try to select a legal move that avoids an immediate draw
+        (threefold repetition, 50-move, insufficient material, or 75-move rule) and return it. Otherwise, return None."""
+        if not self.game_config_data.get('game_config', {}).get('strict_draw_prevention', False):
+            return None
+        for move in self.board.legal_moves:
+            board_copy = self.board.copy(stack=False)
+            board_copy.push(move)
+            if not (board_copy.can_claim_threefold_repetition() or
+                    board_copy.can_claim_fifty_moves() or
+                    board_copy.is_insufficient_material() or
+                    board_copy.is_seventyfive_moves()):
+                return move
+        return None
+
+    def get_board_result(self):
+        """Return the result string for the current board state."""
+        if self.board.is_checkmate():
+            return "1-0" if self.board.turn == chess.BLACK else "0-1"
+        elif self.board.is_stalemate() or self.board.is_insufficient_material() or \
+             self.board.can_claim_fifty_moves() or self.board.can_claim_threefold_repetition() or \
+             self.board.is_seventyfive_moves():
+            return "1/2-1/2"
+        elif self.board.is_game_over():
+            # fallback to board.result() if available
+            return self.board.result()
+        else:
+            return "*"
+
     def handle_game_end(self):
-        """Check and handle game termination with automatic threefold repetition detection"""
-        
+        # Before ending the game due to draw conditions, attempt strict draw prevention if enabled.
         if self.board.is_game_over(claim_draw=self._is_draw_condition(self.board)):
-            self.game_node = self.game.end()
-            result = self.board.result()
+            # If a draw is about to occur but an alternative move exists, play it instead.
+            alt_move = self.strict_draw_prevention()
+            if alt_move is not None:
+                if self.logging_enabled and self.logger:
+                    self.logger.info(f"Strict draw prevention triggered, playing alternative move: {alt_move}")
+                self.push_move(alt_move)
+                return False
+            # Otherwise add the final move (if not already added) and conclude the game.
+            # Ensure the result is set in the PGN headers and game node
+            result = self.get_board_result()
             self.game.headers["Result"] = result
+            self.game_node = self.game.end()
             self.save_game_data()
             print(f"\nGame over: {result}")
             return True
@@ -370,9 +409,11 @@ class ChessGame:
             if self.logging_enabled and self.logger:
                 self.logger.info("\nGame automatically drawn by seventy-five move rule!")
             self.game.headers["Result"] = result
+            self.game_node = self.game.end()
             self.save_game_data()
             print(f"Game over: {result}")
             return True
+
         return False
     
     def record_evaluation(self):
@@ -394,11 +435,32 @@ class ChessGame:
         os.makedirs(games_dir, exist_ok=True)
 
         timestamp = self.game_start_timestamp
-        
+
+        # --- Ensure the result is written to the PGN file ---
+        # Manually determine the result string for the PGN
+        if self.board.is_checkmate():
+            # If it's checkmate, the side to move lost
+            result = "1-0" if self.board.turn == chess.BLACK else "0-1"
+        elif self.board.is_stalemate() or self.board.is_insufficient_material() or \
+             self.board.can_claim_fifty_moves() or self.board.can_claim_threefold_repetition() or \
+             self.board.is_seventyfive_moves():
+            result = "1/2-1/2"
+        elif self.board.is_game_over():
+            # fallback to board.result() if available
+            result = self.board.result()
+        else:
+            result = "*"
+
+        self.game.headers["Result"] = result
+        self.game_node = self.game.end()
+
         pgn_filepath = f"games/eval_game_{timestamp}.pgn"
         with open(pgn_filepath, "w") as f:
             exporter = chess.pgn.FileExporter(f)
             self.game.accept(exporter)
+            # Ensure the result is at the end of the PGN (for some PGN readers)
+            if result != "*":
+                f.write(f"\n{result}\n")
         if self.logging_enabled and self.logger:
             self.logger.info(f"Game PGN saved to {pgn_filepath}")
 
@@ -463,10 +525,17 @@ class ChessGame:
 
     def quick_save_pgn(self, filename):
         """Quick save the current game to a PGN file"""
+        # Inject or update Result header so the PGN shows the game outcome
+        if self.board.is_game_over():
+            self.game.headers["Result"] = self.get_board_result()
+            self.game_node = self.game.end()
+        else:
+            self.game.headers["Result"] = "*"
+        
         with open(filename, "w") as f:
             exporter = chess.pgn.FileExporter(f)
             self.game.accept(exporter)
-    
+
     def import_fen(self, fen_string):
         """Import a position from FEN notation"""
         try:
@@ -711,6 +780,14 @@ class ChessGame:
             current_engine_name = self.white_ai_config['engine'] if self.current_player == chess.BLACK else self.black_ai_config['engine']
             if current_engine_name.lower() != 'stockfish':
                 self.record_evaluation()
+            
+            # If the move ends the game, set the result header and end the game node
+            if self.board.is_game_over():
+                result = self.get_board_result()
+                self.game.headers["Result"] = result
+                self.game_node = self.game.end()
+            else:
+                self.game.headers["Result"] = "*"
             
             self.quick_save_pgn("logging/active_game.pgn")
             

@@ -10,7 +10,7 @@ import json
 import time
 import threading
 from typing import Dict, Optional, Any
-from ..viper import EvaluationEngine
+from ..viper import ViperEvaluationEngine
 import logging
 
 # Set up logging
@@ -21,7 +21,7 @@ class LichessBot:
     def __init__(self, token: str, engine_name: str = "ChessBot"):
         self.token = token
         self.engine_name = engine_name
-        self.engine = EvaluationEngine()
+        self.engine = ViperEvaluationEngine()
         self.headers = {"Authorization": f"Bearer {token}"}
         self.base_url = "https://lichess.org/api"
         self.active_games = {}

@@ -192,26 +192,30 @@ class ViperScoringCalculation:
         # or checking irrelevant checks for the given 'color' if not their turn.
         # This function should assess if 'color' can deliver a checkmate on their *next* move.
         original_turn = board.turn
-        if original_turn != color: # Temporarily switch turn to simulate 'color' moving
-            board.turn = color # This is risky, prefer to iterate legal moves of the given color or use a copy.
-                               # More robust is to iterate all legal moves and check if they lead to checkmate
-                               # for the *opponent* of the player making the move.
-            
-        for move in board.legal_moves:
-            board.push(move)
-            if board.is_checkmate():
-                score += self._get_rule_value('checkmate_bonus', 0)
-                board.pop()
-                # If a checkmate is found, we can break and return the bonus.
-                # However, a common heuristic might be to give the bonus to the side *delivering* mate.
-                # This function implies it's for `color` to *threaten* mate to opponent.
-                # So the `board.turn` in `board.is_checkmate()` should be the *opponent's* turn after `move` is pushed.
-                if board.turn != color: # If the checkmate is on the *opponent's* king
-                    return score # Return immediately
-            board.pop()
-        
-        # Reset board turn if it was temporarily changed for this check
-        board.turn = original_turn 
+        # Only consider pseudo-legal moves for the correct color
+        try:
+            # Use a copy so we don't mutate the original board
+            board_copy = board.copy()
+            board_copy.turn = color
+            for move in board_copy.pseudo_legal_moves:
+                # Only consider moves that are legal (pseudo-legal may include illegal under check)
+                if not board_copy.is_legal(move):
+                    continue
+                board_copy.push(move)
+                if board_copy.is_checkmate():
+                    score += self._get_rule_value('checkmate_bonus', 0)
+                    board_copy.pop()
+                    # If a checkmate is found, we can break and return the bonus.
+                    # However, a common heuristic might be to give the bonus to the side *delivering* mate.
+                    # This function implies it's for `color` to *threaten* mate to opponent.
+                    # So the `board.turn` in `board.is_checkmate()` should be the *opponent's* turn after `move` is pushed.
+                    if board_copy.turn != color: # If the checkmate is on the *opponent's* king
+                        return score # Return immediately
+                else:
+                    board_copy.pop()
+        except Exception as e:
+            if self.logger:
+                self.logger.error(f"Error in _checkmate_threats: {e} | FEN: {board.fen()}")
         return score
 
     def _draw_scenarios(self, board: chess.Board) -> float:

@@ -1,7 +1,5 @@
 # engine_metrics_app.
-# A streamlit app version of the metrics_dashboard.py
-# This app is used to display the metrics of the engine and monitor resource usage.
-# run using the command: streamlit run C:\Users\patss\OneDrive\Documents\Programming\ViperChessEngine\v7p3r_chess_bot_simple\web_applications\engine_metrics_app.py
+# TODO Revise into a lighter weight, Streamlit-based dashboard for analyzing historical chess engine performance metrics over time. Does not provide real time CPU performance monitoring, nor system resource usage, but focuses on game results, config settings, and evaluation rule performance. Also does not provide access to running engines so no log files are available and therefore do not need to be displayed.
 
 import streamlit as st
 import psutil

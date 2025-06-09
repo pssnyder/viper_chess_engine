@@ -7,7 +7,7 @@
 import streamlit as st
 import chess
 import chess.svg 
-from evaluation_engine import EvaluationEngine
+from viper import EvaluationEngine
 
 # --- Sidebar: AI config ---
 st.sidebar.title("AI Settings")

@@ -1,3 +1,5 @@
+# metrics_store.py
+
 import os
 import sqlite3
 import json
@@ -11,6 +13,7 @@ import threading
 import chess.pgn
 import io
 import random
+from typing import Optional
 
 """
 Database Schema Documentation:
@@ -42,6 +45,11 @@ Database Schema Documentation:
      - black_player: Name of the black player.
      - game_length: Number of moves in the game.
      - created_at: Timestamp of entry creation.
+     - white_ai_type: AI type for white (added for direct access).
+     - black_ai_type: AI type for black (added for direct access).
+     - white_depth: Search depth for white (added for direct access).
+     - black_depth: Search depth for black (added for direct access).
+
 
 3. config_settings Table:
    - Stores AI configuration data.
@@ -70,6 +78,23 @@ Database Schema Documentation:
      - timestamp: Time of the metric.
      - game_id: Associated game ID.
      - config_id: Associated configuration ID.
+     - created_at: Timestamp of entry creation.
+
+5. move_metrics Table (NEW):
+   - Stores detailed metrics for each individual move.
+   - Columns:
+     - id: Primary key.
+     - game_id: Foreign key to game_results.
+     - move_number: The fullmove number (1, 2, 3...).
+     - player_color: Color of the player making the move ('w' or 'b').
+     - move_uci: The move in UCI format (e.g., 'e2e4').
+     - fen_before: FEN string of the board *before* the move.
+     - evaluation: The evaluation score after the move from the perspective of the player whose turn it *became*.
+     - ai_type: The AI type used for this move (e.g., 'deepsearch', 'negamax').
+     - depth: The search depth reached for this move.
+     - nodes_searched: Number of nodes explored for this move.
+     - time_taken: Time in seconds taken to find the move.
+     - pv_line: Principal Variation (best line of play found).
      - created_at: Timestamp of entry creation.
 """
 
@@ -144,7 +169,11 @@ class MetricsStore:
                 white_player TEXT,
                 black_player TEXT,
                 game_length INTEGER,
-                created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+                created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+                white_ai_type TEXT,   -- Added
+                black_ai_type TEXT,   -- Added
+                white_depth INTEGER,  -- Added
+                black_depth INTEGER   -- Added
             )
             ''')
             
@@ -160,7 +189,9 @@ class MetricsStore:
                 black_engine TEXT,
                 white_depth INTEGER,
                 black_depth INTEGER,
-                created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+                created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+                white_ai_type TEXT,
+                black_ai_type TEXT
             )
             ''')
             
@@ -179,6 +210,27 @@ class MetricsStore:
                 UNIQUE(metric_name, timestamp, game_id, side)
             )
             ''')
+
+            # Create move_metrics table (NEW)
+            cursor.execute('''
+            CREATE TABLE IF NOT EXISTS move_metrics (
+                id INTEGER PRIMARY KEY AUTOINCREMENT,
+                game_id TEXT,
+                move_number INTEGER,
+                player_color TEXT,
+                move_uci TEXT,
+                fen_before TEXT,
+                evaluation REAL,
+                ai_type TEXT,
+                depth INTEGER,
+                nodes_searched INTEGER,
+                time_taken REAL,
+                pv_line TEXT,
+                created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+                FOREIGN KEY (game_id) REFERENCES game_results (game_id),
+                UNIQUE(game_id, move_number, player_color)
+            )
+            ''')
             
             # Create indices for faster queries
             cursor.execute('CREATE INDEX IF NOT EXISTS idx_log_timestamp ON log_entries(timestamp)')
@@ -186,15 +238,18 @@ class MetricsStore:
             cursor.execute('CREATE INDEX IF NOT EXISTS idx_log_side ON log_entries(side)')
             cursor.execute('CREATE INDEX IF NOT EXISTS idx_metrics_name ON metrics(metric_name)')
             cursor.execute('CREATE INDEX IF NOT EXISTS idx_metrics_side ON metrics(side)')
+            cursor.execute('CREATE INDEX IF NOT EXISTS idx_move_metrics_game_id ON move_metrics(game_id)')
+            cursor.execute('CREATE INDEX IF NOT EXISTS idx_game_results_game_id ON game_results(game_id)')
             
             connection.commit()
         
-            # Add missing columns white_ai_type and black_ai_type to config_settings table
+            # Add missing columns to game_results table for direct config access
             try:
-                cursor.execute('ALTER TABLE config_settings ADD COLUMN white_ai_type TEXT')
-                cursor.execute('ALTER TABLE config_settings ADD COLUMN black_ai_type TEXT')
+                cursor.execute('ALTER TABLE game_results ADD COLUMN white_ai_type TEXT')
+                cursor.execute('ALTER TABLE game_results ADD COLUMN black_ai_type TEXT')
+                cursor.execute('ALTER TABLE game_results ADD COLUMN white_depth INTEGER')
+                cursor.execute('ALTER TABLE game_results ADD COLUMN black_depth INTEGER')
             except sqlite3.OperationalError as e:
-                # Ignore error if columns already exist
                 if "duplicate column name" not in str(e):
                     raise
     
@@ -228,9 +283,11 @@ class MetricsStore:
     
     def collect_all_data(self):
         """Collect all available data from logs, games, and config files."""
-        self.collect_log_data()
-        self.collect_game_data()
+        # The order here is important: configs, then games, then logs, then compute metrics
+        # because game_results needs config data, and move_metrics/logs need game_ids.
         self.collect_config_data()
+        self.collect_game_data()
+        self.collect_log_data() # Re-enable when log parsing is implemented
         self.compute_metrics()
     
     def collect_log_data(self, log_dir="logging"):
@@ -255,11 +312,15 @@ class MetricsStore:
     
     def _process_log_file(self, log_file):
         """Process a single log file."""
-        pass  # Placeholder for actual implementation
+        # Placeholder for actual implementation.
+        # This should read the log file, parse lines using _parse_log_line,
+        # and insert into the log_entries table.
+        pass
 
     def _parse_log_line(self, line, log_file):
         """Parse a single line from a log file."""
-        pass  # Placeholder for actual implementation
+        # Placeholder
+        return None
     
     def collect_game_data(self, games_dir="games"):
         """Parse and store game data from PGN files, respecting exclude_from_metrics flag."""
@@ -276,7 +337,7 @@ class MetricsStore:
                 cursor = connection.cursor()
                 self._execute_with_retry(cursor, "SELECT COUNT(*) FROM game_results WHERE game_id = ?", (game_id,))
                 if cursor.fetchone()[0] > 0:
-                    return
+                    return # Already processed
 
             with open(pgn_file, 'r', encoding='utf-8', errors='ignore') as f:
                 pgn_text = f.read()
@@ -290,13 +351,17 @@ class MetricsStore:
                 winner = headers.get("Result", "*")
                 white_player = headers.get("White", "Unknown")
                 black_player = headers.get("Black", "Unknown")
+                
+                # Retrieve AI config data that should have been collected by collect_config_data
+                # We need to link by game_id which is based on timestamp
+                config_id = game_id.replace('.pgn', '.yaml')
+                cursor.execute("SELECT white_ai_type, black_ai_type, white_depth, black_depth FROM config_settings WHERE config_id = ?", (config_id,))
+                config_row = cursor.fetchone()
 
-                # Check exclude_from_metrics flag
-                exclude_white = self._get_ai_config("white").get("exclude_from_metrics", False)
-                exclude_black = self._get_ai_config("black").get("exclude_from_metrics", False)
-
-                if (exclude_white and winner == "1-0") or (exclude_black and winner == "0-1"):
-                    return
+                white_ai_type = config_row[0] if config_row else "unknown"
+                black_ai_type = config_row[1] if config_row else "unknown"
+                white_depth = config_row[2] if config_row else 0
+                black_depth = config_row[3] if config_row else 0
 
                 game_length = 0
                 board = game.board()
@@ -313,8 +378,8 @@ class MetricsStore:
                     cursor = connection.cursor()
                     self._execute_with_retry(cursor, '''
                     INSERT OR IGNORE INTO game_results
-                    (game_id, timestamp, winner, game_pgn, white_player, black_player, game_length)
-                    VALUES (?, ?, ?, ?, ?, ?, ?)
+                    (game_id, timestamp, winner, game_pgn, white_player, black_player, game_length, white_ai_type, black_ai_type, white_depth, black_depth)
+                    VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
                     ''', (
                         game_id,
                         timestamp,
@@ -322,7 +387,11 @@ class MetricsStore:
                         pgn_text,
                         white_player,
                         black_player,
-                        game_length
+                        game_length,
+                        white_ai_type,
+                        black_ai_type,
+                        white_depth,
+                        black_depth
                     ))
                     connection.commit()
 
@@ -445,18 +514,184 @@ class MetricsStore:
                             print(f"Error storing metric {metric_name}: {e}")
                 _store_metric(metric_name, metric_value, side, function_name, timestamp)
     
+    def add_game_result(self, game_id: str, timestamp: str, winner: str, game_pgn: str,
+                        white_player: str, black_player: str, game_length: int,
+                        white_ai_config: dict, black_ai_config: dict):
+        """
+        Inserts a single game's result and associated AI configurations into the game_results table.
+        """
+        connection = self._get_connection()
+        with connection:
+            cursor = connection.cursor()
+            try:
+                # Extract AI types and depths from the provided configs
+                white_ai_type = white_ai_config.get('ai_type', 'unknown')
+                black_ai_type = black_ai_config.get('ai_type', 'unknown')
+                white_depth = white_ai_config.get('depth', 0)
+                black_depth = black_ai_config.get('depth', 0)
+
+                self._execute_with_retry(cursor, '''
+                INSERT OR IGNORE INTO game_results
+                (game_id, timestamp, winner, game_pgn, white_player, black_player, game_length,
+                 white_ai_type, black_ai_type, white_depth, black_depth)
+                VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+                ''', (
+                    game_id, timestamp, winner, game_pgn, white_player, black_player, game_length,
+                    white_ai_type, black_ai_type, white_depth, black_depth
+                ))
+                connection.commit()
+            except sqlite3.Error as e:
+                print(f"Error adding game result for game {game_id}: {e}")
+
+
+    def add_move_metric(self, game_id: str, move_number: int, player_color: str,
+                        move_uci: str, fen_before: str, evaluation: float,
+                        ai_type: str, depth: int, nodes_searched: int,
+                        time_taken: float, pv_line: str):
+        """
+        Inserts a single move's detailed metrics into the move_metrics table.
+        """
+        connection = self._get_connection()
+        with connection:
+            cursor = connection.cursor()
+            try:
+                self._execute_with_retry(cursor, '''
+                INSERT OR IGNORE INTO move_metrics
+                (game_id, move_number, player_color, move_uci, fen_before,
+                 evaluation, ai_type, depth, nodes_searched, time_taken, pv_line)
+                VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+                ''', (
+                    game_id, move_number, player_color, move_uci, fen_before,
+                    evaluation, ai_type, depth, nodes_searched, time_taken, pv_line
+                ))
+                connection.commit()
+            except sqlite3.Error as e:
+                print(f"Error adding move metric for game {game_id}, move {move_number}: {e}")
+
     def get_game_statistics(self):
         """
         Retrieve game statistics such as total games, wins, losses, and draws.
-        This is a placeholder implementation. Replace with actual logic.
         """
-        return {
-            "total_games": 0,
-            "white_wins": 0,
-            "black_wins": 0,
-            "draws": 0,
-        }
-    
+        connection = self._get_connection()
+        with connection:
+            cursor = connection.cursor()
+            
+            # Retrieve game counts
+            cursor.execute("SELECT COUNT(*) FROM game_results")
+            total_games = cursor.fetchone()[0]
+            
+            cursor.execute("SELECT COUNT(*) FROM game_results WHERE winner = '1-0'")
+            white_wins = cursor.fetchone()[0]
+            
+            cursor.execute("SELECT COUNT(*) FROM game_results WHERE winner = '0-1'")
+            black_wins = cursor.fetchone()[0]
+            
+            cursor.execute("SELECT COUNT(*) FROM game_results WHERE winner = '1/2-1/2'")
+            draws = cursor.fetchone()[0]
+
+            return {
+                "total_games": total_games,
+                "white_wins": white_wins,
+                "black_wins": black_wins,
+                "draws": draws,
+            }
+            
+    def get_all_game_results_df(self):
+        """
+        Retrieves all game results from the database as a Pandas DataFrame.
+        """
+        connection = self._get_connection()
+        with connection:
+            df = pd.read_sql_query("SELECT * FROM game_results", connection)
+        return df
+
+    def get_distinct_move_metric_names(self):
+        """
+        Retrieves distinct column names from move_metrics that are suitable for plotting.
+        Excludes primary keys, foreign keys, and text fields.
+        """
+        connection = self._get_connection()
+        with connection:
+            cursor = connection.cursor()
+            # Query PRAGMA table_info to get column details
+            cursor.execute("PRAGMA table_info(move_metrics)")
+            columns_info = cursor.fetchall()
+            
+            plot_eligible_types = ['REAL', 'INTEGER'] # Numeric types
+            exclude_names = ['id', 'game_id', 'move_number', 'player_color', 'move_uci', 'fen_before', 'ai_type', 'pv_line', 'created_at']
+            
+            metric_names = []
+            for col in columns_info:
+                col_name = col[1] # Column name is at index 1
+                col_type = col[2].upper() # Column type is at index 2
+                
+                if col_name not in exclude_names and col_type in plot_eligible_types:
+                    metric_names.append(col_name)
+        return sorted(metric_names)
+
+    def get_filtered_move_metrics(self, white_ai_types: Optional[list] = None, black_ai_types: Optional[list] = None, metric_name: Optional[str] = None):
+        """
+        Retrieves move metrics filtered by white_ai_type and black_ai_type
+        and joins with game_results to get AI configurations.
+        Returns a list of dictionaries.
+        """
+        connection = self._get_connection()
+        
+        # Build the WHERE clause dynamically
+        where_clauses = []
+        params = []
+
+        if white_ai_types:
+            placeholders = ','.join(['?'] * len(white_ai_types))
+            where_clauses.append(f"gr.white_ai_type IN ({placeholders})")
+            params.extend(white_ai_types)
+        
+        if black_ai_types:
+            placeholders = ','.join(['?'] * len(black_ai_types))
+            where_clauses.append(f"gr.black_ai_type IN ({placeholders})")
+            params.extend(black_ai_types)
+        
+        # Ensure we only fetch numeric metric_name if specified
+        select_columns = "mm.game_id, mm.move_number, mm.player_color, mm.move_uci, mm.fen_before, mm.created_at, mm.evaluation, mm.nodes_searched, mm.time_taken, mm.depth, mm.pv_line"
+        if metric_name:
+            # Validate metric_name to prevent SQL injection and ensure it's a numeric column
+            # This is a basic validation, more robust validation against PRAGMA table_info is ideal.
+            if metric_name in self.get_distinct_move_metric_names():
+                 select_columns += f", mm.{metric_name}"
+            else:
+                 print(f"Warning: Attempted to query invalid or non-numeric metric_name: {metric_name}")
+                 return [] # Return empty if invalid metric_name
+        
+        query = f"""
+        SELECT {select_columns}, gr.white_ai_type, gr.black_ai_type, gr.white_depth, gr.black_depth
+        FROM move_metrics mm
+        JOIN game_results gr ON mm.game_id = gr.game_id
+        """
+        
+        if where_clauses:
+            query += " WHERE " + " AND ".join(where_clauses)
+        
+        # Ordering by created_at is good for time series plots
+        query += " ORDER BY mm.created_at"
+
+        results = []
+        try:
+            with connection:
+                cursor = connection.cursor()
+                cursor.execute(query, params)
+                
+                # Get column names from cursor description for dictionary creation
+                cols = [description[0] for description in cursor.description]
+                
+                for row in cursor.fetchall():
+                    results.append(dict(zip(cols, row)))
+        except sqlite3.Error as e:
+            print(f"Error querying filtered move metrics: {e}")
+            return []
+            
+        return results
+
+
     def get_side_performance_metrics(self, side):
         """
         Retrieve performance metrics for a specific side ('w' for white, 'b' for black).
@@ -468,16 +703,29 @@ class MetricsStore:
         metrics = []
         with connection:
             cursor = connection.cursor()
-            self._execute_with_retry(cursor, '''
-            SELECT metric_name, AVG(metric_value) as avg_value, COUNT(*) as count
-            FROM metrics
-            WHERE side = ?
-            GROUP BY metric_name
+            # This query now fetches from move_metrics directly, as this is where fine-grained metrics are
+            # We'll calculate averages/counts based on move_metrics, or other tables if specific
+            # "computed metrics" are to be stored in the `metrics` table.
+            # For simplicity, let's just get average evaluation, nodes, and time for moves from that side.
+            
+            # Example: Average evaluation per move for this side
+            cursor.execute('''
+            SELECT AVG(evaluation) AS avg_eval, COUNT(evaluation) AS count_eval,
+                   AVG(nodes_searched) AS avg_nodes, COUNT(nodes_searched) AS count_nodes,
+                   AVG(time_taken) AS avg_time, COUNT(time_taken) AS count_time
+            FROM move_metrics
+            WHERE player_color = ?
             ''', (side,))
             
-            for row in cursor.fetchall():
-                metric_name, avg_value, count = row
-                metrics.append({'label': metric_name, 'avg_value': avg_value, 'count': count})
+            row = cursor.fetchone()
+            if row:
+                avg_eval, count_eval, avg_nodes, count_nodes, avg_time, count_time = row
+                if avg_eval is not None:
+                    metrics.append({'label': 'Average Evaluation', 'avg_value': avg_eval, 'count': count_eval})
+                if avg_nodes is not None:
+                    metrics.append({'label': 'Average Nodes Searched', 'avg_value': avg_nodes, 'count': count_nodes})
+                if avg_time is not None:
+                    metrics.append({'label': 'Average Time Taken (s)', 'avg_value': avg_time, 'count': count_time})
         
         return metrics
     
@@ -493,7 +741,7 @@ class MetricsStore:
             self._execute_with_retry(
                 cursor,
                 '''
-                SELECT timestamp, function_name, message, log_file
+                SELECT timestamp, function_name, message, log_file, raw_text
                 FROM log_entries
                 WHERE message LIKE '%error%' OR message LIKE '%warning%' OR message LIKE '%exception%'
                 ORDER BY id DESC
@@ -506,12 +754,14 @@ class MetricsStore:
                     "timestamp": row[0],
                     "function_name": row[1],
                     "message": row[2],
-                    "log_file": row[3]
+                    "log_file": row[3],
+                    "raw": row[4] # Include raw text for full message
                 })
         return results
     
     def get_metrics_trend_data(self, metric_name, side=None, limit=100):
-        """Retrieve trend data for a specific metric."""
+        """Retrieve trend data for a specific metric from the 'metrics' table."""
+        # This is for the aggregated 'metrics' table, not 'move_metrics'
         connection = self._get_connection()
         query = '''
         SELECT timestamp, metric_value
@@ -542,13 +792,86 @@ class MetricsStore:
             self.local.connection = None
 
     def _get_ai_config(self, color):
-        """Retrieve AI configuration for the given color."""
-        if color == "white":
-            return {
-                "exclude_from_metrics": False,  # Replace with actual config retrieval logic
-            }
-        elif color == "black":
-            return {
-                "exclude_from_metrics": True,  # Replace with actual config retrieval logic
-            }
+        """Retrieve AI configuration for the given color. (Placeholder for real config loading)"""
         return {}
+
+
+# Test code (if `if __name__ == "__main__":` block exists, add this inside it)
+if __name__ == "__main__":
+    # Test `MetricsStore` enhancements
+    print("\n--- MetricsStore Dashboard Integration Test ---")
+    
+    # Initialize a new MetricsStore (or existing one)
+    db_test_path = "metrics/test_dashboard_metrics.db"
+    if os.path.exists(db_test_path):
+        os.remove(db_test_path) # Start fresh for testing
+    store = MetricsStore(db_path=db_test_path)
+    
+    # Simulate a game result with full AI configs
+    test_game_id_1 = f"eval_game_{datetime.now().strftime('%Y%m%d_%H%M%S')}_1.pgn"
+    test_timestamp_1 = datetime.now().strftime('%Y%m%d_%H%M%S')
+    white_config_1 = {'ai_type': 'deepsearch', 'depth': 5, 'engine': 'Viper', 'exclude_from_metrics': False}
+    black_config_1 = {'ai_type': 'negamax', 'depth': 4, 'engine': 'Viper', 'exclude_from_metrics': False}
+    
+    store.add_game_result(
+        game_id=test_game_id_1, timestamp=test_timestamp_1, winner='1-0', game_pgn="...",
+        white_player='Viper Deep', black_player='Viper Negamax', game_length=42,
+        white_ai_config=white_config_1, black_ai_config=black_config_1
+    )
+
+    # Simulate moves for game 1
+    store.add_move_metric(game_id=test_game_id_1, move_number=1, player_color='w', move_uci='e2e4', fen_before='...', evaluation=0.2, ai_type='deepsearch', depth=3, nodes_searched=1500, time_taken=0.15, pv_line='e2e4 c7c5 g1f3')
+    store.add_move_metric(game_id=test_game_id_1, move_number=1, player_color='b', move_uci='c7c5', fen_before='...', evaluation=-0.1, ai_type='negamax', depth=2, nodes_searched=800, time_taken=0.08, pv_line='c7c5 g1f3 d7d6')
+    store.add_move_metric(game_id=test_game_id_1, move_number=2, player_color='w', move_uci='g1f3', fen_before='...', evaluation=0.3, ai_type='deepsearch', depth=4, nodes_searched=2500, time_taken=0.25, pv_line='g1f3 d7d6 d2d4')
+
+    time.sleep(1) # Simulate time passing for next game
+    test_game_id_2 = f"eval_game_{datetime.now().strftime('%Y%m%d_%H%M%S')}_2.pgn"
+    test_timestamp_2 = datetime.now().strftime('%Y%m%d_%H%M%S')
+    white_config_2 = {'ai_type': 'stockfish', 'depth': 0, 'engine': 'Stockfish', 'exclude_from_metrics': False}
+    black_config_2 = {'ai_type': 'deepsearch', 'depth': 3, 'engine': 'Viper', 'exclude_from_metrics': False}
+
+    store.add_game_result(
+        game_id=test_game_id_2, timestamp=test_timestamp_2, winner='0-1', game_pgn="...",
+        white_player='Stockfish', black_player='Viper Deep', game_length=30,
+        white_ai_config=white_config_2, black_ai_config=black_config_2
+    )
+    # Simulate moves for game 2
+    store.add_move_metric(game_id=test_game_id_2, move_number=1, player_color='w', move_uci='d2d4', fen_before='...', evaluation=0.1, ai_type='stockfish', depth=18, nodes_searched=100000, time_taken=0.5, pv_line='d2d4 g8f6 c2c4')
+    store.add_move_metric(game_id=test_game_id_2, move_number=1, player_color='b', move_uci='g8f6', fen_before='...', evaluation=-0.3, ai_type='deepsearch', depth=3, nodes_searched=2000, time_taken=0.2, pv_line='g8f6 c2c4 e7e6')
+
+
+    print("\nTesting get_distinct_move_metric_names:")
+    metric_names = store.get_distinct_move_metric_names()
+    print(f"Distinct move metric names: {metric_names}")
+    assert 'evaluation' in metric_names and 'nodes_searched' in metric_names, "Expected metric names not found"
+
+    print("\nTesting get_filtered_move_metrics (White: deepsearch, Black: negamax, Metric: evaluation):")
+    filtered_moves = store.get_filtered_move_metrics(
+        white_ai_types=['deepsearch'],
+        black_ai_types=['negamax'],
+        metric_name='evaluation'
+    )
+    print(f"Filtered moves count: {len(filtered_moves)}")
+    for move in filtered_moves:
+        print(f"  Game: {move['game_id']}, Move: {move['move_uci']}, Eval: {move['evaluation']:.3f}")
+    assert len(filtered_moves) == 3, "Expected 3 moves for deepsearch vs negamax"
+
+    print("\nTesting get_filtered_move_metrics (White: Stockfish, Black: deepsearch, Metric: nodes_searched):")
+    filtered_moves_sf = store.get_filtered_move_metrics(
+        white_ai_types=['stockfish'],
+        black_ai_types=['deepsearch'],
+        metric_name='nodes_searched'
+    )
+    print(f"Filtered moves count: {len(filtered_moves_sf)}")
+    for move in filtered_moves_sf:
+        print(f"  Game: {move['game_id']}, Move: {move['move_uci']}, Nodes: {move['nodes_searched']}")
+    assert len(filtered_moves_sf) == 2, "Expected 2 moves for Stockfish vs deepsearch"
+
+
+    print("\nTesting get_all_game_results_df:")
+    df_all_games = store.get_all_game_results_df()
+    print(df_all_games.head())
+    assert not df_all_games.empty, "DataFrame of all game results should not be empty"
+
+    store.close()
+    print("--- MetricsStore Dashboard Integration Tests Complete ---")

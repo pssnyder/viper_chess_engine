@@ -1,5 +1,19 @@
 # gitiggnore file for ViperChessEngine
 
+# general catch for do-not-commit files
+*.do-not-commit
+*.do-not-track
+*.do-not-push
+*.wip*
+
+# ignore project resource files
+*.viper_chess_engine
+*.viper_chess_engine.*
+
+# ignore project resource directories
+.viper_chess_engine_project_files/
+/.viper_chess_engine_project_files/*
+
 # ignore puzzles directory
 /puzzles/
 puzzles/
@@ -17,6 +31,10 @@ evaluation/
 # ignore the training directory
 /training/
 training/
+
+# ignore the testing directory
+/testing/
+testing/
 
 # ignore the models directory
 /models/
@@ -58,3 +76,20 @@ __pycache__/
 
 # ignore .history directory
 .history/
+
+# ignore the stockfish directory
+/stockfish/
+stockfish/
+
+# ignore unecessary files in the root directory
+*.log
+*.tmp
+*.bak
+
+# ignore the venv directory
+/venv/
+venv/
+
+# ignore docker files
+Dockerfile
+docker-compose.yml

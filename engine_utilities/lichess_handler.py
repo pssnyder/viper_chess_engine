@@ -11,7 +11,7 @@ import json
 import time
 import threading
 from typing import Dict, Optional, Any
-from ..evaluation_engine import EvaluationEngine
+from ..viper import EvaluationEngine
 import logging
 
 # Set up logging

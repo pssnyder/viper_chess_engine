@@ -1,21 +1,23 @@
-# metrics_dashboard.py
+# local_metrics_dashboard.py
 # A locally running dashboard to visualize chess engine metrics, system performance, and log files while actively analyzing the engine's performance.
+# TODO add functionality that, upon initialization of the metrics dash, backs up the database so we have a snapshot, then cleans up any incomplete games that could skew the metrics since we don't actually know the result. then it should create fresh test records for white and black color selections, under a metrics-test engine name (formerly ai_type) so we can test the dashboard without affecting the actual metrics. These test metrics will need to cover basic scenarios for data appearing in the visuals to allow for end to end testing in the event there is no real game data populated in the dev environment, the metrics dash will always initialize with its own test data ready, marking it as exclude from metrics in production branches but exclude from metrics False in dev branches for testing.
 
 import os
 import glob
 import time
 import psutil
 import dash
-from dash import dcc, html, Output, Input
+from dash import dcc, html, Output, Input, State # Import State
 import plotly.graph_objs as go
 import pandas as pd
 import re
 from collections import defaultdict
 import numpy as np
-from metrics_store import MetricsStore
+from metrics_store import MetricsStore # Use the existing MetricsStore
 import threading
 import yaml
 import atexit
+from datetime import datetime # Import datetime for parsing timestamps
 
 METRICS_DIR = "metrics"
 GAMES_DIR = "games"
@@ -23,6 +25,7 @@ LOG_DIR = "logging"
 LOG_FILES = [
     os.path.join(LOG_DIR, "chess_game.log"),
     os.path.join(LOG_DIR, "evaluation_engine.log"),
+    os.path.join(LOG_DIR, "stockfish_handler.log"), # Include Stockfish handler log
 ]
 
 # Store previous disk IO and timestamp for speed calculation
@@ -45,53 +48,19 @@ def start_metrics_collection():
 collection_thread = threading.Thread(target=start_metrics_collection, daemon=True)
 collection_thread.start()
 
-def parse_pgn_metrics():
-    # Parse all eval_game_*.pgn files for static metrics and trend data
-    files = glob.glob(os.path.join(GAMES_DIR, "eval_game_*.pgn"))
-    total_games = len(files)
-    wins, losses, draws = 0, 0, 0
-    trend_data = []
-    for f in files:
-        # Extract timestamp from filename: eval_game_YYYYMMDD_HHMMSS.pgn
-        basename = os.path.basename(f)
-        dt = None
-        try:
-            dt_str = basename.replace("eval_game_", "").replace(".pgn", "")
-            dt = pd.to_datetime(dt_str, format="%Y%m%d_%H%M%S")
-        except Exception:
-            dt = None
-        result = None
-        with open(f, "r", encoding="utf-8", errors="ignore") as pgn:
-            for line in pgn:
-                if line.startswith("[Result"):
-                    result = line.split('"')[1]
-                    if result == "1-0":
-                        wins += 1
-                    elif result == "0-1":
-                        losses += 1
-                    elif result == "1/2-1/2":
-                        draws += 1
-                    break
-        if dt and result:
-            trend_data.append({"datetime": dt, "result": result})
-    # Build DataFrame for trend
-    if trend_data:
-        df = pd.DataFrame(trend_data).sort_values("datetime")
-        df["win"] = (df["result"] == "1-0").astype(int)
-        df["loss"] = (df["result"] == "0-1").astype(int)
-        df["draw"] = (df["result"] == "1/2-1/2").astype(int)
-        df["cum_win"] = df["win"].cumsum()
-        df["cum_loss"] = df["loss"].cumsum()
-        df["cum_draw"] = df["draw"].cumsum()
-    else:
-        df = pd.DataFrame(columns=["datetime", "cum_win", "cum_loss", "cum_draw"])
-    return {
-        "total_games": total_games,
-        "wins": wins,
-        "losses": losses,
-        "draws": draws,
-        "trend_df": df,
-    }
+# Load AI types from config.yaml (for dropdowns)
+try:
+    with open("config.yaml", "r") as config_file:
+        config_data = yaml.safe_load(config_file)
+        AI_TYPES = config_data.get("ai_types", [])
+        # Extract unique AI types and ensure 'Viper' and 'Stockfish' are present
+        unique_ai_types = sorted(list(set(AI_TYPES + ['Viper', 'Stockfish'])))
+        # Prepare options for dropdown
+        AI_TYPE_OPTIONS = [{"label": ai_type.capitalize(), "value": ai_type} for ai_type in unique_ai_types]
+except Exception as e:
+    print(f"Error loading config.yaml for AI types: {e}")
+    AI_TYPES = []
+    AI_TYPE_OPTIONS = []
 
 def get_system_metrics():
     # Use a blocking interval to get a real CPU usage sample
@@ -249,7 +218,7 @@ class LogAnalyzer:
         log_data = []
         try:
             with open(filepath, 'r', errors='ignore') as f:
-                lines = f.readlines()[-max_lines:]  # Read last max_lines
+                lines = f.readlines()[-max_lines:]
                 
             for line in lines:
                 entry = self._parse_log_line(line)
@@ -257,7 +226,6 @@ class LogAnalyzer:
                     log_data.append(entry)
                     self._categorize_entry(entry)
                     
-            # Identify common and uncommon patterns
             self._identify_patterns()
             
         except Exception as e:
@@ -268,41 +236,58 @@ class LogAnalyzer:
     
     def _parse_log_line(self, line):
         """Parse a single log line into structured data."""
-        # Match pattern: "16:25:14 | _calculate_score | King safety score: 0.000 | FEN: fen_string"
-        pattern = r'(\d{2}:\d{2}:\d{2}) \| (\w+) \| (.*?)(: [-\d\.]+)? \| FEN: (.*)'
-        match = re.match(pattern, line)
+        # This regex needs to be robust enough to handle the various log formats you have
+        # from chess_game.log, evaluation_engine.log, and stockfish_handler.log.
+        # This is a generic attempt; specific parsing might be needed for very different formats.
+
+        # Example patterns:
+        # 16:25:14 | _calculate_score | King safety score: 0.000 | FEN: fen_string (evaluation_engine.log)
+        # 16:25:14 | process_ai_move  | AI (White) played: e2e4 (Eval: 0.20) | Time: 0.1500s | Nodes: 1500 (chess_game.log)
+        # 16:25:14 | _start_engine    | Sent: uci (stockfish_handler.log)
+
+        # Pattern for evaluation_engine and chess_game info lines with FEN/metrics
+        pattern_eval_metrics = r'(\d{2}:\d{2}:\d{2}) \| (\w+) \| (.*?)(?:: ([-\d\.]+))?(?: \| (FEN: .*))?(?: \| Time: ([-\d\.]+)s)?(?: \| Nodes: (\d+))?'
+        match = re.match(pattern_eval_metrics, line)
         
         if match:
-            time, function, label, value_part, fen = match.groups()
-            
-            # Extract the value if it exists
-            value = None
-            if value_part:
-                value = float(value_part.replace(': ', ''))
-                
-            # Extract side from FEN
-            side = 'w'  # Default to white
-            if ' b ' in fen or fen.endswith(' b'):
+            time_str, function, label_or_message, value_str, fen_part, time_taken_str, nodes_str = match.groups()
+
+            value = float(value_str) if value_str else None
+            time_taken = float(time_taken_str) if time_taken_str else None
+            nodes = int(nodes_str) if nodes_str else None
+            fen = fen_part.replace('FEN: ', '') if fen_part else None
+
+            # Extract side from FEN if present, otherwise infer from label/message
+            side = None
+            if fen and ' b ' in fen:
                 side = 'b'
-                
+            elif fen and ' w ' in fen:
+                side = 'w'
+            elif 'White' in label_or_message:
+                side = 'w'
+            elif 'Black' in label_or_message:
+                side = 'b'
+
             return {
-                'time': time,
+                'time': time_str,
                 'function': function,
-                'label': label,
+                'label': label_or_message.strip(), # This might contain the actual label like "King safety score" or just "AI (White) played: e2e4"
                 'value': value,
                 'fen': fen,
                 'side': side,
+                'time_taken': time_taken,
+                'nodes': nodes,
                 'raw': line.strip()
             }
         else:
-            # For lines that don't match the main pattern, try a simpler one
+            # Generic pattern for other log messages (e.g., Stockfish communication, errors)
             simple_pattern = r'(\d{2}:\d{2}:\d{2}) \| (\w+) \| (.*)'
-            match = re.match(simple_pattern, line)
-            if match:
-                time, function, message = match.groups()
+            match_simple = re.match(simple_pattern, line)
+            if match_simple:
+                time_str, function, message = match_simple.groups()
                 self.message_frequency[message.strip()] += 1
                 return {
-                    'time': time,
+                    'time': time_str,
                     'function': function,
                     'message': message.strip(),
                     'raw': line.strip()
@@ -316,20 +301,38 @@ class LogAnalyzer:
             
         self.function_counts[entry['function']] += 1
         
-        # Only process entries with numeric values
-        if 'value' in entry and entry['value'] is not None:
-            self.metrics_by_function[entry['function']].append(entry)
+        # Only process entries with numeric values that are likely to be metrics
+        # Filter specific labels or patterns for metric collection
+        if 'label' in entry and entry['value'] is not None and \
+           ("score" in entry['label'].lower() or "eval" in entry['label'].lower() or "mobility" in entry['label'].lower()):
             
-            if 'label' in entry:
-                label = entry['label']
-                self.label_counts[label] += 1
-                self.metrics_by_label[label].append(entry)
-                
-                # Categorize by side
-                if 'side' in entry:
-                    side = entry['side']
-                    self.metrics_by_side[side][label].append(entry)
-    
+            label = entry['label'].strip()
+            # Clean up label for consistent grouping (e.g., "King safety score: 0.000" -> "King safety score")
+            clean_label = re.sub(r':\s*[-\d\.]+', '', label).strip()
+            
+            self.label_counts[clean_label] += 1
+            self.metrics_by_label[clean_label].append(entry)
+            
+            # Categorize by side
+            if 'side' in entry:
+                side = entry['side']
+                self.metrics_by_side[side][clean_label].append(entry)
+        
+        # Also, capture nodes and time_taken as separate metrics for general function calls like process_ai_move
+        if 'nodes' in entry and entry['nodes'] is not None and entry['function'] == 'process_ai_move':
+            # This is a specific metric related to AI move
+            nodes_label = "Nodes Searched"
+            if 'side' in entry:
+                self.metrics_by_side[entry['side']][nodes_label].append({'value': entry['nodes'], 'time': entry['time']})
+            self.metrics_by_label[nodes_label].append({'value': entry['nodes'], 'time': entry['time']})
+
+        if 'time_taken' in entry and entry['time_taken'] is not None and entry['function'] == 'process_ai_move':
+            time_label = "Time Taken (s)"
+            if 'side' in entry:
+                self.metrics_by_side[entry['side']][time_label].append({'value': entry['time_taken'], 'time': entry['time']})
+            self.metrics_by_label[time_label].append({'value': entry['time_taken'], 'time': entry['time']})
+
+
     def _identify_patterns(self):
         """Identify common and uncommon patterns in the log data."""
         # Consider messages that appear >= 3 times as common
@@ -356,27 +359,6 @@ class LogAnalyzer:
     def get_metrics_by_side(self, side):
         """Get all metrics for a specific side (w/b)."""
         return self.metrics_by_side.get(side, defaultdict(list))
-    
-    def get_side_performance_metrics(self, side):
-        """
-        Retrieve performance metrics for a specific side ('w' for white, 'b' for black).
-        """
-        metrics = []
-        side_metrics = self.get_metrics_by_side(side)
-        
-        for label, entries in side_metrics.items():
-            # Calculate average value
-            if entries:
-                values = [entry['value'] for entry in entries if 'value' in entry and entry['value'] is not None]
-                if values:
-                    avg_value = sum(values) / len(values)
-                    metrics.append({
-                        'label': label,
-                        'avg_value': avg_value,
-                        'count': len(values)
-                    })
-        
-        return metrics
     
     def get_statistics(self, metric_list):
         """Calculate statistics for a list of metric entries with values."""
@@ -423,12 +405,6 @@ class LogAnalyzer:
                 errors.append(entry)
         return errors
 
-
-# Dynamically load AI types from the config.yaml file
-# Load AI types from config.yaml
-with open("config.yaml", "r") as config_file:
-    config_data = yaml.safe_load(config_file)
-    AI_TYPES = config_data.get("ai_types", [])
 
 # Dash app
 app = dash.Dash(__name__)
@@ -477,6 +453,44 @@ app.layout = html.Div([
         ], style={"flex": "2"}),
     ], style={"display": "flex", "flexDirection": "row", "alignItems": "flex-start", "marginBottom": "30px"}),
 
+    # A/B Testing & Dynamic Metric Filters
+    html.Div([
+        html.H2("A/B Testing & Metric Trends", style={"textAlign": "center", "marginBottom": "15px"}),
+        html.Div([
+            html.Div([
+                html.Label("White AI Type:"),
+                dcc.Dropdown(
+                    id="white-ai-type-filter",
+                    options=[{"label": str(option["label"]), "value": str(option["value"])} for option in AI_TYPE_OPTIONS],
+                    multi=True,
+                    placeholder="Select White AI Type(s)"
+                )
+            ], style={'width': '30%', 'display': 'inline-block', 'margin-right': '2%', 'verticalAlign': 'top'}),
+            html.Div([
+                html.Label("Black AI Type:"),
+                dcc.Dropdown(
+                    id="black-ai-type-filter",
+                    options=[{"label": str(option["label"]), "value": str(option["value"])} for option in AI_TYPE_OPTIONS],
+                    multi=True,
+                    placeholder="Select Black AI Type(s)"
+                )
+            ], style={'width': '30%', 'display': 'inline-block', 'verticalAlign': 'top'}),
+             html.Div([
+                html.Label("Metric to Plot:"),
+                dcc.Dropdown(
+                    id="dynamic-metric-selector",
+                    options=[], # Populated dynamically
+                    placeholder="Select a metric (e.g., eval, nodes)"
+                )
+            ], style={'width': '30%', 'display': 'inline-block', 'margin-left': '2%', 'verticalAlign': 'top'}),
+        ], style={'marginBottom': '15px'}),
+        
+        dcc.Graph(id="ab-test-trend-graph", style={"height": "400px"}),
+        html.Div(id="move-metrics-details", style={"padding": "10px", "backgroundColor": "#f9f9f9", "borderRadius": "5px", "marginTop": "20px"}),
+
+    ], style={"marginBottom": "30px", "border": "1px solid #ccc", "padding": "15px", "borderRadius": "8px"}),
+
+
     # Smart Log Analysis section
     html.Div([
         html.Div([
@@ -484,41 +498,27 @@ app.layout = html.Div([
             dcc.Dropdown(
                 id="side-selector",
                 options=[
-                    {"label": "White", "value": "white"},
-                    {"label": "Black", "value": "black"}
+                    {"label": "White", "value": "w"}, # Changed to 'w' and 'b' for consistency with DB
+                    {"label": "Black", "value": "b"}
                 ],
-                value="white",
+                value="w",
                 clearable=False,
                 style={"marginBottom": "10px"}
             ),
-            dcc.Dropdown(
-                id="ai-type-selector",
-                options=[
-                    {"label": ai_type.capitalize(), "value": ai_type} for ai_type in AI_TYPES
-                ],
-                value="type1",
-                clearable=False,
-                style={"marginBottom": "10px"}
-            ),
-            html.Div(id="side-analysis", style={"padding": "10px", "backgroundColor": "#f9f9f9", "borderRadius": "5px"}),
+            # AI type selector removed from here, integrated into A/B testing filters
+            html.Div(id="side-analysis", style={"padding": "10px", "backgroundColor": "#f9f9f9", "borderRadius": "5px", "minHeight": "200px"}),
         ], style={"flex": "1", "marginRight": "20px"}),
 
         html.Div([
-            html.H3("Top Metrics", style={"textAlign": "center"}),
-            html.Div(id="top-metrics", style={"padding": "10px", "backgroundColor": "#f9f9f9", "borderRadius": "5px"}),
+            html.H3("Top Metrics (from Logs)", style={"textAlign": "center"}),
+            html.Div(id="top-metrics", style={"padding": "10px", "backgroundColor": "#f9f9f9", "borderRadius": "5px", "minHeight": "200px"}),
         ], style={"flex": "1", "marginRight": "20px"}),
 
         html.Div([
-            html.H3("Potential Issues", style={"textAlign": "center"}),
-            html.Div(id="log-issues", style={"padding": "10px", "backgroundColor": "#f9f9f9", "borderRadius": "5px"}),
+            html.H3("Potential Issues (from Logs)", style={"textAlign": "center"}),
+            html.Div(id="log-issues", style={"padding": "10px", "backgroundColor": "#f9f9f9", "borderRadius": "5px", "minHeight": "200px"}),
         ], style={"flex": "1"}),
     ], style={"display": "flex", "flexDirection": "row", "gap": "20px", "marginBottom": "30px"}),
-
-    # Metrics Trends section
-    html.Div([
-        html.H3("Metrics Trends", style={"textAlign": "center"}),
-        dcc.Graph(id="metrics-trend-graph"),
-    ], style={"marginBottom": "30px"}),
 
     # Live Log Tail section
     html.Div([
@@ -530,8 +530,8 @@ app.layout = html.Div([
             clearable=False,
         ),
         dcc.Interval(id="log-interval", interval=5000, n_intervals=0),
-        dcc.Interval(id="log-analysis-interval", interval=5000, n_intervals=0),  # Missing component added
-        html.Pre(id="log-tail", style={"height": "300px", "overflowY": "scroll", "background": "#eee", "padding": "10px", "borderRadius": "5px"}),
+        dcc.Interval(id="log-analysis-interval", interval=5000, n_intervals=0),
+        html.Pre(id="log-tail", style={"height": "300px", "overflowY": "scroll", "background": "#eee", "padding": "10px", "borderRadius": "5px", "whiteSpace": "pre-wrap", "wordBreak": "break-all"}),
     ]),
 ], style={"fontFamily": "Arial, sans-serif", "padding": "20px"})
 
@@ -687,241 +687,196 @@ def update_log_tail(_, logfile):
     return tail_logfile(logfile)
 
 @app.callback(
+    Output("dynamic-metric-selector", "options"),
+    Input("log-analysis-interval", "n_intervals"),
+)
+def update_dynamic_metric_options(_):
+    # This callback updates the dropdown options based on available move metrics
+    # It queries the distinct metric_names from the move_metrics table in MetricsStore
+    move_metric_names = metrics_store.get_distinct_move_metric_names()
+    options = [{'label': name.replace('_', ' ').title(), 'value': name} for name in move_metric_names]
+    return options
+
+@app.callback(
     [Output("side-analysis", "children"),
      Output("top-metrics", "children"),
      Output("log-issues", "children"),
-     Output("metrics-trend-graph", "figure")],
+     Output("ab-test-trend-graph", "figure"), # This graph now supports A/B testing
+     Output("move-metrics-details", "children")], # New output for move metrics details
     [Input("log-analysis-interval", "n_intervals"),
-     Input("logfile-dropdown", "value")]
+     Input("logfile-dropdown", "value"), # Not directly used for analysis but triggers refresh
+     Input("white-ai-type-filter", "value"),
+     Input("black-ai-type-filter", "value"),
+     Input("dynamic-metric-selector", "value"),
+     Input("side-selector", "value")] # Keep this for individual side analysis
 )
-def update_log_analysis(_, log_file):
-    # We'll still use the LogAnalyzer for immediate log file analysis
+def update_log_analysis(_, log_file_path, white_ai_types, black_ai_types, selected_metric, side_for_analysis):
+    # This callback now powers multiple sections and integrates with MetricsStore for A/B data
+
+    # --- Live Log Analysis (from LogAnalyzer) ---
     analyzer = LogAnalyzer()
-    analyzer.parse_log_file(log_file)
-    
-    # Side analysis - now using both live data and stored metrics
-    side_analysis = []
-    for side, label in [('w', "White"), ('b', "Black")]:
-        # Get stored metrics for this side
+    # It's important to parse the *main* evaluation/chess log for log analyzer
+    # The dashboard will only display a tail of `logfile-dropdown` value
+    # but the analysis itself should run on the main logs.
+    analyzer.parse_log_file(LOG_FILES[0]) # evaluation_engine.log
+    if len(LOG_FILES) > 1: # Also parse chess_game.log for broader messages
+        analyzer.parse_log_file(LOG_FILES[1])
+    if len(LOG_FILES) > 2: # And stockfish_handler.log
+        analyzer.parse_log_file(LOG_FILES[2])
+
+    # Side analysis
+    side_analysis_components = []
+    # Use selected_side_for_analysis from dropdown
+    for side, label in [(side_for_analysis, "Selected Side")]: # Only show the selected side
         stored_metrics = metrics_store.get_side_performance_metrics(side)
         
-        # Live metrics from the analyzer
-        metrics = analyzer.get_metrics_by_side(side)
-        
-        # Combine metrics (prioritize live data)
-        combined_metrics = {}
-        for metric in stored_metrics:
-            metric_name = metric['label']
-            combined_metrics[metric_name] = {
-                'avg': metric['avg_value'],
-                'count': metric['count']
-            }
-        
-        # Add metrics from live analysis
-        for metric_name, entries in metrics.items():
-            if len(entries) >= 3:  # Skip metrics with too few entries
-                stats = analyzer.get_statistics(entries)
-                if stats['avg'] is not None:
-                    combined_metrics[metric_name] = stats
-        
-        # Create UI components
         content_components = []
-        content_components.append(html.H4(f"{label} Side Metrics"))
+        content_components.append(html.H4(f"{label} Metrics (Avg from All Games)"))
         
-        # Show metrics with proper formatting
-        for metric_name, stats in sorted(combined_metrics.items(), key=lambda x: x[0]):
-            if 'min' in stats and 'max' in stats and 'latest' in stats:
-                # Full stats available
-                metric_div = html.Div([
-                    html.B(f"{metric_name}:"),
-                    html.Span(f" Avg: {stats['avg']:.3f}, Min: {stats['min']:.3f}, Max: {stats['max']:.3f}, Latest: {stats['latest']:.3f}")
-                ])
-            else:
-                # Basic stats only
-                metric_div = html.Div([
-                    html.B(f"{metric_name}:"),
-                    html.Span(f" Avg: {stats['avg']:.3f}, Count: {stats['count']}")
-                ])
-            content_components.append(metric_div)
+        if stored_metrics:
+            for metric in sorted(stored_metrics, key=lambda x: x['label']):
+                if metric['avg_value'] is not None:
+                    content_components.append(html.Div([
+                        html.B(f"{metric['label']}:"),
+                        html.Span(f" Avg: {metric['avg_value']:.3f}, Count: {metric['count']}")
+                    ]))
+        else:
+            content_components.append(html.P("No data for this side yet."))
         
-        side_analysis.append(html.Div(content_components, style={"marginBottom": "15px"}))
+        side_analysis_components.append(html.Div(content_components, style={"marginBottom": "15px"}))
+
+    # Top metrics (from LogAnalyzer - focus on frequently occurring metrics in live logs)
+    top_metrics_list = []
+    top_metrics_analyzer = analyzer.get_top_metrics(n=5) # Overall top metrics
+    for label, count in top_metrics_analyzer:
+        metrics = analyzer.get_metrics_for_label(label)
+        stats = analyzer.get_statistics(metrics)
+        if stats['avg'] is not None:
+            top_metrics_list.append(html.Div([
+                html.B(f"{label} ({count} entries):"),
+                html.Span(f" Avg: {stats['avg']:.3f}, Min: {stats['min']:.3f}, Max: {stats['max']:.3f}, Latest: {stats['latest']:.3f}")
+            ]))
+        else:
+            top_metrics_list.append(html.Div([
+                html.B(f"{label} ({count} entries):"),
+                html.Span(" (No numeric value)")
+            ]))
+
+
+    # Potential Issues (from LogAnalyzer)
+    errors_and_warnings = analyzer.get_errors_and_warnings()
+    uncommon_messages = analyzer.uncommon_messages
     
-    # Top metrics - combine live and stored data
-    top_metrics = []
-    # Get functions from analyzer
-    for function, count in sorted(analyzer.function_counts.items(), key=lambda x: x[1], reverse=True)[:10]:
-        metrics = analyzer.get_metrics_for_function(function)
-        if metrics:
-            stats = analyzer.get_statistics(metrics)
-            if stats['avg'] is not None:
-                top_metrics.append(html.Div([
-                    html.B(f"{function} ({count} calls):"),
-                    html.Span(f" Avg: {stats['avg']:.3f}, Range: {stats['min']:.3f} to {stats['max']:.3f}")
-                ]))
-    
-    # Enhanced Issues Display - now using both live data and stored errors
-    # Get stored errors
-    stored_errors = metrics_store.get_errors_and_warnings(limit=10)
-    # Get live errors
-    live_errors = analyzer.get_errors_and_warnings()
-    
-    # Combine errors (prioritize live data)
-    all_errors = stored_errors.copy()
-    live_error_texts = [e.get('raw', '') for e in live_errors]
-    for stored_error in stored_errors:
-        # Safely access the 'raw' key with a default value
-        if stored_error.get('raw', '') not in live_error_texts:
-            all_errors.append(stored_error)
-    
-    # Limit to top 10
-    all_errors = all_errors[:10]
-    
-    # Get uncommon messages from analyzer
-    uncommon = analyzer.uncommon_messages[:10]  # Define the variable that was missing
-    
-    # Prepare error display
-    issues = []
-    if all_errors:
+    issues_components = []
+    if errors_and_warnings:
         error_items = []
-        for error in all_errors:
-            # Determine if it's an error, warning, or exception
+        for error in errors_and_warnings[:5]: # Limit display to 5
             message_type = "Error"
-            message_color = "#ff5252"  # Red for errors
-            
+            message_color = "#ff5252"
             if 'message' in error:
-                message = error['message']
-                if isinstance(message, str):
-                    if 'warning' in message.lower():
-                        message_type = "Warning"
-                        message_color = "#ffb300"  # Amber for warnings
-                    elif 'exception' in message.lower():
-                        message_type = "Exception"
-                        message_color = "#d50000"  # Deep red for exceptions
+                msg_content = error['message']
+                if 'warning' in msg_content.lower(): message_type = "Warning"; message_color = "#ffb300"
+                elif 'exception' in msg_content.lower(): message_type = "Exception"; message_color = "#d50000"
             
-            # Format the entry for clearer display
-            time = error.get('time', '')
-            function = error.get('function', '')
-            message = error.get('message', error.get('raw', ''))
-            
-            # Create a formatted message item with improved styling
             error_items.append(html.Div([
-                html.Span(f"{time} ", style={"color": "#757575", "fontSize": "0.9em"}),
-                html.Span(f"[{function}] ", style={"color": "#2196f3", "fontWeight": "bold"}),
+                html.Span(f"{error.get('timestamp', '')} ", style={"color": "#757575", "fontSize": "0.9em"}),
+                html.Span(f"[{error.get('function_name', '')}] ", style={"color": "#2196f3", "fontWeight": "bold"}),
                 html.Span(f"{message_type}: ", style={"color": message_color, "fontWeight": "bold"}),
-                html.Span(f"{message}")
+                html.Span(f"{error.get('message', error.get('raw', ''))}")
             ], style={"marginBottom": "5px", "padding": "5px", "borderLeft": f"3px solid {message_color}", "backgroundColor": "#f5f5f5"}))
-        
-        issues.append(html.Div([
-            html.H4("Errors/Warnings:"),
-            html.Div(error_items, style={"maxHeight": "250px", "overflowY": "auto"})
-        ]))
+        issues_components.append(html.Div([html.H4("Errors/Warnings:"), html.Div(error_items)]))
     
-    if uncommon:
+    if uncommon_messages:
         uncommon_items = []
-        for msg in uncommon:  # Limit to 10 uncommon messages
-            # Extract time and function if possible using regex
-            match = re.match(r'(\d{2}:\d{2}:\d{2}) \| (\w+) \| (.*)', msg)
-            if match:
-                time, function, message = match.groups()
-                uncommon_items.append(html.Div([
-                    html.Span(f"{time} ", style={"color": "#757575", "fontSize": "0.9em"}),
-                    html.Span(f"[{function}] ", style={"color": "#2196f3", "fontWeight": "bold"}),
-                    html.Span(f"{message}")
-                ], style={"marginBottom": "5px", "padding": "5px", "borderLeft": "3px solid #9e9e9e", "backgroundColor": "#f5f5f5"}))
-            else:
-                uncommon_items.append(html.Div(msg, style={"marginBottom": "5px", "padding": "5px", "borderLeft": "3px solid #9e9e9e", "backgroundColor": "#f5f5f5"}))
-        
-        issues.append(html.Div([
-            html.H4("Uncommon Messages:"),
-            html.Div(uncommon_items, style={"maxHeight": "200px", "overflowY": "auto"})
-        ]))
-    
-    # Trend graph - use store data for more robust trends
-    fig = go.Figure()
-    
-    # Get metrics trends from store
-    white_trend_data = metrics_store.get_metrics_trend_data("King safety score", side='w', limit=100)
-    black_trend_data = metrics_store.get_metrics_trend_data("King safety score", side='b', limit=100)
-    
-    # Add white trend line if we have data
-    if white_trend_data:
-        # Parse timestamps and sort by timestamp
-        times = [pd.to_datetime(item['timestamp']) for item in white_trend_data]
-        values = [item['metric_value'] for item in white_trend_data]
-        # Sort by timestamp
-        data_pairs = sorted(zip(times, values), key=lambda x: x[0])
-        if data_pairs:
-            times, values = zip(*data_pairs)
-            fig.add_trace(go.Scatter(
-                x=times, 
-                y=values, 
-                mode='lines+markers',
-                name=f"White: King Safety",
-                line=dict(color='blue')
-            ))
-    
-    # Add black trend line if we have data
-    if black_trend_data:
-        # Parse timestamps and sort by timestamp
-        times = [pd.to_datetime(item['timestamp']) for item in black_trend_data]
-        values = [item['metric_value'] for item in black_trend_data]
-        # Sort by timestamp
-        data_pairs = sorted(zip(times, values), key=lambda x: x[0])
-        if data_pairs:
-            times, values = zip(*data_pairs)
-            fig.add_trace(go.Scatter(
-                x=times, 
-                y=values, 
-                mode='lines+markers',
-                name=f"Black: King Safety",
-                line=dict(color='red')
-            ))
-    
-    # If no store data, fall back to analyzer's data
-    if not white_trend_data and not black_trend_data:
-        top_metrics_data = analyzer.get_top_metrics(n=3, by_side=True)
-        
-        # Add white side metrics
-        if isinstance(top_metrics_data, dict) and 'w' in top_metrics_data:
-            white_metrics = top_metrics_data.get('w', [])
-            for label, _ in white_metrics:
-                entries = analyzer.metrics_by_side.get('w', {}).get(label, [])
-                if len(entries) >= 5:  # Only show metrics with enough data points
-                    times = [pd.to_datetime(e['time']) for e in entries]
-                    values = [e['value'] for e in entries]
-                    fig.add_trace(go.Scatter(
-                        x=times, 
-                        y=values, 
-                        mode='lines+markers',
-                        name=f"White: {label}",
-                        line=dict(color='blue')
-                    ))
-        
-        # Add black side metrics
-        if isinstance(top_metrics_data, dict) and 'b' in top_metrics_data:
-            black_metrics = top_metrics_data.get('b', [])
-            for label, _ in black_metrics:
-                entries = analyzer.metrics_by_side.get('b', {}).get(label, [])
-                if len(entries) >= 5:  # Only show metrics with enough data points
-                    times = [pd.to_datetime(e['time']) for e in entries]
-                    values = [e['value'] for e in entries]
-                    fig.add_trace(go.Scatter(
-                        x=times, 
-                        y=values, 
-                        mode='lines+markers',
-                        name=f"Black: {label}",
-                        line=dict(color='red')
-                    ))
-    
-    fig.update_layout(
-        title="Metrics Trends Over Time",
-        xaxis_title="Time",
-        yaxis_title="Value",
-        legend=dict(orientation="h", yanchor="bottom", y=1.02, xanchor="right", x=1),
-        margin=dict(t=40, b=0, l=0, r=0)
+        for msg in uncommon_messages[:5]: # Limit display to 5
+             match = re.match(r'(\d{2}:\d{2}:\d{2}) \| (\w+) \| (.*)', msg)
+             if match:
+                 time_str, function, message = match.groups()
+                 uncommon_items.append(html.Div([
+                     html.Span(f"{time_str} ", style={"color": "#757575", "fontSize": "0.9em"}),
+                     html.Span(f"[{function}] ", style={"color": "#2196f3", "fontWeight": "bold"}),
+                     html.Span(f"{message}")
+                 ], style={"marginBottom": "5px", "padding": "5px", "borderLeft": "3px solid #9e9e9e", "backgroundColor": "#f5f5f5"}))
+             else:
+                 uncommon_items.append(html.Div(msg, style={"marginBottom": "5px", "padding": "5px", "borderLeft": "3px solid #9e9e9e", "backgroundColor": "#f5f5f5"}))
+        issues_components.append(html.Div([html.H4("Uncommon Messages:"), html.Div(uncommon_items)]))
+
+    if not errors_and_warnings and not uncommon_messages:
+        issues_components.append(html.P("No significant issues detected in recent logs."))
+
+
+    # --- A/B Testing Trend Graph (using move_metrics from MetricsStore) ---
+    fig_ab_test = go.Figure()
+    move_metrics_details = []
+
+    # Get data based on filters
+    filtered_moves = metrics_store.get_filtered_move_metrics(
+        white_ai_types=white_ai_types,
+        black_ai_types=black_ai_types,
+        metric_name=selected_metric # Pass the selected metric name
     )
     
-    return side_analysis, top_metrics, issues, fig
+    if filtered_moves:
+        df_moves = pd.DataFrame(filtered_moves)
+        df_moves['created_at_dt'] = pd.to_datetime(df_moves['created_at'])
+        df_moves = df_moves.sort_values('created_at_dt') # Ensure chronological order
+
+        # Aggregate for plotting (e.g., average eval per game, or raw data)
+        # For evaluation, plot raw points
+        if selected_metric:
+            fig_ab_test.add_trace(go.Scatter(
+                x=df_moves['created_at_dt'],
+                y=df_moves[selected_metric], # Plot the actual metric values
+                mode='markers',
+                name=f'{selected_metric.replace("_", " ").title()} Trend',
+                marker=dict(size=5, opacity=0.6)
+            ))
+            fig_ab_test.update_layout(
+                title=f"{selected_metric.replace('_', ' ').title()} Trends for Selected AIs",
+                xaxis_title="Time",
+                yaxis_title=selected_metric.replace('_', ' ').title(),
+                hovermode="x unified",
+                legend=dict(orientation="h", yanchor="bottom", y=1.02, xanchor="right", x=1)
+            )
+
+            # Display some details from the filtered move metrics
+            move_metrics_details.append(html.H4(f"Details for {selected_metric.replace('_', ' ').title()}"))
+            # Display average, min, max, count for the filtered set
+            avg_val = df_moves[selected_metric].mean()
+            min_val = df_moves[selected_metric].min()
+            max_val = df_moves[selected_metric].max()
+            count_val = df_moves[selected_metric].count()
+            
+            move_metrics_details.append(html.Ul([
+                html.Li(f"Average: {avg_val:.3f}"),
+                html.Li(f"Min: {min_val:.3f}"),
+                html.Li(f"Max: {max_val:.3f}"),
+                html.Li(f"Count: {count_val}"),
+                html.Li(f"Filtered Games: {len(df_moves['game_id'].unique())}")
+            ]))
+
+            # Optionally, display a table of recent moves
+            # move_metrics_details.append(html.H5("Recent Moves:"))
+            # move_metrics_details.append(
+            #     dash.dash_table.DataTable(
+            #         id='table-move-metrics',
+            #         columns=[{"name": i, "id": i} for i in df_moves[['game_id', 'move_number', 'player_color', 'move_uci', selected_metric]].columns],
+            #         data=df_moves[['game_id', 'move_number', 'player_color', 'move_uci', selected_metric]].tail(10).to_dict('records'),
+            #         style_table={'overflowX': 'auto'},
+            #         style_cell={'textAlign': 'left', 'padding': '5px'}
+            #     )
+            # )
+
+        else:
+            fig_ab_test.update_layout(title="Select a metric and AI types to see trends.")
+            move_metrics_details.append(html.P("No data to display based on current filters."))
+
+    else:
+        fig_ab_test.update_layout(title="No move metrics data found for the selected filters.")
+        move_metrics_details.append(html.P("No data to display based on current filters."))
+
+    return side_analysis_components, top_metrics_list, issues_components, fig_ab_test, move_metrics_details
+
 
 # Update the static metrics to use stored data
 @app.callback(
@@ -933,44 +888,57 @@ def update_static_metrics(_):
     # Get game statistics from metrics store
     game_stats = metrics_store.get_game_statistics()
     
-    # Traditional PGN metrics as a backup
-    pgn_metrics = parse_pgn_metrics()
-    
-    # Use store metrics if available, otherwise fall back to parsed metrics
     metrics = {
-        "total_games": game_stats['total_games'] if game_stats['total_games'] > 0 else pgn_metrics['total_games'],
-        "wins": game_stats['white_wins'] if game_stats['total_games'] > 0 else pgn_metrics['wins'],
-        "losses": game_stats['black_wins'] if game_stats['total_games'] > 0 else pgn_metrics['losses'],
-        "draws": game_stats['draws'] if game_stats['total_games'] > 0 else pgn_metrics['draws'],
+        "total_games": game_stats['total_games'],
+        "wins": game_stats['white_wins'],
+        "losses": game_stats['black_wins'],
+        "draws": game_stats['draws'],
     }
     
-    # Save to metrics file
-    os.makedirs(METRICS_DIR, exist_ok=True)
-    metrics_file = os.path.join(METRICS_DIR, "static_metrics.csv")
-    pd.DataFrame([metrics]).to_csv(metrics_file, index=False)
+    # Trend graph for overall game results
+    df_games = metrics_store.get_all_game_results_df() # New method to get all game results
     
-    # Trend graph - use pgn_metrics for now as it has the trend data built in
-    df = pgn_metrics["trend_df"]
-    if not df.empty:
+    if not df_games.empty:
+        # Sort by timestamp to ensure correct cumulative trend
+        df_games['timestamp_dt'] = pd.to_datetime(df_games['timestamp'], format="%Y%m%d_%H%M%S", errors='coerce')
+        df_games = df_games.sort_values('timestamp_dt').reset_index(drop=True)
+        
+        # Calculate cumulative wins, losses, draws
+        df_games['cum_white_wins'] = (df_games['winner'] == '1-0').cumsum()
+        df_games['cum_black_wins'] = (df_games['winner'] == '0-1').cumsum()
+        df_games['cum_draws'] = (df_games['winner'] == '1/2-1/2').cumsum()
+
         fig = go.Figure()
-        fig.add_trace(go.Scatter(x=df["datetime"], y=df["cum_win"], mode="lines+markers", name="Wins", line=dict(color="green")))
-        fig.add_trace(go.Scatter(x=df["datetime"], y=df["cum_loss"], mode="lines+markers", name="Losses", line=dict(color="red")))
-        fig.add_trace(go.Scatter(x=df["datetime"], y=df["cum_draw"], mode="lines+markers", name="Draws", line=dict(color="gray")))
-        fig.update_layout(title="Cumulative Results Over Time", xaxis_title="Date/Time", yaxis_title="Count", height=300, margin=dict(t=40, b=0, l=0, r=0))
+        fig.add_trace(go.Scatter(x=df_games["timestamp_dt"], y=df_games["cum_white_wins"], mode="lines+markers", name="White Wins", line=dict(color="green")))
+        fig.add_trace(go.Scatter(x=df_games["timestamp_dt"], y=df_games["cum_black_wins"], mode="lines+markers", name="Black Wins", line=dict(color="red")))
+        fig.add_trace(go.Scatter(x=df_games["timestamp_dt"], y=df_games["cum_draws"], mode="lines+markers", name="Draws", line=dict(color="gray")))
+        fig.update_layout(title="Cumulative Game Results Over Time", xaxis_title="Date/Time", yaxis_title="Count", height=300, margin=dict(t=40, b=0, l=0, r=0))
     else:
         fig = go.Figure()
-        fig.update_layout(title="No Data", height=300, margin=dict(t=40, b=0, l=0, r=0))
+        fig.update_layout(title="No Game Result Data", height=300, margin=dict(t=40, b=0, l=0, r=0))
     
     return html.Ul([
         html.Li(f"Total Games: {metrics['total_games']}"),
-        html.Li(f"Wins: {metrics['wins']}"),
-        html.Li(f"Losses: {metrics['losses']}"),
+        html.Li(f"White Wins: {metrics['wins']}"),
+        html.Li(f"Black Wins: {metrics['losses']}"),
         html.Li(f"Draws: {metrics['draws']}"),
     ]), fig
 
 # Clean up when the app is closed
 def cleanup():
     metrics_store.close()
+    # Also ensure Stockfish processes are terminated if dashboard is closed
+    # This assumes the main chess_game process might still be running or was run previously.
+    # It's safer to have this cleanup here as well.
+    print("Dashboard shutting down. Attempting to quit any active Stockfish handlers.")
+    # This requires knowing if there are any active StockfishHandler instances.
+    # A robust solution might involve the MetricsStore tracking active handlers,
+    # or the main game loop being responsible for its own handlers' lifecycle.
+    # For now, a manual check if we can get a reference to the engines from the ChessGame.
+    # However, since the dashboard is a separate process, it cannot directly access
+    # the ChessGame's engine instances unless they are shared via a multiprocessing Queue/Manager.
+    # The clean shutdown logic in chess_game.py's `run` loop's `finally` block
+    # is the primary place for this. This dashboard `cleanup` is for the dashboard's process.
 
 atexit.register(cleanup)
 

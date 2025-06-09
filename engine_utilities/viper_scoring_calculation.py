@@ -4,6 +4,8 @@
 This module implements the scoring calculation for the Viper Chess Engine.
 It provides various scoring functions for evaluation, quiescence, and move ordering
 """
+# TODO: Refactor this module to use the new ruleset system and configuration management
+
 import chess
 import yaml # Keep for config loading if needed directly, though passed via init now
 import random
@@ -84,7 +86,7 @@ class ViperScoringCalculation:
         return self.current_ruleset.get(rule_key, default_value)
 
 
-    def calculate_score(self, board: chess.Board, color: chess.Color, endgame_factor: float = 0.0) -> float:
+    def _calculate_score(self, board: chess.Board, color: chess.Color, endgame_factor: float = 0.0) -> float:
         """
         Calculates the position evaluation score for a given board and color,
         applying dynamic ruleset settings and endgame awareness.

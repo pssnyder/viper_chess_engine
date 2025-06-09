@@ -4,6 +4,8 @@
 This module implements the evaluation engine for the Viper chess AI.
 It provides various search algorithms, evaluation functions, and move ordering
 """
+# TODO: Refactor this module to use the new ruleset system and configuration management
+
 from __future__ import annotations # Added for postponed evaluation of type annotations
 import chess
 import yaml
@@ -85,7 +87,7 @@ class ViperEvaluationEngine: # Renamed class from EvaluationEngine
         self.hash_size = self.config.get('performance', {}).get('hash_size', 1024)
         self.threads = self.config.get('performance', {}).get('thread_limit', 1)
 
-        self.logging_enabled = self.config.get('debug', {}).get('enable_logging', False)
+        self.logging_enabled = self.config.get('monitor', {}).get('enable_logging', False)
         self.show_thoughts = self.config.get('debug', {}).get('show_thinking', False)
         self.logger = viper_engine_logger # Use the renamed logger
         if not self.logging_enabled:

@@ -1,0 +1,11 @@
+# engine_utilities/stockfish_handler.yaml
+# Configuration for Stockfish engine handler
+# This file contains settings specific to the Stockfish chess engine integration with the Viper chess engine.
+# TODO: Update to handle new configuration and engine functionality options
+
+# Stockfish specific settings
+stockfish_config:
+  path: engine_utilities/external_engines/stockfish/stockfish-windows-x86-64-avx2.exe # Path to Stockfish executable
+  elo_rating: null # Set an ELO rating (e.g., 1000, 2000, null for max strength)
+  skill_level: null # Set a skill level from 0-20 (0 weakest, 20 strongest, null for max strength)
+  debug_stockfish: false # Enable debug logging for Stockfish engine (can be very verbose)

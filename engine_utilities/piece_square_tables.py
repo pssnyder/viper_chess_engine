@@ -1,4 +1,4 @@
-# piece_square_tables.py
+# engine_utilities/piece_square_tables.py
 
 import chess
 

@@ -41,7 +41,7 @@ class StandaloneChessRenderer:
         for piece in pieces:
             try:
                 IMAGES[piece] = pygame.transform.scale(
-                    pygame.image.load(resource_path(f"images/{piece}.png")),
+                    pygame.image.load(resource_path(f"../images/{piece}.png")),
                     (SQ_SIZE, SQ_SIZE)
                 )
             except pygame.error:

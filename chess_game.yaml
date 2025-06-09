@@ -14,7 +14,7 @@ game_config:
 
   # AI vs AI game_config settings
   ai_vs_ai: true                 # Set to true for AI vs AI matches
-  ai_game_count: 1000             # Number of games to play in AI vs AI mode
+  ai_game_count: 100             # Number of games to play in AI vs AI mode
   starting_position: default     # Default starting position name (or FEN string)
   strict_draw_prevention: true   # Enforce strict draw rules to fully block drawing moves that would lead to stalemate, insufficient material, and threefold repetition
   
@@ -29,7 +29,7 @@ white_ai_config:
   engine: viper                 # Name of the engine being used (e.g., 'viper', 'stockfish'), this value is a direct reference to the engine configuration values below
 black_ai_config:
   exclude_from_metrics: true    # does the same as above but for this engines performance as this color           
-  engine: stockfish             # sets this colors engine type, same as above, important note that if the engines are set the same then only whites metrics will be collected to prevent negation in win loss metrics
+  engine: viper             # sets this colors engine type, same as above, important note that if the engines are set the same then only whites metrics will be collected to prevent negation in win loss metrics
 
 # Performance settings
 performance:

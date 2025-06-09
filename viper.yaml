@@ -5,10 +5,10 @@
 # Viper Engine Options
 # These are the options for the Viper chess engine, which is a custom chess engine designed for analytical research and development.
 viper:
-  ruleset: default_evaluation         # TODO: Implement code or test Name of the evaluation rule set to use, see below for available options
+  ruleset: aggressive_evaluation         # TODO: Implement code or test Name of the evaluation rule set to use, see below for available options
   scoring_method: _calculate_score    # TODO Implement then mark done - Overrides the scoring method, viper engine defaults to the inbuilt _viper_scoring_calculation() function
   scoring_path: engine_utilities/viper_scoring_calculation  # TODO Implement then mark done - Import path to the scoring function, used for custom scoring methods, 
-  search_algorithm: lookahead        # TODO Implement then mark done - Move search type for White (see search_algorithms above for options)
+  search_algorithm: minimax        # TODO Implement then mark done - Move search type for White (see search_algorithms above for options)
   depth: 3                            # TODO Implement then mark done - Depth of search for AI, 1 for random, 2 for simple search, 3+ for more complex searches
   max_depth: 8                        # TODO Implement then mark done - Max depth of search for AI, 1 for random, 2 for simple search, 3+ for more complex searches
   use_solutions: false                 # Use known positional solutions for evaluation (based on known puzzle solutions)

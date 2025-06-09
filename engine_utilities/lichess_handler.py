@@ -1,8 +1,7 @@
 # lichess_bot.py
-"""
-Lichess Bot Integration
-Connects chess engine to Lichess via the Lichess Bot API
-"""
+# Lichess Bot Integration - Connects chess engine to Lichess via the Lichess Bot API
+# TODO: Needs testing and validation. I need to be able to toggle the bot on and off easily if I need to make a patch or its behaving not as expected. It would also be nice to have a separate webapp page for controlling the lichess connection and bot settings.
+
 
 import chess
 import chess.engine
@@ -11,7 +10,7 @@ import json
 import time
 import threading
 from typing import Dict, Optional, Any
-from ..viper import EvaluationEngine
+from ..viper import ViperEvaluationEngine
 import logging
 
 # Set up logging
@@ -22,7 +21,7 @@ class LichessBot:
     def __init__(self, token: str, engine_name: str = "ChessBot"):
         self.token = token
         self.engine_name = engine_name
-        self.engine = EvaluationEngine()
+        self.engine = ViperEvaluationEngine()
         self.headers = {"Authorization": f"Bearer {token}"}
         self.base_url = "https://lichess.org/api"
         self.active_games = {}

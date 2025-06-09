@@ -76,16 +76,24 @@ class ChessGame:
         else:
             self.starting_position = None
 
-        # Load configuration
-        with open("config.yaml") as f:
-            self.config = yaml.safe_load(f)
+        # Load game-specific configuration
+        with open("chess_game.yaml") as f:  # Updated config file name
+            self.game_config_data = yaml.safe_load(f)
+
+        # Load Viper engine configuration
+        with open("viper.yaml") as f:
+            self.viper_config_data = yaml.safe_load(f)
+
+        # Load Stockfish handler configuration
+        with open("engine_utilities/stockfish_handler.yaml") as f: # Updated path
+            self.stockfish_config_data = yaml.safe_load(f)
             
         # Initialize Pygame (even in headless mode, for internal timing)
         pygame.init()
         self.clock = pygame.time.Clock()
         # Enable logging
-        self.logging_enabled = self.config['debug']['enable_logging']
-        self.show_thoughts = self.config['debug']['show_thinking']
+        self.logging_enabled = self.game_config_data.get('monitoring', {}).get('enable_logging', True) # Adjusted path
+        self.show_thoughts = self.game_config_data.get('monitoring', {}).get('show_thinking', True) # Adjusted path
         self.logger = chess_game_logger # Use the module-level logger
         if not self.logging_enabled:
             self.show_thoughts = False
@@ -94,9 +102,9 @@ class ChessGame:
     
 
         # Initialize game settings
-        self.human_color_pref = self.config['game_config']['human_color']
+        self.human_color_pref = self.game_config_data.get('game_config', {}).get('human_color', 'random') # Adjusted path
         if self.starting_position == None:
-            self.starting_position = self.config.get('game_config', {}).get('starting_position', 'default')
+            self.starting_position = self.game_config_data.get('game_config', {}).get('starting_position', 'default') # Adjusted path
         print("Initializing headless AI vs AI mode. No chess GUI will be shown.")
         print("Press Ctrl+C in the terminal to stop the game early.")
 
@@ -111,12 +119,12 @@ class ChessGame:
         }
  
         # Initialize AI configurations
-        self.game_count = self.config.get('game_config', {}).get('ai_game_count', 0)
-        self.ai_vs_ai = self.config.get('game_config', {}).get('ai_vs_ai', False)
-        self.ai_types = self.config.get('ai_types', [])
+        self.game_count = self.game_config_data.get('game_config', {}).get('ai_game_count', 0) # Adjusted path
+        self.ai_vs_ai = self.game_config_data.get('game_config', {}).get('ai_vs_ai', False) # Adjusted path
+        self.ai_types = self.game_config_data.get('ai_types', []) # Adjusted path
 
-        self.white_ai_config = self.config.get('white_ai_config', {})
-        self.black_ai_config = self.config.get('black_ai_config', {})
+        self.white_ai_config = self.game_config_data.get('white_ai_config', {}) # Adjusted path
+        self.black_ai_config = self.game_config_data.get('black_ai_config', {}) # Adjusted path
         
         # Ensure 'ai_type' and 'engine' keys exist in AI configs
         self.white_ai_config['ai_type'] = self.white_ai_config.get('ai_type', 'random')
@@ -138,7 +146,7 @@ class ChessGame:
             self.logger.debug(f"Black AI Type: {self.black_ai_type}, Engine: {self.black_eval_engine}")
         
         # Debug settings
-        self.show_eval = self.config.get('debug', {}).get('show_evaluation', False)
+        self.show_eval = self.game_config_data.get('monitoring', {}).get('show_evaluation', False) # Adjusted path for debug settings if they were moved, assuming they are in 'monitoring' or similar in chess_game.yaml
         
         # Initialize MetricsStore
         self.metrics_store = MetricsStore()
@@ -146,16 +154,18 @@ class ChessGame:
         self.current_game_db_id = f"eval_game_{self.game_start_timestamp}.pgn"
 
         # Initialize board and new game
+        # Add rated flag from config
+        self.rated = self.game_config_data.get('game_config', {}).get('rated', True)
         self.new_game(self.starting_position)
         
         # Set colors
         self.set_colors()
         
         # Set headers
-        self.set_headers()
-
         # Add rated flag from config
-        self.rated = self.config.get('game_config', {}).get('rated', True)
+        self.rated = self.game_config_data.get('game_config', {}).get('rated', True)
+        # Add rated flag from config
+        self.rated = self.game_config_data.get('game_config', {}).get('rated', True)
 
     # ================================
     # ====== GAME CONFIGURATION ======
@@ -163,8 +173,8 @@ class ChessGame:
     def new_game(self, fen_position=None):
         """Reset the game state for a new game"""
         fen_to_use = fen_position
-        if fen_position and not fen_position.count('/') == 7:
-            fen_to_use = self.config.get('starting_positions', {}).get(fen_position, None)
+        if fen_position and not fen_position.count('/') == 7: # Corrected FEN check
+            fen_to_use = self.game_config_data.get('starting_positions', {}).get(fen_position, None) # Adjusted path
             if fen_to_use is None:
                 fen_to_use = 'rnbqkbnr/pppppppp/8/8/8/8/PPPPPPPP/RNBQKBNR w KQkq - 0 1'
         self.board = chess.Board(fen=fen_to_use) if fen_to_use else chess.Board()
@@ -189,15 +199,23 @@ class ChessGame:
 
     def _initialize_ai_engines(self):
         """Initializes or re-initializes AI engines based on config."""
-        stockfish_path = self.config.get('stockfish_config', {}).get('path')
-        stockfish_elo = self.config.get('stockfish_config', {}).get('elo_rating')
-        stockfish_skill = self.config.get('stockfish_config', {}).get('skill_level')
-        debug_stockfish = self.config.get('stockfish_config', {}).get('debug_stockfish', False)
+        # Stockfish specific settings from stockfish_handler.yaml
+        stockfish_path = self.stockfish_config_data.get('stockfish_config', {}).get('path')
+        stockfish_elo = self.stockfish_config_data.get('stockfish_config', {}).get('elo_rating')
+        stockfish_skill = self.stockfish_config_data.get('stockfish_config', {}).get('skill_level')
+        debug_stockfish = self.stockfish_config_data.get('stockfish_config', {}).get('debug_stockfish', False)
+
+        # Viper engine general settings from viper.yaml
+        viper_ruleset = self.viper_config_data.get('viper', {}).get('ruleset', 'default_evaluation')
+        viper_depth = self.viper_config_data.get('viper', {}).get('depth', 3)
+
 
         # White Engine
-        if self.white_ai_config['engine'].lower() == 'viper':
-            self.white_engine = ViperEvaluationEngine(self.board, chess.WHITE, ai_config=self.white_ai_config)
-        elif self.white_ai_config['engine'].lower() == 'stockfish':
+        if self.white_ai_config.get('engine', '').lower() == 'viper':
+            # Pass relevant parts of viper_config_data and game_config_data (white_ai_config)
+            viper_engine_config = {**self.viper_config_data.get('viper', {}), **self.white_ai_config}
+            self.white_engine = ViperEvaluationEngine(self.board, chess.WHITE, ai_config=viper_engine_config)
+        elif self.white_ai_config.get('engine', '').lower() == 'stockfish':
             if not stockfish_path or not os.path.exists(stockfish_path):
                 self.logger.error(f"Stockfish executable not found at: {stockfish_path}. White AI defaulting to Viper.")
                 self.white_engine = ViperEvaluationEngine(self.board, chess.WHITE, ai_config=self.white_ai_config)
@@ -216,9 +234,11 @@ class ChessGame:
             self.white_ai_config['engine'] = 'Viper'
 
         # Black Engine
-        if self.black_ai_config['engine'].lower() == 'viper':
-            self.black_engine = ViperEvaluationEngine(self.board, chess.BLACK, ai_config=self.black_ai_config)
-        elif self.black_ai_config['engine'].lower() == 'stockfish':
+        if self.black_ai_config.get('engine', '').lower() == 'viper':
+            # Pass relevant parts of viper_config_data and game_config_data (black_ai_config)
+            viper_engine_config = {**self.viper_config_data.get('viper', {}), **self.black_ai_config}
+            self.black_engine = ViperEvaluationEngine(self.board, chess.BLACK, ai_config=viper_engine_config)
+        elif self.black_ai_config.get('engine', '').lower() == 'stockfish':
             if not stockfish_path or not os.path.exists(stockfish_path):
                 self.logger.error(f"Stockfish executable not found at: {stockfish_path}. Black AI defaulting to Viper.")
                 self.black_engine = ViperEvaluationEngine(self.board, chess.BLACK, ai_config=self.black_ai_config)
@@ -242,8 +262,22 @@ class ChessGame:
 
     def set_headers(self):
         # Set initial PGN headers
-        white_depth = self.white_ai_config.get('depth', '#')
-        black_depth = self.black_ai_config.get('depth', '#')
+        white_depth = self.white_ai_config.get('depth') # Depth might come from white_ai_config in chess_game.yaml
+        if white_depth is None and self.white_ai_config.get('engine','').lower() == 'viper': # Or from viper.yaml if Viper
+            white_depth = self.viper_config_data.get('viper', {}).get('depth', '#')
+        elif white_depth is None and self.white_ai_config.get('engine','').lower() == 'stockfish': # Or from stockfish.yaml if Stockfish
+             white_depth = self.stockfish_config_data.get('stockfish', {}).get('depth', '#') # Fallback for Stockfish depth
+        else:
+            white_depth = '#'
+
+
+        black_depth = self.black_ai_config.get('depth') # Depth might come from black_ai_config in chess_game.yaml
+        if black_depth is None and self.black_ai_config.get('engine','').lower() == 'viper': # Or from viper.yaml if Viper
+            black_depth = self.viper_config_data.get('viper', {}).get('depth', '#')
+        elif black_depth is None and self.black_ai_config.get('engine','').lower() == 'stockfish': # Or from stockfish.yaml if Stockfish
+            black_depth = self.stockfish_config_data.get('stockfish', {}).get('depth', '#') # Fallback for Stockfish depth
+        else:
+            black_depth = '#'
         
         white_ai_type_header = self.white_ai_config.get('ai_type', 'random')
         black_ai_type_header = self.black_ai_config.get('ai_type', 'random')
@@ -254,15 +288,17 @@ class ChessGame:
         if self.ai_vs_ai:
             self.game.headers["Event"] = "AI vs. AI Game"
             if white_engine_name.lower() == 'stockfish':
-                elo = self.config.get('stockfish_config', {}).get('elo_rating')
-                elo_str = f"Elo {elo}" if elo is not None else "Max"
+                elo = self.stockfish_config_data.get('stockfish_config', {}).get('elo_rating') # from stockfish_handler.yaml
+                skill = self.stockfish_config_data.get('stockfish_config', {}).get('skill_level') # from stockfish_handler.yaml
+                elo_str = f"Elo {elo}" if elo is not None else (f"Skill {skill}" if skill is not None else "Max")
                 self.game.headers["White"] = f"AI: {white_engine_name} ({elo_str})"
             else:
                 self.game.headers["White"] = f"AI: {white_engine_name} via {white_ai_type_header} (Depth {white_depth})"
             
             if black_engine_name.lower() == 'stockfish':
-                elo = self.config.get('stockfish_config', {}).get('elo_rating')
-                elo_str = f"Elo {elo}" if elo is not None else "Max"
+                elo = self.stockfish_config_data.get('stockfish_config', {}).get('elo_rating') # from stockfish_handler.yaml
+                skill = self.stockfish_config_data.get('stockfish_config', {}).get('skill_level') # from stockfish_handler.yaml
+                elo_str = f"Elo {elo}" if elo is not None else (f"Skill {skill}" if skill is not None else "Max")
                 self.game.headers["Black"] = f"AI: {black_engine_name} ({elo_str})"
             else:
                 self.game.headers["Black"] = f"AI: {black_engine_name} via {black_ai_type_header} (Depth {black_depth})"
@@ -271,15 +307,17 @@ class ChessGame:
             if self.human_color == chess.WHITE:
                 self.game.headers["White"] = "Human"
                 if black_engine_name.lower() == 'stockfish':
-                    elo = self.config.get('stockfish_config', {}).get('elo_rating')
-                    elo_str = f"Elo {elo}" if elo is not None else "Max"
+                    elo = self.stockfish_config_data.get('stockfish_config', {}).get('elo_rating') # from stockfish_handler.yaml
+                    skill = self.stockfish_config_data.get('stockfish_config', {}).get('skill_level') # from stockfish_handler.yaml
+                    elo_str = f"Elo {elo}" if elo is not None else (f"Skill {skill}" if skill is not None else "Max")
                     self.game.headers["Black"] = f"AI: {black_engine_name} ({elo_str})"
                 else:
                     self.game.headers["Black"] = f"AI: {black_engine_name} via {black_ai_type_header} (Depth {black_depth})"
             else:
                 if white_engine_name.lower() == 'stockfish':
-                    elo = self.config.get('stockfish_config', {}).get('elo_rating')
-                    elo_str = f"Elo {elo}" if elo is not None else "Max"
+                    elo = self.stockfish_config_data.get('stockfish_config', {}).get('elo_rating') # from stockfish_handler.yaml
+                    skill = self.stockfish_config_data.get('stockfish_config', {}).get('skill_level') # from stockfish_handler.yaml
+                    elo_str = f"Elo {elo}" if elo is not None else (f"Skill {skill}" if skill is not None else "Max")
                     self.game.headers["White"] = f"AI: {white_engine_name} ({elo_str})"
                 else:
                     self.game.headers["White"] = f"AI: {white_engine_name} via {white_ai_type_header} (Depth {white_depth})"
@@ -318,13 +356,62 @@ class ChessGame:
             return True
         return False
     
-    def handle_game_end(self):
-        """Check and handle game termination with automatic threefold repetition detection"""
-        
-        if self.board.is_game_over(claim_draw=self._is_draw_condition(self.board)):
-            self.game_node = self.game.end()
+    def strict_draw_prevention(self):
+        """If strict_draw_prevention is enabled, try to select a legal move that avoids an immediate draw
+        (threefold repetition, 50-move, insufficient material, or 75-move rule) and return it. Otherwise, return None."""
+        if not self.game_config_data.get('game_config', {}).get('strict_draw_prevention', False):
+            return None
+        for move in self.board.legal_moves:
+            board_copy = self.board.copy(stack=False)
+            board_copy.push(move)
+            if not (board_copy.can_claim_threefold_repetition() or
+                    board_copy.can_claim_fifty_moves() or
+                    board_copy.is_insufficient_material() or
+                    board_copy.is_seventyfive_moves()):
+                return move
+        return None
+
+    def get_board_result(self):
+        """Return the result string for the current board state."""
+        # Explicitly handle all draw and win/loss cases, fallback to "*"
+        if self.board.is_checkmate():
+            # The side to move is checkmated, so the other side wins
+            return "1-0" if self.board.turn == chess.BLACK else "0-1"
+        # Explicit draw conditions
+        if (
+            self.board.is_stalemate()
+            or self.board.is_insufficient_material()
+            or self.board.can_claim_fifty_moves()
+            or self.board.can_claim_threefold_repetition()
+            or self.board.is_seventyfive_moves()
+            or self.board.is_fivefold_repetition()
+            or self.board.is_variant_draw()
+        ):
+            return "1/2-1/2"
+        # If the game is over but not by checkmate or above draws, fallback to chess.Board.result()
+        if self.board.is_game_over():
             result = self.board.result()
+            # Defensive: If result is not a valid string, force draw string
+            if result not in ("1-0", "0-1", "1/2-1/2"):
+                return "1/2-1/2"
+            return result
+        return "*"
+
+    def handle_game_end(self):
+        # Before ending the game due to draw conditions, attempt strict draw prevention if enabled.
+        if self.board.is_game_over(claim_draw=self._is_draw_condition(self.board)):
+            # If a draw is about to occur but an alternative move exists, play it instead.
+            alt_move = self.strict_draw_prevention()
+            if alt_move is not None:
+                if self.logging_enabled and self.logger:
+                    self.logger.info(f"Strict draw prevention triggered, playing alternative move: {alt_move}")
+                self.push_move(alt_move)
+                return False
+            # Otherwise add the final move (if not already added) and conclude the game.
+            # Ensure the result is set in the PGN headers and game node
+            result = self.get_board_result()
             self.game.headers["Result"] = result
+            self.game_node = self.game.end()
             self.save_game_data()
             print(f"\nGame over: {result}")
             return True
@@ -334,9 +421,11 @@ class ChessGame:
             if self.logging_enabled and self.logger:
                 self.logger.info("\nGame automatically drawn by seventy-five move rule!")
             self.game.headers["Result"] = result
+            self.game_node = self.game.end()
             self.save_game_data()
             print(f"Game over: {result}")
             return True
+
         return False
     
     def record_evaluation(self):
@@ -358,19 +447,36 @@ class ChessGame:
         os.makedirs(games_dir, exist_ok=True)
 
         timestamp = self.game_start_timestamp
-        
+
+        # --- Ensure the result is written to the PGN file ---
+        # Always use get_board_result to get a valid string
+        result = self.get_board_result()
+        self.game.headers["Result"] = result
+        self.game_node = self.game.end()
+
         pgn_filepath = f"games/eval_game_{timestamp}.pgn"
         with open(pgn_filepath, "w") as f:
             exporter = chess.pgn.FileExporter(f)
             self.game.accept(exporter)
+            # Always append the result string at the end for compatibility
+            if result != "*":
+                f.write(f"\n{result}\n")
         if self.logging_enabled and self.logger:
             self.logger.info(f"Game PGN saved to {pgn_filepath}")
 
         config_filepath = f"games/eval_game_{timestamp}.yaml"
+        # Save a combined config for this specific game, including relevant parts of all loaded configs
+        game_specific_config = {
+            "game_settings": self.game_config_data,
+            "viper_settings": self.viper_config_data,
+            "stockfish_settings": self.stockfish_config_data,
+            "white_actual_config": self.white_ai_config, # The specific config used by white AI for this game
+            "black_actual_config": self.black_ai_config  # The specific config used by black AI for this game
+        }
         with open(config_filepath, "w") as f:
-            yaml.dump(self.config, f)
+            yaml.dump(game_specific_config, f)
         if self.logging_enabled and self.logger:
-            self.logger.info(f"Configuration saved to {config_filepath}")
+            self.logger.info(f"Game-specific combined configuration saved to {config_filepath}")
 
         log_filepath = f"games/eval_game_{timestamp}.log"
         eval_log_dir = "logging"
@@ -419,10 +525,17 @@ class ChessGame:
 
     def quick_save_pgn(self, filename):
         """Quick save the current game to a PGN file"""
+        # Inject or update Result header so the PGN shows the game outcome
+        if self.board.is_game_over():
+            self.game.headers["Result"] = self.get_board_result()
+            self.game_node = self.game.end()
+        else:
+            self.game.headers["Result"] = "*"
+        
         with open(filename, "w") as f:
             exporter = chess.pgn.FileExporter(f)
             self.game.accept(exporter)
-    
+
     def import_fen(self, fen_string):
         """Import a position from FEN notation"""
         try:
@@ -667,6 +780,14 @@ class ChessGame:
             current_engine_name = self.white_ai_config['engine'] if self.current_player == chess.BLACK else self.black_ai_config['engine']
             if current_engine_name.lower() != 'stockfish':
                 self.record_evaluation()
+            
+            # If the move ends the game, set the result header and end the game node
+            if self.board.is_game_over():
+                result = self.get_board_result()
+                self.game.headers["Result"] = result
+                self.game_node = self.game.end()
+            else:
+                self.game.headers["Result"] = "*"
             
             self.quick_save_pgn("logging/active_game.pgn")
             

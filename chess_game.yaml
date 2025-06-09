@@ -1,0 +1,87 @@
+# chess_game.yaml
+# Configuration for the automated game handler
+# This is where pygame chess game settings are configured, as well as the white and black engine paths to use for the game. Additional configurations for those engines will be in engine_utilities/external_engines/<engine_name>_handler.yaml
+# TODO: update to handle new configuration and engine functionality options
+
+# game_config settings
+game_config:
+
+  # General game settings
+  game_type: standard            # Options: standard, chess960, king_of_the_hill, three_check, antichess, atomic, racing_kings
+  game_clock: 0 #300             # Time in seconds for each player, 0 for no clock
+  game_increment: 0 #2           # Increment in seconds per move, 0 for no increment
+  rated: true                    # Set to true to record game and move metrics for analysis.
+
+  # AI vs AI game_config settings
+  ai_vs_ai: true                 # Set to true for AI vs AI matches
+  ai_game_count: 1             # Number of games to play in AI vs AI mode
+  starting_position: default     # Default starting position name (or FEN string)
+  strict_draw_prevention: true   # Enforce strict draw rules to fully block drawing moves that would lead to stalemate, insufficient material, and threefold repetition
+  
+  # AI vs Human game_config settings
+  human_color: random            # Options: white, black, random (for human vs AI)
+  human_elo: 100                # Elo rating for human player, used for AI vs Human games to adapt Engine to human skill level               
+
+# Engine configurations
+# These configurations are for the AI engines used in the game, such as Viper and Stockfish.
+white_ai_config:
+  exclude_from_metrics: false   # TODO Implement flag to exclude this engines performance from metrics collection, useful for testing, non-competitive, or third party AIs who's performance you may not want to record for this set of games, should flag all outputs from this color and engine for this match date_timestamp as being excluded from metrics, these metrics should still be gathered as a fallback, and in the event I do want to use them so we just want to have a flag in the database for exclude from metrics. Then I can always toggle the flags per game record in the database if I want to see a game or vice versa.
+  engine: viper                 # Name of the engine being used (e.g., 'viper', 'stockfish'), this value is a direct reference to the engine configuration values below
+black_ai_config:
+  exclude_from_metrics: true    # does the same as above but for this engines performance as this color           
+  engine: stockfish             # sets this colors engine type, same as above, important note that if the engines are set the same then only whites metrics will be collected to prevent negation in win loss metrics
+
+# Performance settings
+performance:
+  max_moves_evaluated: 50         # Limit moves evaluated per position, only if move ordering is on to prevent misses. Set to null for no limit.
+  use_transposition_table: true   # Cache evaluations for faster processing
+  parallel_evaluation: false      # Enable parallel move evaluation (TODO: Implement in ViperEvaluationEngine)
+  async_mode: false               # Control via setting - Enables thread processing of eval functions (TODO: Implement in ViperEvaluationEngine)
+  thread_limit: 4                 # Enables an upper limit in thread count during async_mode (TODO: Implement in ViperEvaluationEngine)
+  hash_size: 64                   # MB limit for hash tables
+  max_depth: 8                    # Max depth for iterative deepening search (ViperEvaluationEngine deepsearch)
+
+# Monitoring settings
+monitoring:
+  enable_logging: true            # Turn logging on or off, auto-disables thoughts if false
+  show_evaluation: true           # Show the evaluation during a game
+  show_thinking: true             # Show what the AI is thinking during the game (TODO: add thinking time to the log for each color
+
+# AI Types
+ai_types: [
+  'deepsearch',                    # Dynamic deep search with time control and iterative deepening
+  'lookahead',                     # Lookahead search with max value comparison
+  'minimax',                       # Minimax search with alpha-beta pruning
+  'negamax',                       # Negamax search with alpha-beta pruning
+  'negascout',                     # Negascout search with alpha-beta pruning
+  'transposition_only',            # Transposition table search
+  'simple_search',                 # Simple 1 ply search
+  'quiescence_only',               # Quiescence search that evaluates only stable positions
+  'simple_eval',                   # Simple evaluation function
+  'random',                        # Random move selection
+  'stockfish',                     # Stockfish engine integration
+  'viper_nn_ai_engine',            # Viper NN AI Engine (Supervised Learning - TODO: Implement)
+  'viper_genetic_ai_engine',       # Viper Genetic AI Engine (TODO: Implement)
+  'viper_reinforcement_ai_engine', # Viper Reinforcement AI Engine (TODO: Implement)
+  'viper_hybrid_nn_search_engine'  # Viper Hybrid NN-Search Engine (TODO: Implement)
+]
+
+# Starting positions
+starting_positions:
+  default: 'rnbqkbnr/pppppppp/8/8/8/8/PPPPPPPP/RNBQKBNR w KQkq - 0 1'  # Standard chess starting position
+  london: 'rnbqkbnr/pppppppp/8/8/3P4/8/PPP1PPPP/RNBQKBNR b KQkq - 0 1' # London System starting position
+  kings_indian: 'rnbqkb1r/pppppppp/5n2/8/3P4/8/PPP1PPPP/RNBQKBNR w KQkq - 1 2' # King's Indian Defense starting position
+  caro_kann: 'rnbqkbnr/pp1ppppp/2p5/8/4P3/8/PPPP1PPP/RNBQKBNR w KQkq - 0 2' # Caro-Kann Defense starting position
+  scandinavian: 'rnbqkbnr/ppp1pppp/8/3p4/4P3/8/PPPP1PPP/RNBQKBNR w KQkq - 0 2' # Scandinavian Defense starting position
+  dutch: 'rnbqkbnr/ppppp1pp/8/5p2/3P4/8/PPP1PPPP/RNBQKBNR w KQkq - 0 2' # Dutch Defense starting position
+  sicilian: 'rnbqkbnr/pp1ppppp/8/2p5/4P3/8/PPPP1PPP/RNBQKBNR w KQkq - 0 2' # Sicilian Defense starting position
+  english: 'rnbqkbnr/pppp1ppp/8/4p3/4P3/8/PPPP1PPP/RNBQKBNR w KQkq - 0 2' # English Opening starting position
+  vienna: 'rnbqkbnr/pppp1ppp/8/4p3/4P3/2N5/PPPP1PPP/R1BQKBNR b KQkq - 1 2' # Vienna Game starting position
+  french: 'rnbqkbnr/pppp1ppp/4p3/8/4P3/8/PPPP1PPP/RNBQKBNR w KQkq - 0 2' # French Defense starting position
+  nimzo_indian: 'rnbqkb1r/pppp1ppp/5n2/4p3/3P4/8/PPP1PPPP/RNBQKBNR w KQkq - 1 2' # Nimzo-Indian Defense starting position
+  slav: 'rnbqkbnr/pppp1ppp/5n2/4p3/3P4/8/PPP1PPPP/RNBQKBNR w KQkq - 1 2' # Slav Defense starting position
+  queens_gambit: 'rnbqkbnr/pppp1ppp/5n2/4p3/3P4/8/PPP1PPPP/RNBQKBNR w KQkq - 1 2' # Queen's Gambit starting position
+  kings_gambit: 'rnbqkbnr/pppp1ppp/5n2/4p3/3P4/8/PPP1PPPP/RNBQKBNR w KQkq - 1 2' # King's Gambit starting position
+  benoni: 'rnbqkbnr/pppp1ppp/5n2/4p3/3P4/8/PPP1PPPP/RNBQKBNR w KQkq - 1 2' # Benoni Defense starting position
+  pirc: 'rnbqkbnr/pppp1ppp/5n2/4p3/3P4/8/PPP1PPPP/RNBQKBNR w KQkq - 1 2' # Pirc Defense starting position
+  alekhine: 'rnbqkbnr/pppp1ppp/5n2/4p3/3P4/8/PPP1PPPP/RNBQKBNR w KQkq - 1 2' # Alekhine's Defense starting position

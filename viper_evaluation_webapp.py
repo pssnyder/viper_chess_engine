@@ -2,12 +2,12 @@
 # A simplified Streamlit app to evaluate chess positions and suggest moves using the EvaluationEngine.
 # This app allows users to set a position using FEN, view the board, make moves, and see AI evaluations.
 # Search is performance limited to a depth of 4 plus quiescence and no move ordering.
-
+# run using command: streamlit run e:/Programming - Viper Chess Engine/ViperChessEngine-Core/viper_chess_engine/viper_evaluation_webapp.py
 
 import streamlit as st
 import chess
 import chess.svg 
-from viper import EvaluationEngine
+from viper import ViperEvaluationEngine
 
 # --- Sidebar: AI config ---
 st.sidebar.title("AI Settings")
@@ -16,7 +16,7 @@ ai_depth = st.sidebar.slider("AI Depth", 1, 4, 2)
 flip_board = st.sidebar.checkbox("Flip Board", value=False)
 if st.sidebar.button("Reset Game"):
     st.session_state.board = chess.Board()
-    st.session_state.engine = EvaluationEngine(st.session_state.board, st.session_state.board.turn)
+    st.session_state.engine = ViperEvaluationEngine(st.session_state.board, st.session_state.board.turn)
     st.session_state.move_history = []
     st.experimental_set_query_params()
 st.sidebar.info(
@@ -28,7 +28,7 @@ st.sidebar.info(
 if "board" not in st.session_state:
     st.session_state.board = chess.Board()
 if "engine" not in st.session_state:
-    st.session_state.engine = EvaluationEngine(st.session_state.board, st.session_state.board.turn)
+    st.session_state.engine = ViperEvaluationEngine(st.session_state.board, st.session_state.board.turn)
 if "move_history" not in st.session_state:
     st.session_state.move_history = []
 
@@ -37,7 +37,7 @@ fen = st.text_input("FEN", st.session_state.board.fen())
 if st.button("Set Position from FEN"):
     try:
         st.session_state.board = chess.Board(fen)
-        st.session_state.engine = EvaluationEngine(st.session_state.board, st.session_state.board.turn)
+        st.session_state.engine = ViperEvaluationEngine(st.session_state.board, st.session_state.board.turn)
         st.session_state.move_history = []
         st.success("Position set.")
     except Exception as e:

@@ -4,6 +4,8 @@
 This module implements the scoring calculation for the Viper Chess Engine.
 It provides various scoring functions for evaluation, quiescence, and move ordering
 """
+# TODO: Refactor this module to use the new ruleset system and configuration management
+
 import chess
 import yaml # Keep for config loading if needed directly, though passed via init now
 import random
@@ -43,69 +45,114 @@ class ViperScoringCalculation:
     Encapsulates all evaluation scoring functions for the Viper Chess Engine.
     Allows for dynamic selection of evaluation rulesets.
     """
-    def __init__(self, config: dict, ai_config: dict, piece_values: dict, pst: PieceSquareTables):
-        self.config = config
-        self.ai_config = ai_config
+    def __init__(self, viper_yaml_config: dict, ai_config: dict, piece_values: dict, pst: PieceSquareTables):
+        # viper_yaml_config is the parsed content of viper.yaml (specifically the 'viper' key)
+        self.viper_config = viper_yaml_config 
+        self.ai_config = ai_config # This is the resolved AI config for the current player/search
         self.piece_values = piece_values
-        self.pst = pst # Instance of PieceSquareTables passed from EvaluationEngine
+        self.pst = pst
 
-        self.ruleset_name = self.ai_config.get('ruleset', 'default_evaluation')
-        self.scoring_modifier = self.ai_config.get('scoring_modifier', 1.0)
-        self.pst_enabled = self.ai_config.get('pst', False)
-        self.pst_weight = self.ai_config.get('pst_weight', 1.0)
+        # Ruleset and scoring modifier are determined by the resolved ai_config
+        self.ruleset_name = self.ai_config.get('ruleset', self.viper_config.get('ruleset', 'default_evaluation'))
+        self.scoring_modifier = self.ai_config.get('scoring_modifier', self.viper_config.get('scoring_modifier', 1.0))
+        
+        # PST settings from resolved ai_config (which considers viper_config and player specifics)
+        self.pst_enabled = self.ai_config.get('pst', {}).get('enabled', True)
+        self.pst_weight = self.ai_config.get('pst', {}).get('weight', 1.0)
 
-        # Logging setup for this module
-        self.logging_enabled = self.config.get('debug', {}).get('enable_logging', False)
-        self.show_thoughts = self.config.get('debug', {}).get('show_thinking', False)
+        # Logging setup - use global monitoring settings from ai_config if available, else viper_config
+        # Assuming ai_config might carry 'monitoring' settings from chess_game.yaml if relevant here
+        # For simplicity, let's assume viper_config's debug/logging is primary for scoring module's own logs
+        viper_debug_settings = self.viper_config.get('debug', {})
+        self.logging_enabled = viper_debug_settings.get('enable_scoring_logs', False) # More specific key
+        self.show_thoughts = viper_debug_settings.get('show_scoring_details', False) # More specific key
         self.logger = scoring_logger
         if not self.logging_enabled:
             self.logger.disabled = True
 
-        # Map ruleset names to their corresponding evaluation parameter dictionaries in config.yaml
-        self.rulesets = {
-            'default_evaluation': self.config.get('default_evaluation', {}),
-            'simple_evaluation': self.config.get('simple_evaluation', {}),
-            'aggressive_evaluation': self.config.get('aggressive_evaluation', {}),
-            'conservative_evaluation': self.config.get('conservative_evaluation', {}),
-            'null_evaluation': self.config.get('null_evaluation', {}),
-            # Add any other custom rulesets here as needed
-        }
-        # Ensure the selected ruleset exists, fallback to default
+        # Load all rulesets defined in viper_yaml_config under the 'rulesets' key
+        self.rulesets = self.viper_config.get('rulesets', {})
+        # Add 'default_evaluation' if it's defined at the top level of viper_config and not in rulesets
+        if 'default_evaluation' in self.viper_config and 'default_evaluation' not in self.rulesets:
+            self.rulesets['default_evaluation'] = self.viper_config.get('default_evaluation', {})
+        
+        # Ensure the selected ruleset exists, fallback to a default or an empty dict
         if self.ruleset_name not in self.rulesets:
-            self.logger.warning(f"Ruleset '{self.ruleset_name}' not found in config. Falling back to 'default_evaluation'.")
-            self.ruleset_name = 'default_evaluation'
+            self.logger.warning(f"Ruleset '{self.ruleset_name}' not found in viper_config. Falling back to an empty ruleset for '{self.ruleset_name}'.")
+            self.rulesets[self.ruleset_name] = {} # Create an empty ruleset to avoid errors
         self.current_ruleset = self.rulesets.get(self.ruleset_name, {})
         
         if self.logging_enabled:
-            self.logger.debug(f"ViperScoringCalculation initialized with ruleset: {self.ruleset_name}")
+            self.logger.debug(f"ViperScoringCalculation initialized. Effective AI Config: {self.ai_config}")
+            self.logger.debug(f"Using ruleset: '{self.ruleset_name}'. Rules: {self.current_ruleset}")
+            self.logger.debug(f"PST Enabled: {self.pst_enabled}, PST Weight: {self.pst_weight}")
 
     def _get_rule_value(self, rule_key: str, default_value: float = 0.0) -> float:
         """Helper to safely get a rule value from the current ruleset."""
-        return self.current_ruleset.get(rule_key, default_value)
+        # Fallback to viper_config's top-level 'default_evaluation' if key not in current_ruleset
+        # then to the hardcoded default_value.
+        value = self.current_ruleset.get(rule_key)
+        if value is None: # Key not in specific ruleset
+            # Check in viper_config's 'default_evaluation' as a global fallback for rules
+            default_eval_rules = self.viper_config.get('default_evaluation', {})
+            value = default_eval_rules.get(rule_key, default_value)
+            if self.logging_enabled and value != default_value:
+                 self.logger.debug(f"Rule '{rule_key}' not in ruleset '{self.ruleset_name}', using value from default_evaluation: {value}")
+            elif self.logging_enabled and value == default_value and rule_key not in default_eval_rules:
+                 self.logger.debug(f"Rule '{rule_key}' not in ruleset '{self.ruleset_name}' or default_evaluation, using hardcoded default: {default_value}")
+        return value
 
-
+    # Renamed from _calculate_score to calculate_score to be the public API
     def calculate_score(self, board: chess.Board, color: chess.Color, endgame_factor: float = 0.0) -> float:
         """
         Calculates the position evaluation score for a given board and color,
         applying dynamic ruleset settings and endgame awareness.
+        This is the main public method for this class.
         """
         score = 0.0
+
+        # Ensure the current ruleset is up-to-date based on ai_config (in case it changed)
+        # This is important if the same ViperScoringCalculation instance is used across different contexts
+        # where ai_config might change (e.g. switching sides or re-configuring mid-game if that's a feature)
+        current_ruleset_name_from_ai_config = self.ai_config.get('ruleset', self.viper_config.get('ruleset', 'default_evaluation'))
+        if self.ruleset_name != current_ruleset_name_from_ai_config:
+            self.ruleset_name = current_ruleset_name_from_ai_config
+            if self.ruleset_name not in self.rulesets:
+                self.logger.warning(f"Ruleset '{self.ruleset_name}' (from updated ai_config) not found. Using empty ruleset.")
+                self.current_ruleset = {}
+            else:
+                self.current_ruleset = self.rulesets.get(self.ruleset_name, {})
+            if self.logging_enabled:
+                self.logger.debug(f"Switched to ruleset: '{self.ruleset_name}'. Rules: {self.current_ruleset}")
+        
+        # Update other relevant parameters from ai_config
+        self.scoring_modifier = self.ai_config.get('scoring_modifier', self.viper_config.get('scoring_modifier', 1.0))
+        self.pst_enabled = self.ai_config.get('pst', {}).get('enabled', True)
+        self.pst_weight = self.ai_config.get('pst', {}).get('weight', 1.0)
 
         # Critical scoring components
         score += self.scoring_modifier * (self._checkmate_threats(board, color) or 0.0)
         score += self.scoring_modifier * (self._king_safety(board, color) or 0.0)
-        score += self.scoring_modifier * (self._king_threat(board, color) or 0.0) # Pass color here too
+        score += self.scoring_modifier * (self._king_threat(board, color) or 0.0)
         score += self.scoring_modifier * (self._draw_scenarios(board) or 0.0)
 
         # Material and piece-square table evaluation
         score += self.scoring_modifier * self._material_score(board, color)
         if self.pst_enabled:
             # Pass endgame_factor directly to PST evaluation
-            score += self.scoring_modifier * self.pst_weight * self.pst.evaluate_board_position(board, endgame_factor)
+            # The PST evaluation itself should be color-aware or return a neutral score
+            # that is then interpreted by the caller (ViperEvaluationEngine.evaluate_position)
+            # For now, assuming pst.evaluate_board_position gives a score from White's perspective.
+            # If calculate_score is for a specific color, PST score might need adjustment if it's neutral.
+            # Let's assume pst.evaluate_board_position is neutral and needs to be perspectivized if color is BLACK.
+            pst_board_score = self.pst.evaluate_board_position(board, endgame_factor) # This is likely from White's perspective
+            if color == chess.BLACK:
+                pst_board_score = -pst_board_score # Adjust if PST is always White-centric
+            score += self.scoring_modifier * self.pst_weight * pst_board_score
 
         # Piece coordination and control
         score += self.scoring_modifier * (self._piece_coordination(board, color) or 0.0)
-        score += self.scoring_modifier * (self._center_control(board, color) or 0.0) # Pass color
+        score += self.scoring_modifier * (self._center_control(board, color) or 0.0)
         score += self.scoring_modifier * (self._pawn_structure(board, color) or 0.0)
         score += self.scoring_modifier * (self._pawn_weaknesses(board, color) or 0.0)
         score += self.scoring_modifier * (self._passed_pawns(board, color) or 0.0)
@@ -123,14 +170,14 @@ class ViperScoringCalculation:
         score += self.scoring_modifier * (self._undeveloped_pieces(board, color) or 0.0)
 
         # Tactical and strategic considerations
-        score += self.scoring_modifier * (self._tactical_evaluation(board, color) or 0.0) # Pass color
+        score += self.scoring_modifier * (self._tactical_evaluation(board, color) or 0.0)
         score += self.scoring_modifier * (self._tempo_bonus(board, color) or 0.0)
-        score += self.scoring_modifier * (self._special_moves(board) or 0.0) # Pass color
+        score += self.scoring_modifier * (self._special_moves(board, color) or 0.0) # Pass color
         score += self.scoring_modifier * (self._open_files(board, color) or 0.0)
         score += self.scoring_modifier * (self._stalemate(board) or 0.0)
 
         if self.show_thoughts and self.logging_enabled:
-            self.logger.debug(f"Final score for {color}: {score:.3f} (Ruleset: {self.ruleset_name}) | FEN: {board.fen()}")
+            self.logger.debug(f"Final score for {color}: {score:.3f} (Ruleset: {self.ruleset_name}, Modifier: {self.scoring_modifier}) | FEN: {board.fen()}")
 
         return score
 
@@ -217,7 +264,12 @@ class ViperScoringCalculation:
 
     def _is_attacked_by_pawn(self, board: chess.Board, square: chess.Square, by_color: chess.Color) -> bool:
         """Helper function to check if a square is attacked by enemy pawns"""
-        return bool(board.attacks_with(square, chess.PAWN) & board.pieces(chess.PAWN, by_color))
+        # Check if any of the attackers of 'square' from 'by_color' are pawns.
+        for attacker_square in board.attackers(by_color, square):
+            piece = board.piece_at(attacker_square)
+            if piece and piece.piece_type == chess.PAWN:
+                return True
+        return False
 
     def _center_control(self, board: chess.Board, color: chess.Color) -> float:
         """Simple center control"""
@@ -303,10 +355,11 @@ class ViperScoringCalculation:
             chess.BLACK: {chess.KNIGHT: [chess.B8, chess.G8], chess.BISHOP: [chess.C8, chess.F8]}
         }
 
-        for piece_type, squares in starting_squares[color].items():
+        for piece_type_key, squares in starting_squares[color].items(): # Renamed piece_type to piece_type_key
             for square in squares:
                 piece = board.piece_at(square)
-                if piece and piece.color == color and piece.piece_type == piece_type:
+                # Ensure piece exists before accessing attributes
+                if piece and piece.color == color and piece.piece_type == piece_type_key:
                     # Piece is still on its starting square
                     undeveloped_count += 1
 
@@ -328,45 +381,60 @@ class ViperScoringCalculation:
 
         return score
     
-    def _special_moves(self, board: chess.Board) -> float:
-        """Evaluate special moves and opportunities"""
+    def _special_moves(self, board: chess.Board, color: chess.Color) -> float: # Added color parameter
+        """Evaluate special moves and opportunities for the given color"""
         score = 0.0
         
-        # En passant opportunity (if ep_square is set, means previous move was a double pawn push)
+        # En passant opportunity for 'color'
         if board.ep_square:
-            score += self._get_rule_value('en_passant_bonus', 0.0)
+            for move in board.legal_moves:
+                # Check if the move is an en passant capture by 'color'
+                if move.to_square == board.ep_square:
+                    piece_on_from_square = board.piece_at(move.from_square)
+                    # Ensure piece_on_from_square is not None before accessing attributes
+                    if piece_on_from_square and piece_on_from_square.piece_type == chess.PAWN and piece_on_from_square.color == color:
+                        if board.is_en_passant(move):
+                            score += self._get_rule_value('en_passant_bonus', 0.0)
+                            break # Found one en passant, bonus applied
         
-        # Promotion opportunities
-        for move in board.legal_moves: # Iterate all legal moves
-            if move.promotion:
-                score += self._get_rule_value('pawn_promotion_bonus', 0.0)
-        
+        # Promotion opportunities for 'color'
+        # Iterate legal moves for the current player on the board. 
+        # If board.turn is not 'color', these are not 'color's opportunities right now.
+        # This function should evaluate based on 'color's potential.
+        # A simple way: check pawns of 'color' that are one step from promotion.
+        promotion_rank = 7 if color == chess.WHITE else 0
+        for pawn_square in board.pieces(chess.PAWN, color):
+            if chess.square_rank(pawn_square) == (promotion_rank -1 if color == chess.WHITE else promotion_rank + 1):
+                # Check if pawn can advance to promotion rank
+                # This is a simplified check; a full check involves move generation.
+                # For now, just having a pawn on the 7th/2nd is a strong indicator.
+                score += self._get_rule_value('pawn_promotion_bonus', 0.0) 
+                # A more accurate way would be to check board.generate_legal_moves() for promotions for 'color'
+                # but that might be too slow for an eval term. The current approach is a heuristic.
         return score
 
     def _tactical_evaluation(self, board: chess.Board, color: chess.Color) -> float:
         """Evaluate tactical elements related to captures and hanging pieces."""
         score = 0.0
         
-        # Bonus for captures made by 'color'
-        # This function is not about making moves, but evaluating the board state.
-        # So, we check for available captures that 'color' could make.
         for move in board.legal_moves:
-            if board.is_capture(move) and board.piece_at(move.from_square).color == color:
-                score += self._get_rule_value('capture_bonus', 0.0)
+            if board.is_capture(move):
+                piece_making_capture = board.piece_at(move.from_square)
+                # Ensure piece_making_capture is not None
+                if piece_making_capture and piece_making_capture.color == color:
+                    score += self._get_rule_value('capture_bonus', 0.0)
         
-        # Hanging pieces (undefended pieces that can be captured by 'color')
         opponent_color = not color
 
         for square in chess.SQUARES:
             piece = board.piece_at(square)
-            # If it's an opponent's piece
             if piece and piece.color == opponent_color:
-                # Check if it's attacked by 'color' and not defended by 'opponent_color'
-                if board.is_attacked_by(color, square) and not board.is_defended_by(opponent_color, square):
+                # Check if it's attacked by 'color' and not defended by 'opponent_color' (i.e., not attacked by opponent_color)
+                if board.is_attacked_by(color, square) and not board.is_attacked_by(opponent_color, square):
                     score += self._get_rule_value('hanging_piece_bonus', 0.0)
-            # Penalty for 'color' having undefended pieces
             elif piece and piece.color == color:
-                if board.is_attacked_by(opponent_color, square) and not board.is_defended_by(color, square):
+                # Penalty for 'color' having pieces attacked by opponent_color and not defended by 'color'
+                if board.is_attacked_by(opponent_color, square) and not board.is_attacked_by(color, square):
                     score += self._get_rule_value('undefended_piece_penalty', 0.0)
         
         return score
@@ -409,9 +477,9 @@ class ViperScoringCalculation:
         for square in chess.SQUARES:
             piece = board.piece_at(square)
             if piece and piece.color == color:
-                # If the piece is defended by another friendly piece
-                if board.is_defended_by(color, square):
-                    score += self._get_rule_value('piece_coordination_bonus', 0.0)
+                # If the piece is defended by another friendly piece (i.e., the square it's on is attacked by its own color)
+                if board.is_attacked_by(color, square): 
+                    score += self._get_rule_value('piece_coordination_bonus', 0.0) 
         return score
     
     def _pawn_structure(self, board: chess.Board, color: chess.Color) -> float:
@@ -428,14 +496,23 @@ class ViperScoringCalculation:
         for square in board.pieces(chess.PAWN, color):
             file = chess.square_file(square)
             is_isolated = True
+
             # Check left file
             if file > 0:
-                if any(board.piece_at(chess.square(file - 1, r)) and board.piece_at(chess.square(file - 1, r)).piece_type == chess.PAWN and board.piece_at(chess.square(file - 1, r)).color == color for r in range(8)):
-                    is_isolated = False
+                for r in range(8):
+                    p = board.piece_at(chess.square(file - 1, r))
+                    if p and p.piece_type == chess.PAWN and p.color == color:
+                        is_isolated = False
+                        break
+
             # Check right file
-            if file < 7:
-                if any(board.piece_at(chess.square(file + 1, r)) and board.piece_at(chess.square(file + 1, r)).piece_type == chess.PAWN and board.piece_at(chess.square(file + 1, r)).color == color for r in range(8)):
-                    is_isolated = False
+            if is_isolated and file < 7:
+                for r in range(8):
+                    p = board.piece_at(chess.square(file + 1, r))
+                    if p and p.piece_type == chess.PAWN and p.color == color:
+                        is_isolated = False
+                        break
+
             if is_isolated:
                 score += self._get_rule_value('isolated_pawn_penalty', 0.0)
         
@@ -455,21 +532,26 @@ class ViperScoringCalculation:
         # A pawn is backward if it cannot be defended by another pawn and is on an open or semi-open file
         direction = 1 if color == chess.WHITE else -1
         for square in board.pieces(chess.PAWN, color):
-            file = chess.square_file(square)
-            rank = chess.square_rank(square)
-            
-            # Check if pawn can advance (simplified)
-            can_advance = False
-            if color == chess.WHITE and rank < 7 and not board.piece_at(chess.square(file, rank + 1)):
-                can_advance = True
-            elif color == chess.BLACK and rank > 0 and not board.piece_at(chess.square(file, rank - 1)):
-                can_advance = True
-            
-            if not can_advance:
-                # Check if attacked by opponent pawn (simplified backward pawn check)
-                opponent_color = not color
-                if self._is_attacked_by_pawn(board, square, opponent_color):
-                    score += self._get_rule_value('backward_pawn_penalty', 0.0)
+            # Example: Check if a pawn is passed (this is just an example, not backward pawn logic)
+            # if board.is_passed_pawn(square): # Changed from is_passed - This method does not exist on board
+            # TODO: Implement actual backward pawn logic here
+            # TODO: Implement passed pawn check here if desired, e.g. by checking files ahead.
+            # Example for passed pawn (simplified, does not check attacks):
+            # is_passed = True
+            # opponent_pawn_squares = board.pieces(chess.PAWN, not color)
+            # current_file = chess.square_file(square)
+            # current_rank = chess.square_rank(square)
+            # for opp_pawn_sq in opponent_pawn_squares:
+            #     opp_file = chess.square_file(opp_pawn_sq)
+            #     opp_rank = chess.square_rank(opp_pawn_sq)
+            #     if opp_file >= current_file -1 and opp_file <= current_file + 1: # same or adjacent files
+            #         if (color == chess.WHITE and opp_rank > current_rank) or \
+            #            (color == chess.BLACK and opp_rank < current_rank): # in front of our pawn
+            #             is_passed = False
+            #             break
+            # if is_passed:
+            #     score += self._get_rule_value('passed_pawn_bonus', 0.0) 
+            pass # Placeholder for backward/passed pawn logic
         
         return score
 
@@ -509,10 +591,24 @@ class ViperScoringCalculation:
         return score
 
     def _passed_pawns(self, board: chess.Board, color: chess.Color) -> float:
-        """Evaluation for passed pawns using built-in method."""
+        """Evaluate passed pawns for the given color."""
         score = 0.0
+        opponent_color = not color
         for square in board.pieces(chess.PAWN, color):
-            if board.is_passed(square, color):
+            file = chess.square_file(square)
+            rank = chess.square_rank(square)
+            is_passed = True
+            # Check all pawns of the opponent
+            for opp_square in board.pieces(chess.PAWN, opponent_color):
+                opp_file = chess.square_file(opp_square)
+                opp_rank = chess.square_rank(opp_square)
+                # For white, passed if no black pawn is on same/adjacent file and ahead
+                # For black, passed if no white pawn is on same/adjacent file and ahead
+                if abs(opp_file - file) <= 1:
+                    if (color == chess.WHITE and opp_rank > rank) or (color == chess.BLACK and opp_rank < rank):
+                        is_passed = False
+                        break
+            if is_passed:
                 score += self._get_rule_value('passed_pawn_bonus', 0.0)
         return score
 

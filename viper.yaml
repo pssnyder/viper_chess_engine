@@ -1,0 +1,294 @@
+
+# Viper Engine Configuration
+# TODO: Adjust available configuration setup references as needed, and implement the TODOs in the code below.
+
+# Viper Engine Options
+# These are the options for the Viper chess engine, which is a custom chess engine designed for analytical research and development.
+viper:
+  ruleset: default_evaluation         # TODO: Implement code or test Name of the evaluation rule set to use, see below for available options
+  scoring_method: _calculate_score    # TODO Implement then mark done - Overrides the scoring method, viper engine defaults to the inbuilt _viper_scoring_calculation() function
+  scoring_path: engine_utilities/viper_scoring_calculation  # TODO Implement then mark done - Import path to the scoring function, used for custom scoring methods, 
+  search_algorithm: deepsearch        # TODO Implement then mark done - Move search type for White (see search_algorithms above for options)
+  depth: 3                            # TODO Implement then mark done - Depth of search for AI, 1 for random, 2 for simple search, 3+ for more complex searches
+  max_depth: 8                        # TODO Implement then mark done - Max depth of search for AI, 1 for random, 2 for simple search, 3+ for more complex searches
+  use_solutions: true                 # Use known positional solutions for evaluation (based on known puzzle solutions)
+  pst: true                           # Use piece-square tables for evaluation
+  pst_weight: 1.0                     # Weight for piece-square table evaluation
+  move_ordering: true                 # Enable move ordering for better performance
+  quiescence: true                    # Enable quiescence search for tactical positions
+  time_limit: 0                       # Time limit for move calculation in milliseconds, 0 for no limit
+  scoring_modifier: 1.0               # Optional overall scoring multiplier/divider
+  game_phase_awareness: true          # Enable/disable game phase-specific evaluation (opening, middlegame, endgame)
+  
+# Viper Engine Evaluation Rule settings (all scores in centipawns)
+default_evaluation:
+  checkmate_bonus: 1000000.0        # Bonus for checkmate threats
+  repetition_penalty: -9999999999.0 # Penalty for threefold repetition
+  center_control_bonus: 0.25        # Bonus per center square controlled
+  knight_activity_bonus: 0.1        # Multiplier per square attacked by knight
+  bishop_activity_bonus: 0.15       # Multiplier per square attacked by bishop
+  king_safety_bonus: 1.5            # Bonus per pawn in king shield
+  king_threat_penalty: -50.0        # Penalty for being checked (increased for king safety)
+  undeveloped_penalty: -0.5         # Penalty for having under-developed minor pieces (increased)
+  check_bonus: 50.0                 # Bonus for giving check (reduced)
+  in_check_penalty: -10.0           # Penalty for being in check
+  capture_bonus: 15.0               # Base bonus for captures (increased)
+  castling_bonus: 5.0               # Bonus for castling
+  en_passant_bonus: 1.0             # Bonus for en passant opportunity
+  pawn_promotion_bonus: 5.0         # Bonus for pawn promotion
+  passed_pawn_bonus: 1.0            # Bonus for having an un-opposed pawn (increased)
+  hanging_piece_bonus: 2.0          # Bonus for attacking hanging pieces
+  trapped_piece_penalty: -5.0       # Penalty for trapped pieces
+  piece_development_bonus: 2.0      # Bonus for developing minor pieces
+  piece_activity_bonus: 0.1         # Bonus for activating minor pieces
+  knight_pair_bonus: 1.0            # Bonus for having knight pair
+  knight_vision_penalty: -0.25      # Penalty for having the knight on a less active square
+  pawn_advancement_bonus: 0.25      # Bonus for advancing pawns
+  rook_development_penalty: 0.2     # Penalty for not developing rooks
+  castling_protection_bonus: 3.0    # Bonus for keeping the right to castle
+  castling_protection_penalty: -6.0 # Penalty for giving up castling rights without castling
+  material_weight: 0.8              # Material calculation impact on eval
+  piece_coordination_bonus: 0.5     # Bonus for piece coordination
+  doubled_pawn_penalty: -0.5        # Penalty for having doubled pawns
+  isolated_pawn_penalty: -0.5       # Penalty for having isolated pawns
+  backward_pawn_penalty: -0.5       # Penalty for having backward pawns
+  bishop_vision_bonus: 1.0          # Bonus for the bishops having good board vision
+  tempo_bonus: 0.1                  # Bonus for keeping the game moving forward, as opposed to an end scenario
+  stacked_rooks_bonus: 0.5          # Bonus for having the rooks on the same file
+  coordinated_rooks_bonus: 0.25     # Bonus for having the rooks on the same rank
+  stalemate_penalty: -9999999999.0  # Penalty for stalemate situations
+  draw_penalty: -9999999999.0       # Penalty for draw situations
+  undefended_piece_penalty: -2.0    # Penalty for undefended pieces
+  pawn_structure_bonus: 0.1         # Evaluate pawn structure
+  file_control_bonus: 0.2           # Bonus for controlling open files
+  open_file_bonus: 0.3              # Bonus for having rooks on open files
+  rook_position_bonus: 0.4          # Bonus for rooks on the 7th rank
+  exposed_king_penalty: -10.0       # Penalty for having the king on an open file
+  piece_mobility_bonus: 0.1         # Bonus for piece mobility
+  checkmate_move_bonus: 1000000     # Bonus for finding a checkmate during move ordering scoring
+  check_move_bonus: 10000           # Bonus for finding a check move during move ordering scoring
+  hash_move_bonus: 5000             # Bonus for finding a hash move during move ordering scoring
+  capture_move_bonus: 4000          # Bonus for finding a capture move during move ordering scoring
+  promotion_move_bonus: 3000        # Bonus for finding a promotion move during move ordering scoring
+  killer_move_bonus: 2000           # Bonus for finding a killer moves during move ordering scoring
+  history_move_bonus: 1000          # Bonus for finding a historical move during move ordering scoring
+  counter_move_bonus: 1000          # Bonus for finding a strong countermove during move ordering scoring
+
+# Gives the AI basic survival skills to prevent checks, captures, and threats, but lacks advanced strategies.
+simple_evaluation:
+  checkmate_bonus: 1000000.0        # Bonus for checkmate threats
+  repetition_penalty: -100000.0     # Penalty for threefold repetition
+  center_control_bonus: 0.0         # Bonus per center square controlled
+  knight_activity_bonus: 0.0        # Multiplier per square attacked by knight
+  bishop_activity_bonus: 0.0        # Multiplier per square attacked by bishop
+  king_safety_bonus: 1.5            # Bonus per pawn in king shield
+  king_threat_penalty: -50.0        # Penalty for being checked (increased for king safety)
+  undeveloped_penalty: 0.0          # Penalty for having under-developed minor pieces (increased)
+  check_bonus: 50.0                 # Bonus for giving check (reduced)
+  in_check_penalty: -10.0           # Penalty for being in check
+  capture_bonus: 15.0               # Base bonus for captures (increased)
+  castling_bonus: 0.0               # Bonus for castling
+  en_passant_bonus: 0.0             # Bonus for en passant opportunity
+  pawn_promotion_bonus: 0.0         # Bonus for pawn promotion
+  passed_pawn_bonus: 0.0            # Bonus for having an un-opposed pawn (increased)
+  hanging_piece_bonus: 0.0          # Bonus for attacking hanging pieces
+  trapped_piece_penalty: 0.0       # Penalty for trapped pieces
+  piece_development_bonus: 0.0      # Bonus for developing minor pieces
+  piece_activity_bonus: 0.0         # Bonus for activating minor pieces
+  knight_pair_bonus: 0.0            # Bonus for having knight pair
+  knight_vision_penalty: 0.0        # Penalty for having the knight on a less active square
+  pawn_advancement_bonus: 0.0       # Bonus for advancing pawns
+  rook_development_penalty: 0.0     # Penalty for not developing rooks
+  castling_protection_bonus: 0.0    # Bonus for keeping the right to castle
+  castling_protection_penalty: 0.0  # Penalty for giving up castling rights without castling
+  material_weight: 0.0              # Material calculation impact on eval
+  piece_coordination_bonus: 0.0     # Bonus for piece coordination
+  doubled_pawn_penalty: 0.0         # Penalty for having doubled pawns
+  isolated_pawn_penalty: 0.0        # Penalty for having isolated pawns
+  backward_pawn_penalty: 0.0        # Penalty for having backward pawns
+  bishop_vision_bonus: 0.0          # Bonus for the bishops having good board vision
+  tempo_bonus: 0.0                  # Bonus for keeping the game moving forward, as opposed to an end scenario
+  stacked_rooks_bonus: 0.0          # Bonus for having the rooks on the same file
+  coordinated_rooks_bonus: 0.0      # Bonus for having the rooks on the same rank
+  stalemate_penalty: -1000000.0     # Penalty for stalemate situations
+  draw_penalty: -500000.0           # Penalty for draw situations
+  undefended_piece_penalty: 0.0     # Penalty for undefended pieces
+  pawn_structure_bonus: 0.0         # Evaluate pawn structure
+  file_control_bonus: 0.0           # Bonus for controlling open files
+  open_file_bonus: 0.0              # Bonus for having rooks on open files
+  rook_position_bonus: 0.0          # Bonus for rooks on the 7th rank
+  exposed_king_penalty: -10.0       # Penalty for having the king on an open file
+  piece_mobility_bonus: 0.0         # Bonus for piece mobility
+  # move ordering bonuses - do not impact evaluation - do not update these values
+  checkmate_move_bonus: 1000000     # Bonus for finding a checkmate during move ordering scoring
+  check_move_bonus: 10000           # Bonus for finding a check move during move ordering scoring
+  hash_move_bonus: 5000             # Bonus for finding a hash move during move ordering scoring
+  capture_move_bonus: 4000          # Bonus for finding a capture move during move ordering scoring
+  promotion_move_bonus: 3000        # Bonus for finding a promotion move during move ordering scoring
+  killer_move_bonus: 2000           # Bonus for finding a killer moves during move ordering scoring
+  history_move_bonus: 1000          # Bonus for finding a historical move during move ordering scoring
+  counter_move_bonus: 1000          # Bonus for finding a strong countermove during move ordering scoring
+
+# Aggressive evaluation settings for more forcing play, prioritizes captures, piece mobility/activity, and attacks over king safety, defense, and tactics.
+aggressive_evaluation:
+  checkmate_bonus: 1000000.0        # Bonus for checkmate threats
+  repetition_penalty: -100000.0     # Penalty for threefold repetition
+  center_control_bonus: 0.0         # Bonus per center square controlled
+  knight_activity_bonus: 0.25       # Multiplier per square attacked by knight
+  bishop_activity_bonus: 0.5        # Multiplier per square attacked by bishop
+  king_safety_bonus: 0.5            # Bonus per pawn in king shield
+  king_threat_penalty: -10.0        # Penalty for being checked (increased for king safety)
+  undeveloped_penalty: -5.0         # Penalty for having under-developed minor pieces (increased)
+  check_bonus: 100.0                # Bonus for giving check (reduced)
+  in_check_penalty: -5.0            # Penalty for being in check
+  capture_bonus: 50.0               # Base bonus for captures (increased)
+  castling_bonus: 1.0               # Bonus for castling
+  en_passant_bonus: 0.0             # Bonus for en passant opportunity
+  pawn_promotion_bonus: 5.0         # Bonus for pawn promotion
+  passed_pawn_bonus: 0.0            # Bonus for having an un-opposed pawn (increased)
+  hanging_piece_bonus: 0.0          # Bonus for attacking hanging pieces
+  trapped_piece_penalty: 0.0        # Penalty for trapped pieces
+  piece_development_bonus: 10.0     # Bonus for developing minor pieces
+  piece_activity_bonus: 5.0         # Bonus for activating minor pieces
+  knight_pair_bonus: 0.0            # Bonus for having knight pair
+  knight_vision_penalty: -1.0       # Penalty for having the knight on a less active square
+  pawn_advancement_bonus: 1.0       # Bonus for advancing pawns
+  rook_development_penalty: 0.5     # Penalty for not developing rooks
+  castling_protection_bonus: 3.0    # Bonus for keeping the right to castle
+  castling_protection_penalty: -6.0 # Penalty for giving up castling rights without castling
+  material_weight: 1.0              # Material calculation impact on eval
+  piece_coordination_bonus: 0.25    # Bonus for piece coordination
+  doubled_pawn_penalty: 0.0         # Penalty for having doubled pawns
+  isolated_pawn_penalty: 0.0        # Penalty for having isolated pawns
+  backward_pawn_penalty: 0.0        # Penalty for having backward pawns
+  bishop_vision_bonus: 0.0          # Bonus for the bishops having good board vision
+  tempo_bonus: 0.0                  # Bonus for keeping the game moving forward, as opposed to an end scenario
+  stacked_rooks_bonus: 0.0          # Bonus for having the rooks on the same file
+  coordinated_rooks_bonus: 0.0      # Bonus for having the rooks on the same rank
+  stalemate_penalty: -1000000.0     # Penalty for stalemate situations
+  draw_penalty: -500000.0           # Penalty for draw situations
+  undefended_piece_penalty: -2.0    # Penalty for undefended pieces
+  pawn_structure_bonus: 0.0         # Evaluate pawn structure
+  file_control_bonus: 1.0           # Bonus for controlling open files
+  open_file_bonus: 1.0              # Bonus for having rooks on open files
+  rook_position_bonus: 2.0          # Bonus for rooks on the 7th rank
+  exposed_king_penalty: 0.0         # Penalty for having the king on an open file
+  piece_mobility_bonus: 5.0         # Bonus for piece mobility
+  # move ordering bonuses - do not impact evaluation - do not update these values
+  checkmate_move_bonus: 1000000     # Bonus for finding a checkmate during move ordering scoring
+  check_move_bonus: 10000           # Bonus for finding a check move during move ordering scoring
+  hash_move_bonus: 5000             # Bonus for finding a hash move during move ordering scoring
+  capture_move_bonus: 4000          # Bonus for finding a capture move during move ordering scoring
+  promotion_move_bonus: 3000        # Bonus for finding a promotion move during move ordering scoring
+  killer_move_bonus: 2000           # Bonus for finding a killer moves during move ordering scoring
+  history_move_bonus: 1000          # Bonus for finding a historical move during move ordering scoring
+  counter_move_bonus: 1000          # Bonus for finding a strong countermove during move ordering scoring
+
+# Conservative evaluation settings for more cautious play, prioritizes king safety and piece defense over tempo and aggressive tactics.
+conservative_evaluation:
+  checkmate_bonus: 1000000.0        # Bonus for checkmate threats
+  repetition_penalty: -100000.0     # Penalty for threefold repetition
+  center_control_bonus: 0.1         # Bonus per center square controlled
+  knight_activity_bonus: 0.05       # Multiplier per square attacked by knight
+  bishop_activity_bonus: 0.075      # Multiplier per square attacked by bishop
+  king_safety_bonus: 10.0           # Bonus per pawn in king shield
+  king_threat_penalty: -50.0        # Penalty for being checked (increased for king safety)
+  undeveloped_penalty: -0.5         # Penalty for having under-developed minor pieces (increased)
+  check_bonus: 50.0                 # Bonus for giving check (reduced)
+  in_check_penalty: -10.0           # Penalty for being in check
+  capture_bonus: 1.0                # Base bonus for captures (increased)
+  castling_bonus: 15.0              # Bonus for castling
+  en_passant_bonus: 1.0             # Bonus for en passant opportunity
+  pawn_promotion_bonus: 5.0         # Bonus for pawn promotion
+  passed_pawn_bonus: 1.0            # Bonus for having an un-opposed pawn (increased)
+  hanging_piece_bonus: 2.0          # Bonus for attacking hanging pieces
+  trapped_piece_penalty: -5.0       # Penalty for trapped pieces
+  piece_development_bonus: 2.0      # Bonus for developing minor pieces
+  piece_activity_bonus: 0.1         # Bonus for activating minor pieces
+  knight_pair_bonus: 1.0            # Bonus for having knight pair
+  knight_vision_penalty: -0.25      # Penalty for having the knight on a less active square
+  pawn_advancement_bonus: 0.25      # Bonus for advancing pawns
+  rook_development_penalty: 0.2     # Penalty for not developing rooks
+  castling_protection_bonus: 3.0    # Bonus for keeping the right to castle
+  castling_protection_penalty: -6.0 # Penalty for giving up castling rights without castling
+  material_weight: 0.8              # Material calculation impact on eval
+  piece_coordination_bonus: 0.5     # Bonus for piece coordination
+  doubled_pawn_penalty: -0.5        # Penalty for having doubled pawns
+  isolated_pawn_penalty: -0.5       # Penalty for having isolated pawns
+  backward_pawn_penalty: -0.5       # Penalty for having backward pawns
+  bishop_vision_bonus: 1.0          # Bonus for the bishops having good board vision
+  tempo_bonus: 0.1                  # Bonus for keeping the game moving forward, as opposed to an end scenario
+  stacked_rooks_bonus: 0.5          # Bonus for having the rooks on the same file
+  coordinated_rooks_bonus: 0.25     # Bonus for having the rooks on the same rank
+  stalemate_penalty: -1000000.0     # Penalty for stalemate situations
+  draw_penalty: -500000.0           # Penalty for draw situations
+  undefended_piece_penalty: -2.0    # Penalty for undefended pieces
+  pawn_structure_bonus: 0.1         # Evaluate pawn structure
+  file_control_bonus: 0.2           # Bonus for controlling open files
+  open_file_bonus: 0.3              # Bonus for having rooks on open files
+  rook_position_bonus: 0.4          # Bonus for rooks on the 7th rank
+  exposed_king_penalty: -10.0       # Penalty for having the king on an open file
+  piece_mobility_bonus: 0.1         # Bonus for piece mobility
+  # move ordering bonuses - do not impact evaluation - do not update these values
+  checkmate_move_bonus: 1000000     # Bonus for finding a checkmate during move ordering scoring
+  check_move_bonus: 10000           # Bonus for finding a check move during move ordering scoring
+  hash_move_bonus: 5000             # Bonus for finding a hash move during move ordering scoring
+  capture_move_bonus: 4000          # Bonus for finding a capture move during move ordering scoring
+  promotion_move_bonus: 3000        # Bonus for finding a promotion move during move ordering scoring
+  killer_move_bonus: 2000           # Bonus for finding a killer moves during move ordering scoring
+  history_move_bonus: 1000          # Bonus for finding a historical move during move ordering scoring
+  counter_move_bonus: 1000          # Bonus for finding a strong countermove during move ordering scoring
+
+null_evaluation:                    # empty evaluation for testing purposes
+  checkmate_bonus: 0.0              # Bonus for checkmate threats
+  repetition_penalty: 0.0           # Penalty for threefold repetition
+  center_control_bonus: 0.0         # Bonus per center square controlled
+  knight_activity_bonus: 0.0        # Multiplier per square attacked by knight
+  bishop_activity_bonus: 0.0        # Multiplier per square attacked by bishop
+  king_safety_bonus: 0.0            # Bonus per pawn in king shield
+  king_threat_penalty: 0.0          # Penalty for being checked (increased for king safety)
+  undeveloped_penalty: 0.0          # Penalty for having under-developed minor pieces (increased)
+  check_bonus: 0.0                  # Bonus for giving check (reduced)
+  in_check_penalty: 0.0             # Penalty for being in check
+  capture_bonus: 0.0                # Base bonus for captures (increased)
+  castling_bonus: 0.0               # Bonus for castling
+  en_passant_bonus: 0.0             # Bonus for en passant opportunity
+  pawn_promotion_bonus: 0.0         # Bonus for pawn promotion
+  passed_pawn_bonus: 0.0            # Bonus for having an un-opposed pawn (increased)
+  hanging_piece_bonus: 0.0          # Bonus for attacking hanging pieces
+  trapped_piece_penalty: 0.0        # Penalty for trapped pieces
+  piece_development_bonus: 0.0      # Bonus for developing minor pieces
+  piece_activity_bonus: 0.0         # Bonus for activating minor pieces
+  knight_pair_bonus: 0.0            # Bonus for having knight pair
+  knight_vision_penalty: 0.0        # Penalty for having the knight on a less active square
+  pawn_advancement_bonus: 0.0       # Bonus for advancing pawns
+  rook_development_penalty: 0.0     # Penalty for not developing rooks
+  castling_protection_bonus: 0.0    # Bonus for keeping the right to castle
+  castling_protection_penalty: 0.0  # Penalty for giving up castling rights without castling
+  material_weight: 0.0              # Material calculation impact on eval
+  piece_coordination_bonus: 0.0     # Bonus for piece coordination
+  doubled_pawn_penalty: 0.0         # Penalty for having doubled pawns
+  isolated_pawn_penalty: 0.0        # Penalty for having isolated pawns
+  backward_pawn_penalty: 0.0        # Penalty for having backward pawns
+  bishop_vision_bonus: 0.0          # Bonus for the bishops having good board vision
+  tempo_bonus: 0.0                  # Bonus for keeping the game moving forward, as opposed to an end scenario
+  stacked_rooks_bonus: 0.0          # Bonus for having the rooks on the same file
+  coordinated_rooks_bonus: 0.0      # Bonus for having the rooks on the same rank
+  stalemate_penalty: 0.0            # Penalty for stalemate situations
+  draw_penalty: 0.0                 # Penalty for draw situations
+  undefended_piece_penalty: 0.0     # Penalty for undefended pieces
+  pawn_structure_bonus: 0.0         # Evaluate pawn structure
+  file_control_bonus: 0.0           # Bonus for controlling open files
+  open_file_bonus: 0.0              # Bonus for having rooks on open files
+  rook_position_bonus: 0.0          # Bonus for rooks on the 7th rank
+  exposed_king_penalty: 0.0         # Penalty for having the king on an open file
+  piece_mobility_bonus: 0.0         # Bonus for piece mobility
+  # move ordering bonuses - do not impact evaluation - do not update these values
+  checkmate_move_bonus: 1000000     # Bonus for finding a checkmate during move ordering scoring
+  check_move_bonus: 10000           # Bonus for finding a check move during move ordering scoring
+  hash_move_bonus: 5000             # Bonus for finding a hash move during move ordering scoring
+  capture_move_bonus: 4000          # Bonus for finding a capture move during move ordering scoring
+  promotion_move_bonus: 3000        # Bonus for finding a promotion move during move ordering scoring
+  killer_move_bonus: 2000           # Bonus for finding a killer moves during move ordering scoring
+  history_move_bonus: 1000          # Bonus for finding a historical move during move ordering scoring
+  counter_move_bonus: 1000          # Bonus for finding a strong countermove during move ordering scoring

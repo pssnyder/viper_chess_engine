@@ -187,31 +187,22 @@ class ViperScoringCalculation:
     # and access their rule values via self._get_rule_value()
 
     def _checkmate_threats(self, board: chess.Board, color: chess.Color) -> float:
+        """
+        Assess if 'color' can deliver a checkmate on their next move.
+        Only consider legal moves for 'color' without mutating the original board's turn.
+        """
         score = 0.0
-        # Only check threats for the current player's turn to avoid double counting
-        # or checking irrelevant checks for the given 'color' if not their turn.
-        # This function should assess if 'color' can deliver a checkmate on their *next* move.
-        original_turn = board.turn
-        if original_turn != color: # Temporarily switch turn to simulate 'color' moving
-            board.turn = color # This is risky, prefer to iterate legal moves of the given color or use a copy.
-                               # More robust is to iterate all legal moves and check if they lead to checkmate
-                               # for the *opponent* of the player making the move.
-            
-        for move in board.legal_moves:
-            board.push(move)
-            if board.is_checkmate():
+        # Work on a copy to avoid mutating the original board
+        board_for_color = board.copy()
+        board_for_color.turn = color
+        for move in board_for_color.legal_moves:
+            board_for_color.push(move)
+            if board_for_color.is_checkmate():
                 score += self._get_rule_value('checkmate_bonus', 0)
-                board.pop()
-                # If a checkmate is found, we can break and return the bonus.
-                # However, a common heuristic might be to give the bonus to the side *delivering* mate.
-                # This function implies it's for `color` to *threaten* mate to opponent.
-                # So the `board.turn` in `board.is_checkmate()` should be the *opponent's* turn after `move` is pushed.
-                if board.turn != color: # If the checkmate is on the *opponent's* king
-                    return score # Return immediately
-            board.pop()
-        
-        # Reset board turn if it was temporarily changed for this check
-        board.turn = original_turn 
+                board_for_color.pop()
+                # If a checkmate is found, return immediately (threat exists)
+                return score
+            board_for_color.pop()
         return score
 
     def _draw_scenarios(self, board: chess.Board) -> float:

@@ -187,6 +187,10 @@ class ViperScoringCalculation:
     # and access their rule values via self._get_rule_value()
 
     def _checkmate_threats(self, board: chess.Board, color: chess.Color) -> float:
+        """
+        Assess if 'color' can deliver a checkmate on their next move.
+        Only consider legal moves for 'color' without mutating the original board's turn.
+        """
         score = 0.0
         # Only check threats for the current player's turn to avoid double counting
         # or checking irrelevant checks for the given 'color' if not their turn.

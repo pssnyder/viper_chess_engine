@@ -1,0 +1,26 @@
+# Settings for chess_metrics.py and metrics analysis
+# Which metrics to track, which engines to include/exclude, grouping, etc.
+
+metrics_to_track:
+  - evaluation
+  - depth
+  - nodes_searched
+  - time_taken
+
+# Only include these engines in analysis (by engine_name or engine_id prefix)
+include_engines:
+  - Viper
+
+# Exclude these engine_ids (full hash or prefix)
+exclude_engine_ids: []
+
+# Grouping options: by 'engine_id', 'engine_name', 'engine_version', or 'color'
+group_by: engine_id
+
+# Exclude moves/games where exclude_from_metrics is True
+respect_exclusion_flags: true
+
+# UI options (for chess_metrics.py)
+default_grouping: engine_id
+show_engine_version: true
+show_engine_config_hash: true

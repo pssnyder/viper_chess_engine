@@ -1,0 +1,4 @@
+# engine_utilities/engine_db_manager.py
+# This module manages the database of chess engine configurations and their metrics.
+# It can be expanded as the engines db utility toolkit needs expand as well.
+# TODO create a db manager is able to listen for incoming data and store it in the database, as well as handle incoming requests for configuration setups. the idea being is that eventually all this utility code can be run locally or on a server, so that anywhere I am running the chess_engine, its able to "phone home" with its game, engine, config, and log data. The data may come in per game or as a bulk upload at the end of a game simulation session. this will be the server side of the db manager. nothing else about the metrics needs has changed, I just want to be able to collect more data remotely from other machines without having to rely on git commits to merge all the data together. have this tool capable of 

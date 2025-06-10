@@ -137,10 +137,15 @@ app.layout = html.Div([
     Input("interval", "n_intervals"), # Changed from log-analysis-interval
 )
 def update_dynamic_metric_options(_):
-    # This callback updates the dropdown options based on available move metrics
-    # It queries the distinct metric_names from the move_metrics table in MetricsStore
-    move_metric_names = metrics_store.get_distinct_move_metric_names()
-    options = [{'label': name.replace('_', ' ').title(), 'value': name} for name in move_metric_names]
+    # Only show metrics that are actually useful for engine performance
+    # These are the numeric columns in move_metrics: evaluation, depth, nodes_searched, time_taken
+    # You may want to add more if you add more numeric columns in the future
+    options = [
+        {"label": "Evaluation Score", "value": "evaluation"},
+        {"label": "Search Depth", "value": "depth"},
+        {"label": "Nodes Searched", "value": "nodes_searched"},
+        {"label": "Time Taken (s)", "value": "time_taken"},
+    ]
     return options
 
 @app.callback(

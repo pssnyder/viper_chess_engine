@@ -1,0 +1,38 @@
+[Event "AI vs. AI Game"]
+[Site "192.168.50.220"]
+[Date "2025.06.10"]
+[Round "#"]
+[White "AI: viper via random (Depth 4)"]
+[Black "AI: Viper via random (Depth 4)"]
+[Result "0-1"]
+[Rated "True"]
+
+1. c4 { Eval: 0.80 } 1... e6 { Eval: -0.40 } 2. e3 { Eval: 0.80 } 2... h5
+{ Eval: 0.10 } 3. Qa4 { Eval: -0.10 } 3... Be7 { Eval: -0.10 } 4. Nh3
+{ Eval: -0.10 } 4... Bc5 { Eval: 0.00 } 5. Qb5 { Eval: -0.10 } 5... Nc6
+{ Eval: -0.90 } 6. a3 { Eval: 1.70 } 6... b6 { Eval: -0.90 } 7. d4
+{ Eval: 1.40 } 7... d5 { Eval: -0.90 } 8. Qa6 { Eval: 1.10 } 8... Qh4
+{ Eval: -1.10 } 9. Ra2 { Eval: 1.00 } 9... g6 { Eval: -0.20 } 10. Nc3
+{ Eval: -0.80 } 10... Qe7 { Eval: 0.70 } 11. Be2 { Eval: -0.90 } 11... Rb8
+{ Eval: 0.90 } 12. f3 { Eval: -0.30 } 12... b5 { Eval: 0.40 } 13. Qxb5
+{ Eval: -1.70 } 13... Rb6 { Eval: 1.70 } 14. Nf2 { Eval: -2.30 } 14... Rxb5
+{ Eval: -6.70 } 15. Ra1 { Eval: 6.80 } 15... Bxd4 { Eval: -8.40 } 16. Nfd1
+{ Eval: 9.00 } 16... Ba6 { Eval: -9.00 } 17. cxd5 { Eval: 7.30 } 17... Kf8
+{ Eval: -7.50 } 18. h3 { Eval: 8.30 } 18... f6 { Eval: -7.70 } 19. g3
+{ Eval: 8.50 } 19... Rb7 { Eval: -8.70 } 20. Bxa6 { Eval: 5.85 } 20... Rb5
+{ Eval: -5.65 } 21. h4 { Eval: 5.75 } 21... Qd8 { Eval: -5.65 } 22. Bc8
+{ Eval: 5.85 } 22... Qxc8 { Eval: -8.60 } 23. dxc6 { Eval: 6.00 } 23... Re5
+{ Eval: -6.00 } 24. Nd5 { Eval: 5.80 } 24... Ne7 { Eval: -6.60 } 25. f4
+{ Eval: 6.80 } 25... Rxd5 { Eval: -10.20 } 26. Rh3 { Eval: 10.30 } 26... Qd8
+{ Eval: -10.40 } 27. b4 { Eval: 11.30 } 27... Nf5 { Eval: -11.60 } 28. Rh1
+{ Eval: 11.50 } 28... e5 { Eval: -11.40 } 29. fxe5 { Eval: 9.70 } 29... Bxa1
+{ Eval: -14.10 } 30. b5 { Eval: 14.20 } 30... Qd7 { Eval: -14.30 } 31. Rh3
+{ Eval: 14.40 } 31... Bc3+ { Eval: -15.00 } 32. Ke2 { Eval: 15.00 } 32... Qe8
+{ Eval: -14.90 } 33. a4 { Eval: 15.00 } 33... Nxe3 { Eval: -16.60 } 34. Kf3
+{ Eval: 16.40 } 34... fxe5 { Eval: -17.90 } 35. Bd2 { Eval: 17.70 } 35... Rd3
+{ Eval: -17.70 } 36. Ke4 { Eval: 17.90 } 36... Qxc6+ { Eval: -18.90 } 37. Kxd3
+{ Eval: 13.90 } 37... Qd6+ { Eval: -13.90 } 38. Kxc3 { Eval: 10.25 } 38... Qa3#
+{ Eval: -9.95 } 0-1
+
+
+0-1

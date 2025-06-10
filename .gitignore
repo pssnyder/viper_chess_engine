@@ -15,9 +15,7 @@
 puzzles/
 evaluation/
 training/
-testing/
 models/
-logging/
 external_engines/
 venv/
 .history/
@@ -112,3 +110,4 @@ dmypy.json
 # Docker
 Dockerfile
 docker-compose.yml
+*/example_

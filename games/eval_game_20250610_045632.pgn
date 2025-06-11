@@ -1,0 +1,29 @@
+[Event "AI vs. AI Game"]
+[Site "192.168.50.220"]
+[Date "2025.06.10"]
+[Round "#"]
+[White "AI: viper via random (Depth 4)"]
+[Black "AI: Viper via random (Depth 4)"]
+[Result "0-1"]
+[Rated "True"]
+
+1. d4 { Eval: 0.50 } 1... d5 { Eval: 0.00 } 2. h4 { Eval: 0.90 } 2... Bf5
+{ Eval: -1.20 } 3. h5 { Eval: 1.30 } 3... c5 { Eval: -0.50 } 4. g3
+{ Eval: 1.30 } 4... g6 { Eval: -0.50 } 5. Rh2 { Eval: 0.40 } 5... Be4
+{ Eval: -0.50 } 6. Qd3 { Eval: 0.30 } 6... Qd7 { Eval: -0.40 } 7. dxc5
+{ Eval: -0.30 } 7... Na6 { Eval: 0.10 } 8. g4 { Eval: 0.00 } 8... e5
+{ Eval: 0.50 } 9. Qc4 { Eval: -0.50 } 9... O-O-O { Eval: 0.30 } 10. hxg6
+{ Eval: -1.40 } 10... Qc6 { Eval: 1.30 } 11. Be3 { Eval: -1.70 } 11... Qe6
+{ Eval: 1.70 } 12. Qc3 { Eval: -1.70 } 12... fxg6 { Eval: 1.60 } 13. Qd3
+{ Eval: -1.60 } 13... Nb8 { Eval: 1.80 } 14. Bh6 { Eval: -1.40 } 14... b6
+{ Eval: 2.20 } 15. Rh5 { Eval: -2.00 } 15... Nxh6 { Eval: -1.25 } 16. Qxd5
+{ Eval: -0.25 } 16... Qxd5 { Eval: -8.85 } 17. cxb6 { Eval: 7.55 } 17... a6
+{ Eval: -6.75 } 18. Rh4 { Eval: 6.75 } 18... Nf5 { Eval: -7.65 } 19. b3
+{ Eval: 8.45 } 19... Nd7 { Eval: -9.25 } 20. Rxh7 { Eval: 7.25 } 20... Ng3
+{ Eval: -7.05 } 21. g5 { Eval: 7.15 } 21... Bh6 { Eval: -7.15 } 22. Nh3
+{ Eval: 6.95 } 22... Qc6 { Eval: -6.95 } 23. Kd2 { Eval: 6.95 } 23... Bf5
+{ Eval: -6.85 } 24. gxh6 { Eval: 3.70 } 24... Nf6+ { Eval: -3.90 } 25. Ke3
+{ Eval: 3.90 } 25... Ng4# { Eval: -3.70 } 0-1
+
+
+0-1

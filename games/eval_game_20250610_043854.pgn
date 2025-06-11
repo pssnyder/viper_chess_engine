@@ -1,0 +1,37 @@
+[Event "AI vs. AI Game"]
+[Site "192.168.50.220"]
+[Date "2025.06.10"]
+[Round "#"]
+[White "AI: viper via random (Depth 4)"]
+[Black "AI: Viper via random (Depth 4)"]
+[Result "1-0"]
+[Rated "True"]
+
+1. e4 { Eval: 0.50 } 1... e6 { Eval: -0.10 } 2. c4 { Eval: 0.90 } 2... g6
+{ Eval: -0.10 } 3. Bd3 { Eval: -0.30 } 3... Bd6 { Eval: -0.10 } 4. a3
+{ Eval: 0.90 } 4... f6 { Eval: -0.30 } 5. h3 { Eval: 1.10 } 5... c6
+{ Eval: -0.50 } 6. g4 { Eval: 1.40 } 6... Qa5 { Eval: -1.40 } 7. g5
+{ Eval: 1.50 } 7... Qd5 { Eval: -1.70 } 8. Qc2 { Eval: 1.60 } 8... Kf8
+{ Eval: -1.80 } 9. gxf6 { Eval: 0.60 } 9... Qe5 { Eval: -0.60 } 10. Kf1
+{ Eval: 0.40 } 10... b5 { Eval: 0.50 } 11. f3 { Eval: 0.10 } 11... a6
+{ Eval: 0.70 } 12. Kf2 { Eval: -0.70 } 12... bxc4 { Eval: -0.40 } 13. f4
+{ Eval: 0.60 } 13... Qc5+ { Eval: -0.60 } 14. Ke2 { Eval: 0.80 } 14... Qb4
+{ Eval: -0.70 } 15. Bxc4 { Eval: -0.20 } 15... Bb7 { Eval: 0.00 } 16. e5
+{ Eval: 0.10 } 16... Qb3 { Eval: -0.20 } 17. d3 { Eval: 0.60 } 17... Bc5
+{ Eval: -0.50 } 18. Bxb3 { Eval: -8.50 } 18... Kf7 { Eval: 8.50 } 19. Qxc5
+{ Eval: -11.95 } 19... d6 { Eval: 12.35 } 20. Ra2 { Eval: -12.45 } 20... Bc8
+{ Eval: 12.65 } 21. Bxe6+ { Eval: -14.45 } 21... Bxe6 { Eval: 10.60 } 22. Kd2
+{ Eval: -10.60 } 22... dxc5 { Eval: 1.90 } 23. f5 { Eval: -1.70 } 23... Bd7
+{ Eval: 1.90 } 24. Ke2 { Eval: -1.90 } 24... Nxf6 { Eval: 0.10 } 25. b4
+{ Eval: 0.80 } 25... Rf8 { Eval: -0.80 } 26. Ke3 { Eval: 0.80 } 26... Bc8
+{ Eval: -0.60 } 27. Rhh2 { Eval: 0.50 } 27... Bb7 { Eval: -0.70 } 28. Kf2
+{ Eval: 0.50 } 28... Nh5 { Eval: 0.30 } 29. Bh6 { Eval: -0.30 } 29... Ng7
+{ Eval: 0.10 } 30. Be3 { Eval: -0.50 } 30... Kg8 { Eval: 0.50 } 31. a4
+{ Eval: -0.40 } 31... Ne8 { Eval: 0.60 } 32. Na3 { Eval: -0.80 } 32... Rf7
+{ Eval: 0.60 } 33. Bd4 { Eval: -0.60 } 33... Rf6 { Eval: 0.80 } 34. exf6
+{ Eval: -5.20 } 34... Kh8 { Eval: 5.00 } 35. bxc5 { Eval: -6.10 } 35... Nc7
+{ Eval: 5.50 } 36. Ke3 { Eval: -5.30 } 36... gxf5 { Eval: 4.30 } 37. Raf2
+{ Eval: -4.40 } 37... Bc8 { Eval: 4.60 } 38. f7# { Eval: -5.00 } 1-0
+
+
+1-0

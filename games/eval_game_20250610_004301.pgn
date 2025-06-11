@@ -1,0 +1,72 @@
+[Event "AI vs. AI Game"]
+[Site "192.168.50.220"]
+[Date "2025.06.10"]
+[Round "#"]
+[White "AI: viper via random (Depth 4)"]
+[Black "AI: Viper via random (Depth 4)"]
+[Result "0-1"]
+[Rated "True"]
+
+1. d4 { Eval: 0.50 } 1... e6 { Eval: -0.10 } 2. a4 { Eval: 1.00 } 2... b6
+{ Eval: -0.20 } 3. b3 { Eval: 1.00 } 3... c5 { Eval: -0.20 } 4. Nf3
+{ Eval: -0.80 } 4... c4 { Eval: 1.00 } 5. h4 { Eval: -0.10 } 5... Bc5
+{ Eval: -0.20 } 6. Be3 { Eval: -0.20 } 6... g5 { Eval: 1.10 } 7. Bf4
+{ Eval: -1.00 } 7... a5 { Eval: 1.90 } 8. dxc5 { Eval: -4.75 } 8... bxc5
+{ Eval: 3.75 } 9. Qd4 { Eval: -3.95 } 9... gxh4 { Eval: 2.95 } 10. e4
+{ Eval: -2.45 } 10... f5 { Eval: 3.25 } 11. Qe3 { Eval: -3.25 } 11... Nc6
+{ Eval: 2.25 } 12. Rh3 { Eval: -2.15 } 12... h5 { Eval: 3.05 } 13. Be2
+{ Eval: -3.25 } 13... Rh6 { Eval: 3.35 } 14. Qc3 { Eval: -3.35 } 14... Na7
+{ Eval: 4.35 } 15. Ng5 { Eval: -4.15 } 15... Qxg5 { Eval: 1.05 } 16. Bb8
+{ Eval: -0.75 } 16... Nc6 { Eval: -0.25 } 17. g4 { Eval: 1.15 } 17... Kd8
+{ Eval: -1.15 } 18. f3 { Eval: 1.75 } 18... d6 { Eval: -1.35 } 19. Qb2
+{ Eval: 1.45 } 19... Rf6 { Eval: -1.55 } 20. Rh2 { Eval: 1.35 } 20... Ra7
+{ Eval: -1.45 } 21. gxh5 { Eval: 0.45 } 21... Qg4 { Eval: -0.45 } 22. Qxf6+
+{ Eval: -4.65 } 22... Nxf6 { Eval: -5.45 } 23. e5 { Eval: 5.55 } 23... Qxf3
+{ Eval: -7.05 } 24. Rxh4 { Eval: 6.25 } 24... Rg7 { Eval: -6.35 } 25. Re4
+{ Eval: 6.25 } 25... Kd7 { Eval: -6.25 } 26. Kd2 { Eval: 6.25 } 26... Nxb8
+{ Eval: -8.30 } 27. Rh4 { Eval: 8.40 } 27... Qa8 { Eval: -7.90 } 28. Bd3
+{ Eval: 7.70 } 28... Rg1 { Eval: -7.50 } 29. Bxf5 { Eval: 6.30 } 29... Rg7
+{ Eval: -6.50 } 30. Bg4 { Eval: 6.60 } 30... cxb3 { Eval: -7.90 } 31. Bxe6+
+{ Eval: 6.20 } 31... Kc7 { Eval: -6.40 } 32. cxb3 { Eval: 6.10 } 32... Nfd7
+{ Eval: -5.90 } 33. Kc2 { Eval: 5.70 } 33... Nc6 { Eval: -6.70 } 34. Rc4
+{ Eval: 6.60 } 34... Bb7 { Eval: -6.80 } 35. Rf4 { Eval: 6.80 } 35... Qd8
+{ Eval: -7.10 } 36. Nc3 { Eval: 6.10 } 36... Rg8 { Eval: -5.90 } 37. Kb2
+{ Eval: 5.90 } 37... Nf6 { Eval: -6.10 } 38. Nd5+ { Eval: 5.90 } 38... Kb8
+{ Eval: -5.90 } 39. Bg4 { Eval: 6.00 } 39... Ne7 { Eval: -5.80 } 40. Kc2
+{ Eval: 5.80 } 40... Ng6 { Eval: -5.80 } 41. Ne3 { Eval: 5.90 } 41... Bf3
+{ Eval: -6.10 } 42. Ng2 { Eval: 6.80 } 42... dxe5 { Eval: -8.10 } 43. Rg1
+{ Eval: 8.10 } 43... Rf8 { Eval: -8.10 } 44. Re4 { Eval: 8.10 } 44... Qd3+
+{ Eval: -8.30 } 45. Kxd3 { Eval: -0.60 } 45... Bd1 { Eval: 1.00 } 46. b4
+{ Eval: -0.90 } 46... Bxg4 { Eval: -2.65 } 47. Nh4 { Eval: 2.85 } 47... Rg8
+{ Eval: -2.85 } 48. Ree1 { Eval: 2.85 } 48... Bd7 { Eval: -2.85 } 49. Rd1
+{ Eval: 2.85 } 49... Rh8 { Eval: -2.85 } 50. Rd2 { Eval: 2.65 } 50... Rh7
+{ Eval: -2.75 } 51. Kc4 { Eval: 2.55 } 51... Nd5 { Eval: -2.75 } 52. Re1
+{ Eval: 2.75 } 52... Nc3 { Eval: -2.55 } 53. Re3 { Eval: 2.55 } 53... Be8
+{ Eval: -2.35 } 54. Rf2 { Eval: 2.35 } 54... Nf8 { Eval: -1.75 } 55. Ree2
+{ Eval: 1.55 } 55... Kc7 { Eval: -1.55 } 56. Rd2 { Eval: 1.55 } 56... Kb7
+{ Eval: -1.55 } 57. Kxc3 { Eval: -1.65 } 57... Kc7 { Eval: 1.65 } 58. Rd8
+{ Eval: -1.55 } 58... Kxd8 { Eval: -3.35 } 59. Kc2 { Eval: 3.35 } 59... Rf7
+{ Eval: -3.45 } 60. Rf3 { Eval: 3.65 } 60... Kc7 { Eval: -3.85 } 61. bxa5
+{ Eval: 2.85 } 61... Kc6 { Eval: -2.85 } 62. Ng2 { Eval: 2.65 } 62... e4
+{ Eval: -2.55 } 63. Re3 { Eval: 2.55 } 63... Re7 { Eval: -2.55 } 64. Rd3
+{ Eval: 2.55 } 64... exd3+ { Eval: -7.00 } 65. Kb1 { Eval: 7.30 } 65... Nd7
+{ Eval: -7.90 } 66. Ne3 { Eval: 7.20 } 66... Re5 { Eval: -7.00 } 67. Ng4
+{ Eval: 7.20 } 67... c4 { Eval: -6.90 } 68. Nh2 { Eval: 7.80 } 68... Nc5
+{ Eval: -8.10 } 69. Kb2 { Eval: 7.90 } 69... Kd5 { Eval: -8.00 } 70. Kc1
+{ Eval: 8.10 } 70... Kd4 { Eval: -8.20 } 71. a6 { Eval: 8.35 } 71... Re2
+{ Eval: -8.35 } 72. Ng4 { Eval: 7.45 } 72... c3 { Eval: -7.15 } 73. Kd1
+{ Eval: 7.15 } 73... Bxa4+ { Eval: -8.70 } 74. Kc1 { Eval: 8.70 } 74... Re5
+{ Eval: -8.70 } 75. Nh2 { Eval: 9.60 } 75... Nb7 { Eval: -8.90 } 76. a7
+{ Eval: 9.00 } 76... c2 { Eval: -9.10 } 77. a8=R { Eval: 5.15 } 77... Rxh5
+{ Eval: -6.35 } 78. Ra7 { Eval: 6.45 } 78... Nc5 { Eval: -7.15 } 79. Ra8
+{ Eval: 7.05 } 79... Rh8 { Eval: -7.15 } 80. Rxa4+ { Eval: 4.20 } 80... Kc3
+{ Eval: -4.20 } 81. Ra2 { Eval: 4.00 } 81... Rh5 { Eval: -3.90 } 82. Nf3
+{ Eval: 2.90 } 82... Rh3 { Eval: -2.90 } 83. Nd2 { Eval: 3.10 } 83... Rh4
+{ Eval: -3.10 } 84. Ra3+ { Eval: 3.30 } 84... Kd4 { Eval: -3.30 } 85. Ra5
+{ Eval: 3.30 } 85... Re4 { Eval: -3.40 } 86. Nf3+ { Eval: 3.20 } 86... Kc4
+{ Eval: -3.20 } 87. Ra1 { Eval: 3.10 } 87... Rd4 { Eval: -3.10 } 88. Rb1
+{ Eval: 3.10 } 88... Nd7 { Eval: -2.80 } 89. Ne5+ { Eval: 2.60 } 89... Kc3
+{ Eval: -2.60 } 90. Nxd7 { Eval: -0.10 } 90... d2# { Eval: 0.50 } 0-1
+
+
+0-1

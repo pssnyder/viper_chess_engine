@@ -3,17 +3,17 @@
 import os
 import sqlite3
 import json
-import re
-import time
-import pandas as pd
-import yaml
-from datetime import datetime
 import glob
 import threading
+import hashlib
+from typing import Optional
 import chess.pgn
 import io
-import random
-from typing import Optional
+import pandas as pd
+import re
+import time
+from datetime import datetime
+import yaml
 
 """
 Database Schema Documentation:
@@ -45,10 +45,14 @@ Database Schema Documentation:
      - black_player: Name of the black player.
      - game_length: Number of moves in the game.
      - created_at: Timestamp of entry creation.
-     - white_ai_type: AI type for white (added for direct access).
-     - black_ai_type: AI type for black (added for direct access).
-     - white_depth: Search depth for white (added for direct access).
-     - black_depth: Search depth for black (added for direct access).
+     - white_engine_id: Engine ID for white (added for direct access).
+     - black_engine_id: Engine ID for black (added for direct access).
+     - white_engine_name: Engine name for white (added for direct access).
+     - black_engine_name: Engine name for black (added for direct access).
+     - white_engine_version: Engine version for white (added for direct access).
+     - black_engine_version: Engine version for black (added for direct access).
+     - exclude_white_from_metrics: Exclusion flag for white's metrics (added for direct access).
+     - exclude_black_from_metrics: Exclusion flag for black's metrics (added for direct access).
 
 
 3. config_settings Table:
@@ -59,12 +63,9 @@ Database Schema Documentation:
      - timestamp: Time of the configuration.
      - game_id: Associated game ID.
      - config_data: JSON representation of the configuration.
-     - white_engine: Engine used by white.
-     - black_engine: Engine used by black.
-     - white_depth: Search depth for white.
-     - black_depth: Search depth for black.
-     - white_ai_type: AI type for white.
-     - black_ai_type: AI type for black.
+     - engine_id: Engine ID (added for direct access).
+     - engine_name: Engine name (added for direct access).
+     - engine_version: Engine version (added for direct access).
      - created_at: Timestamp of entry creation.
 
 4. metrics Table:
@@ -123,95 +124,39 @@ class MetricsStore:
     def _get_connection(self):
         """Get a thread-local database connection."""
         if not hasattr(self.local, 'connection') or self.local.connection is None:
-            # Set a higher timeout (30 seconds) to handle contention
-            self.local.connection = sqlite3.connect(
-                self.db_path, 
-                timeout=30.0, 
-                check_same_thread=False
-            )
-            # Enable WAL mode for better concurrency
-            self.local.connection.execute('PRAGMA journal_mode=WAL')
-            # Defer transactions until commit
-            self.local.connection.execute('PRAGMA synchronous=NORMAL')
+            self.local.connection = sqlite3.connect(self.db_path, check_same_thread=False)
         return self.local.connection
     
     def _initialize_database(self):
-        """Create the database schema if it doesn't exist."""
         connection = self._get_connection()
         with connection:
             cursor = connection.cursor()
-            
-            # Create log_entries table
-            cursor.execute('''
-            CREATE TABLE IF NOT EXISTS log_entries (
-                id INTEGER PRIMARY KEY AUTOINCREMENT,
-                timestamp TEXT,
-                function_name TEXT,
-                log_file TEXT,
-                message TEXT,
-                value REAL,
-                label TEXT,
-                side TEXT,
-                fen TEXT,
-                raw_text TEXT UNIQUE,
-                created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
-            )
-            ''')
-            
-            # Create game_results table
+            # Drop old tables if needed (for full rebuild)
+            cursor.execute('DROP TABLE IF EXISTS move_metrics')
+            cursor.execute('DROP TABLE IF EXISTS game_results')
+            cursor.execute('DROP TABLE IF EXISTS config_settings')
+            # Create new game_results table
             cursor.execute('''
             CREATE TABLE IF NOT EXISTS game_results (
                 id INTEGER PRIMARY KEY AUTOINCREMENT,
-                game_id TEXT UNIQUE,
+                game_id TEXT,
                 timestamp TEXT,
                 winner TEXT,
                 game_pgn TEXT,
                 white_player TEXT,
                 black_player TEXT,
                 game_length INTEGER,
-                created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
-                white_ai_type TEXT,   -- Added
-                black_ai_type TEXT,   -- Added
-                white_depth INTEGER,  -- Added
-                black_depth INTEGER   -- Added
-            )
-            ''')
-            
-            # Create config_settings table
-            cursor.execute('''
-            CREATE TABLE IF NOT EXISTS config_settings (
-                id INTEGER PRIMARY KEY AUTOINCREMENT,
-                config_id TEXT UNIQUE,
-                timestamp TEXT,
-                game_id TEXT,
-                config_data TEXT,
-                white_engine TEXT,
-                black_engine TEXT,
-                white_depth INTEGER,
-                black_depth INTEGER,
-                created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
-                white_ai_type TEXT,
-                black_ai_type TEXT
-            )
-            ''')
-            
-            # Create metrics table for computed metrics
-            cursor.execute('''
-            CREATE TABLE IF NOT EXISTS metrics (
-                id INTEGER PRIMARY KEY AUTOINCREMENT,
-                metric_name TEXT,
-                metric_value REAL,
-                side TEXT,
-                function_name TEXT,
-                timestamp TEXT,
-                game_id TEXT,
-                config_id TEXT,
-                created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
-                UNIQUE(metric_name, timestamp, game_id, side)
-            )
-            ''')
-
-            # Create move_metrics table (NEW)
+                created_at TEXT,
+                white_engine_id TEXT,
+                black_engine_id TEXT,
+                white_engine_name TEXT,
+                black_engine_name TEXT,
+                white_engine_version TEXT,
+                black_engine_version TEXT,
+                exclude_white_from_metrics INTEGER,
+                exclude_black_from_metrics INTEGER
+            )''')
+            # Create new move_metrics table
             cursor.execute('''
             CREATE TABLE IF NOT EXISTS move_metrics (
                 id INTEGER PRIMARY KEY AUTOINCREMENT,
@@ -226,21 +171,25 @@ class MetricsStore:
                 nodes_searched INTEGER,
                 time_taken REAL,
                 pv_line TEXT,
-                created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
-                FOREIGN KEY (game_id) REFERENCES game_results (game_id),
-                UNIQUE(game_id, move_number, player_color)
-            )
-            ''')
-            
-            # Create indices for faster queries
-            cursor.execute('CREATE INDEX IF NOT EXISTS idx_log_timestamp ON log_entries(timestamp)')
-            cursor.execute('CREATE INDEX IF NOT EXISTS idx_log_function ON log_entries(function_name)')
-            cursor.execute('CREATE INDEX IF NOT EXISTS idx_log_side ON log_entries(side)')
-            cursor.execute('CREATE INDEX IF NOT EXISTS idx_metrics_name ON metrics(metric_name)')
-            cursor.execute('CREATE INDEX IF NOT EXISTS idx_metrics_side ON metrics(side)')
-            cursor.execute('CREATE INDEX IF NOT EXISTS idx_move_metrics_game_id ON move_metrics(game_id)')
-            cursor.execute('CREATE INDEX IF NOT EXISTS idx_game_results_game_id ON game_results(game_id)')
-            
+                created_at TEXT,
+                engine_id TEXT,
+                engine_name TEXT,
+                engine_version TEXT,
+                exclude_from_metrics INTEGER
+            )''')
+            # Create new config_settings table
+            cursor.execute('''
+            CREATE TABLE IF NOT EXISTS config_settings (
+                id INTEGER PRIMARY KEY AUTOINCREMENT,
+                config_id TEXT,
+                timestamp TEXT,
+                game_id TEXT,
+                config_data TEXT,
+                engine_id TEXT,
+                engine_name TEXT,
+                engine_version TEXT,
+                created_at TEXT
+            )''')
             connection.commit()
         
             # Add missing columns to game_results table for direct config access
@@ -423,12 +372,9 @@ class MetricsStore:
                 config_data = yaml.safe_load(f)
                 
             # Extract key configuration details
-            white_engine = config_data.get('white_ai_config', {}).get('engine', 'unknown')
-            black_engine = config_data.get('black_ai_config', {}).get('engine', 'unknown')
-            white_depth = config_data.get('white_ai_config', {}).get('depth', 0)
-            black_depth = config_data.get('black_ai_config', {}).get('depth', 0)
-            white_ai_type = config_data.get('white_ai_config', {}).get('ai_type', 'unknown')
-            black_ai_type = config_data.get('black_ai_config', {}).get('ai_type', 'unknown')
+            engine_id = hashlib.md5(config_data.get('white_ai_config', {}).get('engine', 'unknown').encode()).hexdigest()
+            engine_name = config_data.get('white_ai_config', {}).get('engine', 'unknown')
+            engine_version = config_data.get('white_ai_config', {}).get('version', 'unknown')
             
             # Match with corresponding game
             game_id = config_id.replace('.yaml', '.pgn')
@@ -444,19 +390,16 @@ class MetricsStore:
                 cursor = connection.cursor()
                 self._execute_with_retry(cursor, '''
                 INSERT OR IGNORE INTO config_settings
-                (config_id, timestamp, game_id, config_data, white_engine, black_engine, white_depth, black_depth, white_ai_type, black_ai_type)
-                VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+                (config_id, timestamp, game_id, config_data, engine_id, engine_name, engine_version)
+                VALUES (?, ?, ?, ?, ?, ?, ?)
                 ''', (
                     config_id,
                     timestamp,
                     game_id,
                     json.dumps(config_data),
-                    white_engine,
-                    black_engine,
-                    white_depth,
-                    black_depth,
-                    white_ai_type,
-                    black_ai_type
+                    engine_id,
+                    engine_name,
+                    engine_version
                 ))
                 connection.commit()
         
@@ -525,19 +468,21 @@ class MetricsStore:
             cursor = connection.cursor()
             try:
                 # Extract AI types and depths from the provided configs
-                white_ai_type = white_ai_config.get('ai_type', 'unknown')
-                black_ai_type = black_ai_config.get('ai_type', 'unknown')
-                white_depth = white_ai_config.get('depth', 0)
-                black_depth = black_ai_config.get('depth', 0)
+                white_engine_id = hashlib.md5(white_ai_config.get('engine', 'unknown').encode()).hexdigest()
+                black_engine_id = hashlib.md5(black_ai_config.get('engine', 'unknown').encode()).hexdigest()
+                white_engine_name = white_ai_config.get('engine', 'unknown')
+                black_engine_name = black_ai_config.get('engine', 'unknown')
+                white_engine_version = white_ai_config.get('version', 'unknown')
+                black_engine_version = black_ai_config.get('version', 'unknown')
 
                 self._execute_with_retry(cursor, '''
                 INSERT OR IGNORE INTO game_results
                 (game_id, timestamp, winner, game_pgn, white_player, black_player, game_length,
-                 white_ai_type, black_ai_type, white_depth, black_depth)
-                VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+                 white_engine_id, black_engine_id, white_engine_name, black_engine_name, white_engine_version, black_engine_version)
+                VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
                 ''', (
                     game_id, timestamp, winner, game_pgn, white_player, black_player, game_length,
-                    white_ai_type, black_ai_type, white_depth, black_depth
+                    white_engine_id, black_engine_id, white_engine_name, black_engine_name, white_engine_version, black_engine_version
                 ))
                 connection.commit()
             except sqlite3.Error as e:
@@ -795,7 +740,81 @@ class MetricsStore:
         """Retrieve AI configuration for the given color. (Placeholder for real config loading)"""
         return {}
 
+    def _hash_engine_config(self, config_dict):
+        # Create a unique hash for an engine config dict
+        config_str = json.dumps(config_dict, sort_keys=True)
+        return hashlib.sha256(config_str.encode('utf-8')).hexdigest()
 
+    def get_engine_id_from_config(self, config_dict):
+        # Helper to get a unique engine_id for a config dict
+        return self._hash_engine_config(config_dict)
+
+    def rebuild_metrics_from_files(self, games_dir="games"):
+        """
+        Rebuild the metrics database from all available PGN, YAML, and log files.
+        This will parse each game's config, PGN, and log, and repopulate the metrics tables.
+        """
+        connection = self._get_connection()
+        with connection:
+            cursor = connection.cursor()
+            # Clear all tables
+            cursor.execute('DELETE FROM move_metrics')
+            cursor.execute('DELETE FROM game_results')
+            cursor.execute('DELETE FROM config_settings')
+            connection.commit()
+
+        # Find all games (assume .pgn, .yaml, .log triplets)
+        pgn_files = glob.glob(os.path.join(games_dir, '*.pgn'))
+        for pgn_file in pgn_files:
+            base = os.path.splitext(pgn_file)[0]
+            yaml_file = base + '.yaml'
+            log_file = base + '.log'
+            # Parse YAML config
+            if not os.path.exists(yaml_file):
+                continue
+            with open(yaml_file, 'r') as f:
+                config_data = yaml.safe_load(f)
+            # Extract engine configs and exclusion flags
+            white_cfg = config_data.get('white_ai_config', {})
+            black_cfg = config_data.get('black_ai_config', {})
+            white_engine = white_cfg.get('engine', 'unknown')
+            black_engine = black_cfg.get('engine', 'unknown')
+            white_exclude = bool(white_cfg.get('exclude_from_metrics', False))
+            black_exclude = bool(black_cfg.get('exclude_from_metrics', False))
+            # Use config hash as engine_id
+            white_engine_id = self._hash_engine_config(white_cfg)
+            black_engine_id = self._hash_engine_config(black_cfg)
+            white_engine_version = white_cfg.get('version', '')
+            black_engine_version = black_cfg.get('version', '')
+            # Store config_settings
+            for color, cfg, eid, ename, ever in [
+                ('white', white_cfg, white_engine_id, white_engine, white_engine_version),
+                ('black', black_cfg, black_engine_id, black_engine, black_engine_version)
+            ]:
+                cursor.execute('''INSERT INTO config_settings (config_id, timestamp, game_id, config_data, engine_id, engine_name, engine_version, created_at)
+                    VALUES (?, ?, ?, ?, ?, ?, ?, ?)''', (
+                    f"{base}_{color}", datetime.now().isoformat(), base, json.dumps(cfg), eid, ename, ever, datetime.now().isoformat()
+                ))
+            # Parse PGN for game result
+            with open(pgn_file, 'r') as f:
+                pgn_text = f.read()
+            # Extract winner, moves, etc. (simplified)
+            winner = None
+            for line in pgn_text.splitlines():
+                if line.startswith('[Result '):
+                    winner = line.split('"')[1]
+                    break
+            # Insert game_results
+            cursor.execute('''INSERT INTO game_results (game_id, timestamp, winner, game_pgn, white_player, black_player, game_length, created_at, white_engine_id, black_engine_id, white_engine_name, black_engine_name, white_engine_version, black_engine_version, exclude_white_from_metrics, exclude_black_from_metrics)
+                VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)''', (
+                base, datetime.now().isoformat(), winner, pgn_text, white_engine, black_engine, 0, datetime.now().isoformat(),
+                white_engine_id, black_engine_id, white_engine, black_engine, white_engine_version, black_engine_version, int(white_exclude), int(black_exclude)
+            ))
+            # TODO: Parse moves and logs for move_metrics (requires move parsing logic)
+            # This is a placeholder for move ingestion
+            # ...
+            connection.commit()
+# ...existing code...
 # Test code (if `if __name__ == "__main__":` block exists, add this inside it)
 if __name__ == "__main__":
     # Test `MetricsStore` enhancements

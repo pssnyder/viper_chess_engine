@@ -1,0 +1,21 @@
+[Event "AI vs. AI Game"]
+[Site "192.168.50.220"]
+[Date "2025.06.10"]
+[Round "#"]
+[White "AI: viper via random (Depth 4)"]
+[Black "AI: Viper via random (Depth 4)"]
+[Result "0-1"]
+[Rated "True"]
+
+1. e4 { Eval: 0.50 } 1... e5 { Eval: 0.00 } 2. Bc4 { Eval: -0.30 } 2... Qh4
+{ Eval: 0.30 } 3. g3 { Eval: 0.50 } 3... Bb4 { Eval: -0.70 } 4. b3
+{ Eval: 1.50 } 4... Ba5 { Eval: -1.30 } 5. c3 { Eval: 1.90 } 5... d6
+{ Eval: -1.50 } 6. Ba3 { Eval: 1.50 } 6... Bxc3 { Eval: -3.30 } 7. b4
+{ Eval: 3.40 } 7... Bb2 { Eval: -3.30 } 8. Qc1 { Eval: 3.40 } 8... g5
+{ Eval: -2.50 } 9. Bb3 { Eval: 2.60 } 9... Bd4 { Eval: -2.70 } 10. Kf1
+{ Eval: 2.50 } 10... Qxh2 { Eval: -4.40 } 11. f4 { Eval: 5.20 } 11... b6
+{ Eval: -4.40 } 12. Be6 { Eval: 4.20 } 12... a6 { Eval: -3.40 } 13. Bb3
+{ Eval: 3.60 } 13... Qf2# { Eval: -3.80 } 0-1
+
+
+0-1

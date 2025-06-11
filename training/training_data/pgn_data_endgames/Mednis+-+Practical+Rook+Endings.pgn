@@ -1,0 +1,870 @@
+[Event "?"]
+[Site "?"]
+[Date "????.??.??"]
+[Round "?"]
+[White "Diagram 1a"]
+[Black "?"]
+[Result "*"]
+[SetUp "1"]
+[FEN "6R1/8/5K2/2k5/1p6/8/8/8 w - - 0 1"]
+[PlyCount "13"]
+[SourceDate "2003.02.18"]
+
+{Rook vs. PawnThe following rules apply to this endgame:  - to win, both the
+rook and the king must be able to cover some square which the pawn must still
+cross.    - to have any drawing chances, the defending king must be at least
+on the fourth rank. Otherwise the rook decisively cuts the king off from
+assisting the further advance of the pawn.    - Generally the pawn should be
+advanced ahead of the king.    - The rook is usually best placed on the 7th or
+8th rank, acting on the rear.} 1. Ke5 {The only correct move. Since Black's
+King is already on the 4th rank, White's rook can't cut it off from assisting
+the pawn. To win White's King must get back torward the b-file as quickly as
+possible.} Kc4 2. Ke4 {Moving as close as possible to the b-pawn and at the
+same restraining the Black king as much as possible.} Kc3 3. Ke3 b3 4. Rc8+ {
+This check on the file is the key method of forcing Black's King to give way
+to White's.} Kb2 5. Kd2 Ka2 6. Rb8 b2 7. Kc2 {and White wins.} *
+
+[Event "?"]
+[Site "?"]
+[Date "????.??.??"]
+[Round "?"]
+[White "Diagram 1b"]
+[Black "?"]
+[Result "1/2-1/2"]
+[SetUp "1"]
+[FEN "6R1/8/5K2/2k5/1p6/8/8/8 b - - 0 1"]
+[PlyCount "9"]
+[SourceDate "2003.02.18"]
+
+1... b3 2. Ke5 Kc4 3. Ke4 b2 4. Rb8 Kc3 5. Ke3 Kc2 {Drawing.} 1/2-1/2
+
+[Event "World Championship 14th"]
+[Site "GER/NLD"]
+[Date "1929.10.27"]
+[Round "19"]
+[White "Alekhine, Alexander"]
+[Black "Bogoljubow, Efim"]
+[Result "1-0"]
+[ECO "D51"]
+[PlyCount "153"]
+[EventDate "1929.09.06"]
+[Source "ChessBase"]
+
+1. d4 Nf6 2. c4 c6 3. Nf3 d5 4. Nc3 e6 5. Bg5 Nbd7 6. e4 dxe4 7. Nxe4 Be7 8.
+Nc3 O-O 9. Qc2 b6 10. O-O-O Bb7 11. h4 Qc7 12. Bd3 Rfe8 13. Kb1 Nf8 14. Bxf6
+Bxf6 15. Ne4 c5 16. Nxf6+ gxf6 17. Qd2 Ng6 18. h5 Nf4 19. Rh4 Bxf3 20. gxf3 e5
+21. d5 Qd6 22. h6 Kh8 23. Qc2 Nxd3 24. Qxd3 Rg8 25. f4 Rg6 26. Qf5 a6 27. Re1
+exf4 28. Rxf4 Rxh6 29. Rfe4 Rg8 30. Re7 Rf8 31. a4 Rh4 32. Re8 Rxe8 33. Rxe8+
+Kg7 34. Qc8 Kh6 35. Rg8 Qe7 36. Ka2 b5 37. Rg3 f5 38. Qxf5 f6 39. Re3 Qf7 40.
+Re6 Kg7 41. Rd6 Qg6 42. Rd7+ Kh6 43. Qxg6+ Kxg6 44. axb5 axb5 45. cxb5 Ra4+ 46.
+Kb3 Rb4+ 47. Kc3 Rxb5 48. Rc7 h5 49. d6 Rb8 50. Rxc5 Rd8 51. Rd5 h4 52. Kc4 Kf7
+53. Kc5 Ke6 54. Rd4 Rc8+ 55. Kb6 Kd7 56. Rxh4 Rc6+ 57. Ka5 Rc2 58. b4 Kxd6 59.
+f3 Rc3 60. f4 Ra3+ 61. Kb6 Ke6 62. Rh5 Rf3 63. f5+ Ke5 64. b5 Kf4 65. Kc6 Kg4
+66. Rh1 Rc3+ 67. Kd5 Kxf5 68. Rb1 Rd3+ 69. Kc6 Rd8 70. b6 Kg4 $2 (70... Ke4 $1
+{Idea is to assist the pawn in advancing, and prevent the opposing King from
+getting close the the pawn.} 71. b7 f5 72. b8=Q Rxb8 73. Rxb8 f4 74. Rb4+ Ke3
+75. Kd5 f3 76. Rb3+ Ke2 {It is imperative that Black's king be kept as active
+as possible.} 77. Ke4 f2 78. Rb2+ Ke1 79. Ke3 f1=N+ {This specific position is
+a theoretical draw. In general, endgames of Rook vs. knight are drawn as long
+as the knight remains near the king. If the king and knight become separated,
+then there is a good chance that the knight can be trapped and get lost.}) 71.
+b7 f5 72. b8=Q Rxb8 73. Rxb8 f4 74. Kd5 f3 75. Ke4 f2 76. Rf8 Kg3 77. Ke3 1-0
+
+[Event "?"]
+[Site "USSR"]
+[Date "1976.??.??"]
+[Round "?"]
+[White "Gutmans"]
+[Black "Tseitlin"]
+[Result "1/2-1/2"]
+[SetUp "1"]
+[FEN "7r/8/7P/6P1/8/1k4K1/8/8 w - - 0 1"]
+[PlyCount "16"]
+[EventDate "1976.??.??"]
+[SourceDate "2003.02.18"]
+
+1. Kf4 Kc4 2. Ke5 Kd3 3. Kf6 Ke4 4. Kg7 Ra8 5. h7 Kf5 6. g6 Kg5 7. h8=Q Rxh8 8.
+Kxh8 Kxg6 1/2-1/2
+
+[Event "?"]
+[Site "?"]
+[Date "????.??.??"]
+[Round "?"]
+[White "Diagram 4"]
+[Black "?"]
+[Result "*"]
+[SetUp "1"]
+[FEN "6K1/4k1P1/8/8/8/5R2/8/7r b - - 0 1"]
+[PlyCount "0"]
+[SourceDate "2003.02.18"]
+
+ *
+
+[Event "?"]
+[Site "?"]
+[Date "????.??.??"]
+[Round "?"]
+[White "Diagram 5a"]
+[Black "?"]
+[Result "*"]
+[SetUp "1"]
+[FEN "6r1/4k3/8/6P1/6K1/8/8/5R2 w - - 0 1"]
+[PlyCount "0"]
+[SourceDate "2003.02.18"]
+
+ *
+
+[Event "?"]
+[Site "?"]
+[Date "????.??.??"]
+[Round "?"]
+[White "Diagram 5b"]
+[Black "?"]
+[Result "*"]
+[SetUp "1"]
+[FEN "6r1/4k3/8/6P1/6K1/8/8/5R2 b - - 0 1"]
+[PlyCount "0"]
+[SourceDate "2003.02.18"]
+
+ *
+
+[Event "?"]
+[Site "?"]
+[Date "????.??.??"]
+[Round "?"]
+[White "Diagram 6"]
+[Black "?"]
+[Result "*"]
+[SetUp "1"]
+[FEN "K7/P3k3/8/8/8/8/1r6/3R4 w - - 0 1"]
+[PlyCount "0"]
+[SourceDate "2003.02.18"]
+
+ *
+
+[Event "?"]
+[Site "?"]
+[Date "????.??.??"]
+[Round "?"]
+[White "Diagram 7"]
+[Black "?"]
+[Result "*"]
+[SetUp "1"]
+[FEN "4k3/7R/r7/4PK2/8/8/8/8 w - - 0 1"]
+[PlyCount "0"]
+[SourceDate "2003.02.18"]
+
+ *
+
+[Event "?"]
+[Site "?"]
+[Date "????.??.??"]
+[Round "?"]
+[White "Diagram 8"]
+[Black "?"]
+[Result "*"]
+[SetUp "1"]
+[FEN "6k1/1R6/7K/6P1/8/8/8/5r2 b - - 0 1"]
+[PlyCount "0"]
+[SourceDate "2003.02.18"]
+
+ *
+
+[Event "?"]
+[Site "?"]
+[Date "????.??.??"]
+[Round "?"]
+[White "Diagram 9"]
+[Black "?"]
+[Result "*"]
+[SetUp "1"]
+[FEN "5k2/1R6/6K1/5P2/8/8/r7/8 b - - 0 1"]
+[PlyCount "0"]
+[SourceDate "2003.02.18"]
+
+ *
+
+[Event "?"]
+[Site "Cleveland"]
+[Date "1975.??.??"]
+[Round "?"]
+[White "Mednis"]
+[Black "Weinberger"]
+[Result "*"]
+[SetUp "1"]
+[FEN "8/2k3R1/r1b5/3B4/3KP3/8/8/8 b - - 0 1"]
+[PlyCount "0"]
+[SourceDate "2003.02.18"]
+
+ *
+
+[Event "?"]
+[Site "?"]
+[Date "????.??.??"]
+[Round "?"]
+[White "Diagram 11a"]
+[Black "?"]
+[Result "*"]
+[SetUp "1"]
+[FEN "1r6/8/5k2/8/1P6/1K6/8/3R4 w - - 0 1"]
+[PlyCount "0"]
+[SourceDate "2003.02.18"]
+
+ *
+
+[Event "?"]
+[Site "?"]
+[Date "????.??.??"]
+[Round "?"]
+[White "Diagram 11b"]
+[Black "?"]
+[Result "*"]
+[SetUp "1"]
+[FEN "1r6/8/5k2/8/1P6/1K6/8/3R4 b - - 0 1"]
+[PlyCount "0"]
+[SourceDate "2003.02.18"]
+
+ *
+
+[Event "?"]
+[Site "?"]
+[Date "????.??.??"]
+[Round "?"]
+[White "Diagram 12"]
+[Black "?"]
+[Result "*"]
+[SetUp "1"]
+[FEN "2R5/2P3k1/8/8/8/8/6K1/2r5 w - - 0 1"]
+[PlyCount "0"]
+[SourceDate "2003.02.18"]
+
+ *
+
+[Event "Belgrade m"]
+[Site "Belgrade"]
+[Date "1979.??.??"]
+[Round "9"]
+[White "Ljubojevic, Ljubomir"]
+[Black "Gligoric, Svetozar"]
+[Result "1-0"]
+[ECO "D34"]
+[WhiteElo "2590"]
+[BlackElo "2560"]
+[PlyCount "137"]
+[EventDate "1979.03.??"]
+[Source "ChessBase"]
+
+1. c4 c5 2. Nf3 Nf6 3. Nc3 e6 4. g3 d5 5. cxd5 exd5 6. d4 Nc6 7. Bg2 Be7 8. O-O
+O-O 9. Bg5 cxd4 10. Nxd4 h6 11. Bf4 Bg4 12. Qa4 Qd7 13. Rfd1 Rfd8 14. Ndb5 d4
+15. Bxc6 Qxc6 16. Nxd4 Qxa4 17. Nxa4 Nd5 18. f3 Bd7 19. Nc3 Nxc3 20. bxc3 Rac8
+21. Rd3 Bf6 22. Rad1 Ba4 23. R1d2 Rd5 24. Be3 b6 25. Rb2 Ra5 26. Kf2 Be8 27. h4
+h5 28. Ke1 Be7 29. Bd2 f6 30. Nb3 Ra4 31. Rd4 Rac4 32. Rxc4 Rxc4 33. e4 Bf7 34.
+Kd1 Ra4 35. Ke1 Rc4 36. Kf2 Kf8 37. Rc2 Ke8 38. Be3 Kd7 39. Bd4 Ra4 40. Ke3 Kc6
+41. g4 hxg4 42. fxg4 Be6 43. Rg2 Kd7 44. g5 fxg5 45. hxg5 Bh3 46. Rg3 Be6 47.
+Rg2 Bh3 48. Rg3 Be6 49. Bxg7 Rxa2 50. Nd4 Bc5 51. Kd3 Bg8 52. Nf5 a5 53. Bd4 a4
+54. Bxc5 bxc5 55. Ne3 a3 56. Rg1 Rb2 57. Nc4 Bxc4+ 58. Kxc4 a2 59. Ra1 Kc6 60.
+g6 Re2 61. Kb3 Rxe4 62. Rxa2 Rg4 63. Ra4 Rg1 64. Ra8 Kd5 65. Rd8+ Kc6 66. Rg8
+Rg4 67. g7 Kb7 68. c4 Rg2 69. Kc3 1-0
+
+[Event "?"]
+[Site "London"]
+[Date "1883.??.??"]
+[Round "?"]
+[White "Zukertort"]
+[Black "Steinitz"]
+[Result "1-0"]
+[SetUp "1"]
+[FEN "8/7k/7P/6PK/7R/8/8/6r1 w - - 0 1"]
+[PlyCount "27"]
+[SourceDate "2003.02.18"]
+
+1. Rh2 Rg3 2. Re2 Rh3+ 3. Kg4 Ra3 4. Re7+ Kg8 5. g6 Ra4+ 6. Kf5 Ra5+ 7. Re5 Ra8
+8. Kf6 Ra6+ 9. Re6 Ra8 10. Rd6 Re8 11. Rd5 Ra8 12. Ke7 Ra7+ 13. Rd7 Ra8 14.
+Rd8+ 1-0
+
+[Event "Madonna di Campiglio"]
+[Site "Madonna di Campiglio"]
+[Date "1974.??.??"]
+[Round "3"]
+[White "Mednis, Edmar John"]
+[Black "Toth, Bela"]
+[Result "1-0"]
+[ECO "B06"]
+[WhiteElo "2430"]
+[BlackElo "2390"]
+[PlyCount "111"]
+[EventDate "1974.??.??"]
+[Source "ChessBase"]
+[SourceDate "1999.11.16"]
+
+1. e4 d6 2. d4 g6 3. Nf3 Bg7 4. c3 Nd7 5. Bc4 Nb6 6. Bb3 Nf6 7. Qe2 O-O 8. O-O
+a5 9. e5 Nfd5 10. a3 a4 11. Ba2 c6 12. Qe4 Bf5 13. Qh4 Bd3 14. Re1 Bc4 15. Bxc4
+Nxc4 16. Ng5 h6 17. Nf3 e6 18. Qh3 h5 19. Nbd2 Nxd2 20. Bxd2 Ne7 21. Bg5 Qc7
+22. Qh4 Nf5 23. Qf4 Rae8 24. h3 dxe5 25. dxe5 f6 26. exf6 Qxf4 27. Bxf4 Bxf6
+28. Re4 e5 29. Bxe5 Bxe5 30. Rxe5 Nh4 31. Nxh4 Rxe5 32. Nxg6 Re2 33. Nxf8 Kxf8
+34. Rb1 Rc2 35. b3 axb3 36. Rxb3 b5 37. g4 hxg4 38. hxg4 Ke7 39. Kg2 Kd6 40. a4
+bxa4 41. Ra3 c5 42. Kg3 c4 43. f4 Ke6 44. Kh4 Kf6 45. Rxa4 Rxc3 46. Ra6+ Ke7
+47. Kg5 Rc1 48. f5 c3 49. Rc6 c2 50. Kg6 Rg1 51. f6+ Kd7 52. Rxc2 Rxg4+ 53. Kf7
+Kd6 54. Re2 Ra4 55. Kg7 Rg4+ 56. Kf8 1-0
+
+[Event "FRG-ch int"]
+[Site "Mannheim"]
+[Date "1975.??.??"]
+[Round "8"]
+[White "Ostermeyer, Peter"]
+[Black "Dueball, Juergen"]
+[Result "1/2-1/2"]
+[ECO "B31"]
+[WhiteElo "2200"]
+[BlackElo "2455"]
+[PlyCount "119"]
+[EventDate "1975.??.??"]
+[Source "ChessBase"]
+
+1. e4 c5 2. Nf3 Nc6 3. Bb5 g6 4. Bxc6 bxc6 5. d3 Bg7 6. O-O d6 7. Qe2 e5 8.
+Nbd2 Nf6 9. a3 O-O 10. b4 cxb4 11. axb4 Nh5 12. Nc4 Nf4 13. Bxf4 exf4 14. d4
+Re8 15. Ncd2 c5 16. c3 cxb4 17. cxb4 Bb7 18. Qd3 a6 19. Ra3 d5 20. e5 Bf8 21.
+Rb1 Bc8 22. Qf1 Qb6 23. Rab3 Bd7 24. R1b2 Rec8 25. h3 Ra7 26. Qa1 Rac7 27. Kh2
+Bb5 28. Qa5 Qc6 29. Rb1 Be7 30. Ne1 Qe6 31. Nd3 Rc2 32. Nxf4 Qf5 33. Nxd5 Bd8
+34. Qxd8+ Rxd8 35. Ne7+ Kf8 36. Nxf5 Rxd2 37. Nd6 Rxd4 38. Rc1 f6 39. Nxb5 axb5
+40. exf6 Kf7 41. Rc7+ R8d7 42. Rbc3 Rxc7 43. Rxc7+ Kxf6 44. Rxh7 g5 45. g4 Rxb4
+46. Kg3 Kg6 47. Rh5 Rb1 48. h4 gxh4+ 49. Rxh4 Rg1+ 50. Kf4 b4 51. Rh5 Rc1 52.
+Rb5 Rc4+ 53. Kg3 Rc3+ 54. Kg2 b3 55. f4 Kf6 56. Rb6+ Kf7 57. g5 Kg7 58. f5 Rc5
+59. Rb7+ Kg8 60. Rb8+ 1/2-1/2
+
+[Event "?"]
+[Site "Orense"]
+[Date "1973.??.??"]
+[Round "?"]
+[White "Ciocaltea"]
+[Black "Mednis"]
+[Result "1-0"]
+[SetUp "1"]
+[FEN "8/6k1/8/2PR4/8/2r4P/6K1/8 w - - 0 1"]
+[PlyCount "19"]
+[SourceDate "2003.02.18"]
+
+1. h4 Kf6 2. h5 Ke6 3. Rg5 Kf6 4. Rg6+ Kf5 5. c6 Rc2+ 6. Kf3 Rc3+ 7. Ke2 Ra3 8.
+c7 Rc3 9. Rg7 Kf6 10. h6 1-0
+
+[Event "?"]
+[Site "Orense"]
+[Date "????.??.??"]
+[Round "?"]
+[White "Diagram 18"]
+[Black "?"]
+[Result "*"]
+[SetUp "1"]
+[FEN "8/6kp/8/8/1P6/8/6KP/8 w - - 0 1"]
+[PlyCount "0"]
+[SourceDate "2003.02.18"]
+
+ *
+
+[Event "World Championship 28th"]
+[Site "Reykjavik"]
+[Date "1972.08.20"]
+[Round "16"]
+[White "Fischer, Robert James"]
+[Black "Spassky, Boris V"]
+[Result "1/2-1/2"]
+[ECO "C69"]
+[WhiteElo "2785"]
+[BlackElo "2660"]
+[PlyCount "120"]
+[EventDate "1972.07.11"]
+[Source "ChessBase"]
+
+1. e4 e5 2. Nf3 Nc6 3. Bb5 a6 4. Bxc6 dxc6 5. O-O f6 6. d4 Bg4 7. dxe5 Qxd1 8.
+Rxd1 fxe5 9. Rd3 Bd6 10. Nbd2 Nf6 11. Nc4 Nxe4 12. Ncxe5 Bxf3 13. Nxf3 O-O 14.
+Be3 b5 15. c4 Rab8 16. Rc1 bxc4 17. Rd4 Rfe8 18. Nd2 Nxd2 19. Rxd2 Re4 20. g3
+Be5 21. Rcc2 Kf7 22. Kg2 Rxb2 23. Kf3 c3 24. Kxe4 cxd2 25. Rxd2 Rb5 26. Rc2 Bd6
+27. Rxc6 Ra5 28. Bf4 Ra4+ 29. Kf3 Ra3+ 30. Ke4 Rxa2 31. Bxd6 cxd6 32. Rxd6 Rxf2
+33. Rxa6 Rxh2 34. Kf3 Rd2 35. Ra7+ Kf6 36. Ra6+ Ke7 37. Ra7+ Rd7 38. Ra2 Ke6
+39. Kg2 Re7 40. Kh3 Kf6 41. Ra6+ Re6 42. Ra5 h6 43. Ra2 Kf5 44. Rf2+ Kg5 45.
+Rf7 g6 46. Rf4 h5 47. Rf3 Rf6 48. Ra3 Re6 49. Rf3 Re4 50. Ra3 Kh6 51. Ra6 Re5
+52. Kh4 Re4+ 53. Kh3 Re7 54. Kh4 Re5 55. Rb6 Kg7 56. Rb4 Kh6 57. Rb6 Re1 58.
+Kh3 Rh1+ 59. Kg2 Ra1 60. Kh3 Ra4 1/2-1/2
+
+[Event "Rio de Janeiro Interzonal"]
+[Site "Rio de Janeiro"]
+[Date "1979.??.??"]
+[Round "1"]
+[White "Harandi, Khosro"]
+[Black "Vaganian, Rafael A"]
+[Result "0-1"]
+[ECO "C16"]
+[WhiteElo "2410"]
+[BlackElo "2570"]
+[PlyCount "122"]
+[EventDate "1979.09.??"]
+[Source "ChessBase"]
+
+1. e4 e6 2. d4 d5 3. Nc3 Bb4 4. e5 Ne7 5. Bd2 b6 6. Nf3 Qd7 7. a3 Bxc3 8. Bxc3
+a5 9. a4 Nf5 10. Bd3 Ba6 11. O-O Bxd3 12. Qxd3 h5 13. Bd2 c5 14. dxc5 bxc5 15.
+Qb5 c4 16. Bxa5 Nc6 17. Bb6 O-O 18. Qc5 Rfc8 19. Qa3 d4 20. Rfe1 Qd5 21. Qc5
+Qxc5 22. Bxc5 Rcb8 23. Reb1 Ra5 24. Bd6 Nxd6 25. exd6 Rd5 26. Nd2 Na5 27. b4
+cxb3 28. Nxb3 d3 29. Rc1 Nxb3 30. cxb3 Rxb3 31. a5 Rb8 32. a6 Rxd6 33. a7 Ra8
+34. Rcb1 Kh7 35. Kf1 Rd7 36. Rd1 e5 37. f3 h4 38. Ra3 Rdxa7 39. Raxd3 Ra2 40.
+Re3 f6 41. Rde1 Kg6 42. R3e2 Kf5 43. Kg1 Rxe2 44. Rxe2 Ra1+ 45. Kf2 g5 46. Rb2
+g4 47. fxg4+ Kxg4 48. Rb6 Ra2+ 49. Kg1 f5 50. Rg6+ Kf4 51. Rh6 Ke3 52. h3 e4
+53. Rxh4 f4 54. Rh8 Ra1+ 55. Kh2 Kf2 56. Rf8 f3 57. h4 Rg1 58. gxf3 Rg2+ 59.
+Kh1 e3 60. Re8 Rg3 61. Kh2 Rxf3 0-1
+
+[Event "World Championship 13th"]
+[Site "Buenos Aires"]
+[Date "1927.11.26"]
+[Round "34"]
+[White "Alekhine, Alexander"]
+[Black "Capablanca, Jose Raul"]
+[Result "1-0"]
+[ECO "D51"]
+[PlyCount "163"]
+[EventDate "1927.09.16"]
+[Source "ChessBase"]
+
+1. d4 d5 2. c4 e6 3. Nc3 Nf6 4. Bg5 Nbd7 5. e3 c6 6. a3 Be7 7. Nf3 O-O 8. Bd3
+dxc4 9. Bxc4 Nd5 10. Bxe7 Qxe7 11. Ne4 N5f6 12. Ng3 c5 13. O-O Nb6 14. Ba2 cxd4
+15. Nxd4 g6 16. Rc1 Bd7 17. Qe2 Rac8 18. e4 e5 19. Nf3 Kg7 20. h3 h6 21. Qd2
+Be6 22. Bxe6 Qxe6 23. Qa5 Nc4 24. Qxa7 Nxb2 25. Rxc8 Rxc8 26. Qxb7 Nc4 27. Qb4
+Ra8 28. Ra1 Qc6 29. a4 Nxe4 30. Nxe5 Qd6 31. Qxc4 Qxe5 32. Re1 Nd6 33. Qc1 Qf6
+34. Ne4 Nxe4 35. Rxe4 Rb8 36. Re2 Ra8 37. Ra2 Ra5 38. Qc7 Qa6 39. Qc3+ Kh7 40.
+Rd2 Qb6 41. Rd7 Qb1+ 42. Kh2 Qb8+ 43. g3 Rf5 44. Qd4 Qe8 45. Rd5 Rf3 46. h4 Qh8
+47. Qb6 Qa1 48. Kg2 Rf6 49. Qd4 Qxd4 50. Rxd4 Kg7 51. a5 Ra6 52. Rd5 Rf6 53.
+Rd4 Ra6 54. Ra4 Kf6 55. Kf3 Ke5 56. Ke3 h5 57. Kd3 Kd5 58. Kc3 Kc5 59. Ra2 Kb5
+60. Kb3 Kc5 61. Kc3 Kb5 62. Kd4 Rd6+ 63. Ke5 Re6+ 64. Kf4 Ka6 65. Kg5 Re5+ 66.
+Kh6 Rf5 67. f4 Rc5 68. Ra3 Rc7 69. Kg7 Rd7 70. f5 gxf5 71. Kh6 f4 72. gxf4 Rd5
+73. Kg7 Rf5 74. Ra4 Kb5 75. Re4 Ka6 76. Kh6 Rxa5 77. Re5 Ra1 78. Kxh5 Rg1 79.
+Rg5 Rh1 80. Rf5 Kb6 81. Rxf7 Kc6 82. Re7 1-0
+
+[Event "?"]
+[Site "Orense"]
+[Date "????.??.??"]
+[Round "?"]
+[White "Diagram 22"]
+[Black "?"]
+[Result "*"]
+[SetUp "1"]
+[FEN "R7/5pkp/P5p1/8/8/6P1/r4PKP/8 w - - 0 1"]
+[PlyCount "0"]
+[SourceDate "2003.02.18"]
+
+ *
+
+[Event "?"]
+[Site "?"]
+[Date "1886.??.??"]
+[Round "?"]
+[White "St. Petersburg"]
+[Black "London"]
+[Result "1/2-1/2"]
+[SetUp "1"]
+[FEN "8/4k3/r4pp1/pR6/P4KP1/5P2/8/8 b - - 0 1"]
+[PlyCount "17"]
+[SourceDate "2003.02.18"]
+
+1... Rc6 2. Rxa5 Rc4+ 3. Ke3 Kf7 4. Ra8 Kg7 5. a5 Ra4 6. a6 Kh6 7. f4 g5 8.
+fxg5+ fxg5 9. Kd3 Kg7 1/2-1/2
+
+[Event "Budapest playoff"]
+[Site "Budapest"]
+[Date "1979.??.??"]
+[Round "3"]
+[White "Ribli, Zoltan"]
+[Black "Adorjan, Andras"]
+[Result "1-0"]
+[ECO "D32"]
+[WhiteElo "2595"]
+[BlackElo "2525"]
+[PlyCount "123"]
+[EventDate "1979.10.??"]
+[Source "ChessBase"]
+
+1. c4 c5 2. Nf3 Nf6 3. Nc3 e6 4. e3 Nc6 5. d4 d5 6. cxd5 exd5 7. Bb5 Bd6 8.
+dxc5 Bxc5 9. O-O O-O 10. b3 Bg4 11. Bb2 Rc8 12. Rc1 Qd6 13. Be2 a6 14. h3 Bxf3
+15. Bxf3 Rfd8 16. Qc2 Ba3 17. Rfd1 Bxb2 18. Qxb2 Qe5 19. Qd2 Ne7 20. Nxd5 Nexd5
+21. Rxc8 Rxc8 22. Bxd5 Nxd5 23. Qxd5 Qxd5 24. Rxd5 Kf8 25. Rd2 Rc1+ 26. Kh2 h5
+27. Kg3 Ke7 28. Kf4 b5 29. Ke5 f6+ 30. Kf5 Rc5+ 31. Ke4 g6 32. Kd3 Rc1 33. Rc2
+Rd1+ 34. Kc3 a5 35. Rd2 Rc1+ 36. Kb2 Rg1 37. g3 Ke6 38. Kc3 Ke5 39. Kd3 Rh1 40.
+Rc2 Kd5 41. e4+ Kd6 42. h4 Re1 43. Kd4 Rd1+ 44. Ke3 Ra1 45. Kf4 Ke6 46. f3 Kd6
+47. Rg2 Ke6 48. Rd2 b4 49. Rc2 Kd6 50. Rg2 Rd1 51. g4 Rh1 52. gxh5 Rxh4+ 53.
+Rg4 Rxh5 54. Rxg6 Ke6 55. Rg2 Rh4+ 56. Ke3 Rh1 57. Rc2 Re1+ 58. Kf4 Ra1 59. Rh2
+Kf7 60. Kf5 Rc1 61. Rh7+ Kg8 62. Ra7 1-0
+
+[Event "Cleveland"]
+[Site "Cleveland"]
+[Date "1975.??.??"]
+[Round "?"]
+[White "Csom, Istvan"]
+[Black "Zuckerman, Bernard"]
+[Result "1-0"]
+[ECO "A35"]
+[PlyCount "109"]
+[EventDate "1975.??.??"]
+[Source "ChessBase"]
+[SourceDate "1998.11.10"]
+
+1. Nf3 Nf6 2. g3 g6 3. Bg2 Bg7 4. c4 c5 5. Nc3 Nc6 6. d4 cxd4 7. Nxd4 O-O 8.
+Nc2 d6 9. O-O Be6 10. Ne3 Qd7 11. Re1 Rac8 12. Bd2 Nd4 13. Ncd5 Bxd5 14. cxd5
+Bh6 15. Rc1 Qb5 16. Bc3 Bxe3 17. fxe3 Nf5 18. Qd3 Qc5 19. Bh3 Qxd5 20. Bxf6
+Qxd3 21. exd3 Rxc1 22. Rxc1 exf6 23. Bxf5 gxf5 24. Rc7 Rb8 25. Kf2 a5 26. Kf3
+Kg7 27. Rd7 b5 28. Rxd6 Rc8 29. Rd5 Rc2 30. Rxb5 a4 31. Ra5 Rxb2 32. Rxa4 Rxh2
+33. Ra8 h5 34. a4 h4 35. gxh4 Rh3+ 36. Kf4 Kg6 37. Rh8 Kg7 38. Ra8 Kg6 39. a5
+Rxh4+ 40. Kf3 Rh3+ 41. Kf4 Rh4+ 42. Kf3 Rh3+ 43. Kg2 Rxe3 44. a6 Re2+ 45. Kf3
+Ra2 46. a7 Kg7 47. d4 Ra3+ 48. Kf4 Ra4 49. Kxf5 Ra5+ 50. Kf4 Ra4 51. Ke4 Ra5
+52. d5 f5+ 53. Ke5 Kh7 54. Kf4 Rxd5 55. Rh8+ 1-0
+
+[Event "USA-ch"]
+[Site "New York"]
+[Date "1962.12.17"]
+[Round "2"]
+[White "Bisguier, Arthur Bernard"]
+[Black "Mednis, Edmar John"]
+[Result "1-0"]
+[ECO "B73"]
+[PlyCount "117"]
+[EventDate "1962.12.16"]
+[Source "ChessBase"]
+
+1. e4 c5 2. Nf3 Nc6 3. d4 cxd4 4. Nxd4 Nf6 5. Nc3 d6 6. Be2 g6 7. O-O Bg7 8.
+Be3 O-O 9. Qd2 Bd7 10. f4 Re8 11. Nb3 Bg4 12. Bc4 Bd7 13. h3 Na5 14. Be2 Bc6
+15. Nxa5 Qxa5 16. Bf3 Nd7 17. Bd4 e5 18. fxe5 Nxe5 19. Be2 Bd7 20. Rad1 Be6 21.
+Nb5 Qxd2 22. Rxd2 Red8 23. Nc7 Rac8 24. Nxe6 fxe6 25. c3 Nc4 26. Bxc4 Rxc4 27.
+Bxg7 Kxg7 28. e5 d5 29. Rf6 Re8 30. Rd4 Rc7 31. Ra4 b6 32. Kf2 Rf8 33. Rxf8
+Kxf8 34. Ke3 Rf7 35. Ra6 Kg7 36. g4 Kh6 37. h4 Re7 38. a4 Kg7 39. a5 bxa5 40.
+Rxa5 Rb7 41. Kd4 Rxb2 42. Rxa7+ Kg8 43. Kc5 Rb3 44. Kd6 Rxc3 45. Kxe6 d4 46.
+Rd7 Rc8 47. Rxd4 Re8+ 48. Kf6 Rf8+ 49. Ke7 Rf7+ 50. Kd8 Ra7 51. e6 Ra8+ 52. Ke7
+Kg7 53. g5 Ra6 54. Rd8 Ra7+ 55. Kd6 Ra6+ 56. Ke7 Ra7+ 57. Ke8 Ra6 58. e7 Ra7
+59. Rc8 1-0
+
+[Event "?"]
+[Site "New York"]
+[Date "1972.??.??"]
+[Round "?"]
+[White "Mednis"]
+[Black "Matera"]
+[Result "1-0"]
+[SetUp "1"]
+[FEN "5k2/1p1r2p1/pR2p2p/2p1P3/8/P1P3P1/1P4KP/8 w - - 0 1"]
+[PlyCount "59"]
+[SourceDate "2003.02.18"]
+
+1. Kf3 Kf7 2. Ke4 Ke7 3. h3 Kf7 4. Kf4 Ke7 5. Ke4 Kf7 6. Kf4 Ke7 7. h4 Kf7 8.
+Ke4 Ke7 9. Kf4 Kf7 10. h5 Ke7 11. Ke4 Kf7 12. Kf4 Ke7 13. g4 Kf7 14. g5 Ke7 15.
+g6 Rc7 16. Ke3 Rd7 17. Ke4 Rc7 18. Kd3 Rd7+ 19. Kc4 Rc7 20. a4 Kd7 21. a5 Ke7
+22. Rd6 Rc8 23. Rb6 Rc7 24. b4 cxb4+ 25. Kxb4 Rd7 26. c4 Rc7 27. c5 Kd7 28. c6+
+bxc6 29. Kc5 Ra7 30. Rb8 1-0
+
+[Event "Marshall CC"]
+[Site "New York"]
+[Date "1977.??.??"]
+[Round "?"]
+[White "Zuckerman, Bernard"]
+[Black "Mednis, Edmar John"]
+[Result "1/2-1/2"]
+[ECO "D27"]
+[WhiteElo "2450"]
+[BlackElo "2430"]
+[PlyCount "120"]
+[EventDate "1977.01.??"]
+[Source "ChessBase"]
+[SourceDate "1997.11.17"]
+
+1. d4 d5 2. c4 c6 3. Nc3 Nf6 4. e3 e6 5. Nf3 Nbd7 6. Bd3 dxc4 7. Bxc4 b5 8. Bd3
+Bb7 9. O-O a6 10. Qe2 c5 11. Rd1 Qb8 12. d5 Nxd5 13. Nxd5 c4 14. Bxc4 bxc4 15.
+Nc3 Qc7 16. e4 Bc5 17. Be3 Bxe3 18. Qxe3 O-O 19. Rd2 Rab8 20. Rad1 Nf6 21. Qd4
+Rfc8 22. Ne5 h6 23. Nd7 Nxd7 24. Qxd7 Qxd7 25. Rxd7 Bc6 26. R7d2 Kf8 27. f3 Ke7
+28. Kf2 Rb4 29. Rc1 Rcb8 30. Rcc2 Ba4 31. Nxa4 Rxa4 32. a3 Rb3 33. Rd4 c3 34.
+Rxa4 cxb2 35. Rxb2 Rxb2+ 36. Kg3 Rb6 37. h4 h5 38. Kf4 Kd6 39. Ra5 g6 40. g4
+hxg4 41. fxg4 f6 42. e5+ fxe5+ 43. Rxe5 Rc6 44. Ra5 Ke7 45. Kg5 Kf7 46. h5 gxh5
+47. Kxh5 Kf6 48. g5+ Kg7 49. Re5 Kh7 50. Re3 Kg7 51. Rb3 e5 52. Rb7+ Kf8 53. g6
+Rc1 54. Ra7 e4 55. Rxa6 e3 56. Rf6+ Kg7 57. Rf7+ Kg8 58. Re7 Re1 59. Kg4 e2 60.
+Kf3 Ra1 1/2-1/2
+
+[Event "Candidates final"]
+[Site "Moscow"]
+[Date "1974.??.??"]
+[Round "11"]
+[White "Kortschnoj, Viktor"]
+[Black "Karpov, Anatoly"]
+[Result "1/2-1/2"]
+[ECO "E17"]
+[WhiteElo "2670"]
+[BlackElo "2700"]
+[PlyCount "161"]
+[EventDate "1974.09.16"]
+[Source "ChessBase"]
+
+1. d4 Nf6 2. Nf3 e6 3. g3 b6 4. Bg2 Bb7 5. c4 Be7 6. Nc3 O-O 7. Qd3 d5 8. cxd5
+Nxd5 9. Nxd5 exd5 10. O-O Nd7 11. Bf4 c5 12. dxc5 bxc5 13. Rfd1 Nf6 14. Qc2 Qb6
+15. Nd2 Rfe8 16. Qb3 Qa6 17. e3 Bc6 18. Qc2 Ba4 19. b3 Bc6 20. Rac1 Bf8 21. Nf3
+Bb7 22. Be5 Ne4 23. Ba1 Rad8 24. Ne5 Qb6 25. Bxe4 dxe4 26. Qc4 Qc7 27. b4 Rxd1+
+28. Rxd1 Bc8 29. bxc5 Be6 30. Qa4 Rc8 31. Bd4 f6 32. Qa6 Bd5 33. Nc4 Qc6 34.
+Qxc6 Rxc6 35. Rc1 Kf7 36. a3 Ra6 37. Rc3 Ke6 38. Nd2 Kd7 39. f3 exf3 40. Kf2
+Ra5 41. e4 Bc6 42. Kxf3 Ke6 43. Ke3 Ra4 44. Rb3 g6 45. Kd3 a6 46. Be3 Bb5+ 47.
+Kc2 f5 48. exf5+ gxf5 49. Bf2 Bg7 50. Re3+ Kd7 51. Rf3 Ke6 52. Re3+ Kd7 53. Rf3
+Ke6 54. Kb3 h5 55. Re3+ Kd7 56. Nf3 Bf6 57. Re1 f4 58. Ne5+ Kc8 59. Nf7 fxg3
+60. Nd6+ Kd7 61. hxg3 Rg4 62. Nxb5 axb5 63. Rh1 Kc6 64. Rxh5 Bd4 65. Bxd4 Rxd4
+66. Rg5 Re4 67. g4 Ra4 68. Kb2 Rf4 69. Kc2 Rf3 70. Kb2 Rf2+ 71. Kc3 Rf3+ 72.
+Kd4 Rf4+ 73. Ke5 Ra4 74. Rg8 Rxa3 75. g5 Kxc5 76. g6 Rg3 77. Rc8+ Kb4 78. Kf6
+Rf3+ 79. Ke6 Rg3 80. Kf7 Ka3 81. g7 1/2-1/2
+
+[Event "USA-ch"]
+[Site "Oberlin"]
+[Date "1975.??.??"]
+[Round "11"]
+[White "Lombardy, William James"]
+[Black "Rogoff, Kenneth"]
+[Result "1-0"]
+[ECO "B10"]
+[WhiteElo "2520"]
+[BlackElo "2445"]
+[PlyCount "79"]
+[EventDate "1975.??.??"]
+[Source "ChessBase"]
+
+1. e4 c6 2. d3 d5 3. Nd2 e5 4. Ngf3 Bd6 5. g3 Nf6 6. Bg2 O-O 7. O-O Nbd7 8.
+exd5 cxd5 9. c4 Nc5 10. cxd5 Nxd3 11. Ng5 Bg4 12. Bf3 Bxf3 13. Qxf3 Nxc1 14.
+Raxc1 Be7 15. Nde4 Nxe4 16. Nxe4 f5 17. Nc5 Bxc5 18. Rxc5 Rc8 19. Rxc8 Qxc8 20.
+d6 e4 21. Qb3+ Kh8 22. Qd5 Rd8 23. g4 Qd7 24. Rc1 f4 25. Qxe4 Qxg4+ 26. Qg2 h5
+27. Qxg4 hxg4 28. Rd1 Kh7 29. Kg2 g5 30. h3 gxh3+ 31. Kxh3 Rd7 32. Kg4 Kg6 33.
+Rd5 Kf6 34. Rd1 Ke5 35. Kxg5 Rg7+ 36. Kh6 Rd7 37. Kg6 a5 38. Re1+ Kd5 39. Kf5
+Rf7+ 40. Kg6 1-0
+
+[Event "Candidates qf2"]
+[Site "Palma de Mallorca"]
+[Date "1974.??.??"]
+[Round "12"]
+[White "Portisch, Lajos"]
+[Black "Petrosian, Tigran V"]
+[Result "1-0"]
+[ECO "D13"]
+[WhiteElo "2645"]
+[BlackElo "2640"]
+[PlyCount "131"]
+[EventDate "1974.??.??"]
+[Source "ChessBase"]
+
+1. d4 d5 2. c4 c6 3. Nc3 Nf6 4. cxd5 cxd5 5. Bf4 e6 6. e3 Be7 7. Bd3 Nc6 8. h3
+O-O 9. Nf3 Bd7 10. O-O Qb6 11. a3 Na5 12. b4 Nc4 13. Ne5 Rac8 14. Bxc4 dxc4 15.
+Bg5 Qd8 16. Qf3 Bc6 17. Nxc6 Rxc6 18. Rad1 Nd5 19. Bxe7 Nxe7 20. e4 a6 21. d5
+exd5 22. exd5 Rd6 23. Rd2 Qc7 24. Qg3 Qd7 25. Kh1 Nc8 26. Ne4 Rg6 27. Qf4 Nd6
+28. Nxd6 c3 29. Rd3 Rxd6 30. Rxc3 Rxd5 31. Rc7 Qb5 32. Re1 g6 33. Kg1 a5 34.
+Ree7 Rf5 35. Qd4 b6 36. Rb7 axb4 37. Rxb6 Qd5 38. Qxd5 Rxd5 39. axb4 h5 40. h4
+Kg7 41. g3 Ra8 42. Rbb7 Rf5 43. Re2 Ra1+ 44. Kg2 Rb1 45. Re3 Rb2 46. Rf3 Rxf3
+47. Kxf3 Kh6 48. Ke3 f6 49. Rb6 Kg7 50. Rb7+ Kh6 51. Rb8 g5 52. b5 gxh4 53.
+gxh4 Kg6 54. b6 Kf5 55. Kd4 Rxf2 56. Ra8 Rb2 57. Kc5 Rc2+ 58. Kd4 Rb2 59. Ra5+
+Ke6 60. Kc5 Rc2+ 61. Kb5 Kd6 62. Ka6 Kc6 63. Ra1 Rc4 64. b7 Rb4 65. Rc1+ Kd7
+66. Rc8 1-0
+
+[Event "?"]
+[Site "New York"]
+[Date "????.??.??"]
+[Round "?"]
+[White "Diagram 33"]
+[Black "?"]
+[Result "*"]
+[SetUp "1"]
+[FEN "2R5/3R1pk1/4p1p1/4P3/5P2/7p/1r3r1P/2K5 w - - 0 1"]
+[PlyCount "0"]
+[SourceDate "2003.02.18"]
+
+ *
+
+[Event "Biel"]
+[Site "Biel"]
+[Date "1979.??.??"]
+[Round "?"]
+[White "Sahovic, Dragutin"]
+[Black "Kortschnoj, Viktor"]
+[Result "0-1"]
+[ECO "C08"]
+[WhiteElo "2520"]
+[BlackElo "2695"]
+[PlyCount "92"]
+[EventDate "1979.??.??"]
+[Source "ChessBase"]
+[SourceDate "2001.11.25"]
+
+1. e4 e6 2. d4 d5 3. Nd2 c5 4. exd5 exd5 5. Bb5+ Bd7 6. Qe2+ Be7 7. dxc5 Nf6 8.
+Nb3 O-O 9. Be3 Re8 10. Nf3 a6 11. Bd3 Ba4 12. Nfd4 Nbd7 13. O-O Bxb3 14. Nxb3
+Nxc5 15. Rad1 Nxb3 16. axb3 Bc5 17. Qf3 Bxe3 18. fxe3 Qb6 19. Rde1 Re5 20. Re2
+Rae8 21. Rfe1 Qe6 22. h3 h6 23. b4 Ne4 24. c3 Rf5 25. Bxe4 dxe4 26. Qg3 Rd8 27.
+Rf2 Qe5 28. Qxe5 Rxe5 29. g4 Rd3 30. Ree2 f6 31. Rf1 Kf7 32. Kf2 Ke6 33. Rc1 f5
+34. Kg3 g5 35. gxf5+ Rxf5 36. Kg4 Rf3 37. Rce1 Kf6 38. h4 Rd5 39. c4 h5+ 40.
+Kxh5 Rd8 41. hxg5+ Kf5 42. Kh6 Rh3+ 43. Kg7 Rd7+ 44. Kg8 Kg6 45. Rf2 Rg7+ 46.
+Kf8 Rh8# 0-1
+
+[Event "Biel Interzonal"]
+[Site "Biel"]
+[Date "1976.07.31"]
+[Round "15"]
+[White "Petrosian, Tigran V"]
+[Black "Larsen, Bent"]
+[Result "1-0"]
+[ECO "D60"]
+[WhiteElo "2635"]
+[BlackElo "2625"]
+[PlyCount "111"]
+[EventDate "1976.07.??"]
+[Source "ChessBase"]
+
+1. Nf3 Nf6 2. c4 e6 3. d4 d5 4. Bg5 Be7 5. e3 O-O 6. Nc3 Nbd7 7. Bd3 dxc4 8.
+Bxc4 c5 9. O-O a6 10. a4 b6 11. Qe2 Bb7 12. Rfd1 cxd4 13. exd4 Re8 14. Rac1 Nf8
+15. Ne5 Nd5 16. Bxd5 Bxd5 17. Bxe7 Rxe7 18. Nxd5 Qxd5 19. Rc3 f6 20. Nc4 Qd8
+21. g3 Rd7 22. Rcd3 Kh8 23. Qe4 Rc8 24. b3 b5 25. axb5 axb5 26. Ne3 Re7 27. d5
+exd5 28. Qxd5 Qe8 29. Kg2 Re5 30. Qb7 h6 31. b4 Ne6 32. h4 Rb8 33. Qf3 Nf8 34.
+Nf5 Qg6 35. Nd6 h5 36. Rd5 Nd7 37. Nf7+ Qxf7 38. Rxd7 Qg6 39. R1d4 Rbe8 40. Rb7
+Qb1 41. Qd3 Qxd3 42. Rxd3 Rc8 43. f4 Re2+ 44. Kf3 Rb2 45. Rxb5 Rc4 46. Rxh5+
+Kg8 47. Kg4 Rcxb4 48. Rd8+ Kf7 49. Rhh8 Rb7 50. Rhf8+ Ke7 51. Kf5 R2b3 52. g4
+Rg3 53. Rde8+ Kd6 54. g5 fxg5 55. hxg5 Rb5+ 56. Kg6 1-0
+
+[Event "?"]
+[Site "New York"]
+[Date "????.??.??"]
+[Round "?"]
+[White "Diagram 36"]
+[Black "?"]
+[Result "*"]
+[SetUp "1"]
+[FEN "5R1r/k7/7r/4pR2/6P1/4P3/4K2p/8 w - - 0 1"]
+[PlyCount "0"]
+[SourceDate "2003.02.18"]
+
+ *
+
+[Event "Szolnok"]
+[Site "Szolnok"]
+[Date "1975.??.??"]
+[Round "4"]
+[White "Bilek, Istvan"]
+[Black "Mednis, Edmar John"]
+[Result "1/2-1/2"]
+[ECO "A36"]
+[WhiteElo "2495"]
+[BlackElo "2455"]
+[PlyCount "38"]
+[EventDate "1975.??.??"]
+[Source "ChessBase"]
+
+1. c4 g6 2. g3 Bg7 3. Bg2 c5 4. Nc3 Nc6 5. e3 e6 6. Nge2 Nge7 7. O-O O-O 8. d4
+cxd4 9. Nxd4 Nxd4 10. exd4 d5 11. cxd5 Nxd5 12. Re1 Qb6 13. Bxd5 exd5 14. Nxd5
+Qxd4 15. Qxd4 Bxd4 16. Bh6 Bg7 17. Ne7+ Kh8 18. Bxg7+ Kxg7 19. Nxc8 Rfxc8
+1/2-1/2
+
+[Event "?"]
+[Site "New York"]
+[Date "????.??.??"]
+[Round "?"]
+[White "Diagram 38A"]
+[Black "?"]
+[Result "*"]
+[SetUp "1"]
+[FEN "5k2/5p2/7p/R7/P7/r5P1/6KP/8 w - - 0 1"]
+[PlyCount "0"]
+[SourceDate "2003.02.18"]
+
+ *
+
+[Event "USA-ch"]
+[Site "Pasadena"]
+[Date "1978.??.??"]
+[Round "2"]
+[White "Soltis, Andrew E"]
+[Black "Regan, Kenneth"]
+[Result "1/2-1/2"]
+[ECO "B23"]
+[WhiteElo "2460"]
+[BlackElo "2430"]
+[PlyCount "100"]
+[EventDate "1978.06.??"]
+[Source "ChessBase"]
+
+1. e4 c5 2. Nc3 Nc6 3. Nge2 a6 4. g3 b5 5. Bg2 g6 6. d4 cxd4 7. Nxd4 Bg7 8. Be3
+Bb7 9. a4 b4 10. Nd5 Rc8 11. Nf5 d6 12. Nxg7+ Kf8 13. Nh5 gxh5 14. Qxh5 Ne5 15.
+f4 Bxd5 16. exd5 Ng6 17. Qe2 Qa5 18. O-O Nf6 19. Bd4 Rg8 20. c4 bxc3 21. bxc3
+Nxd5 22. Qh5 e5 23. fxe5 dxe5 24. Bxe5 Nxe5 25. Qxe5 Qc5+ 26. Kh1 Ne3 27. Qxc5+
+Rxc5 28. Rf3 Nxg2 29. Kxg2 Rg4 30. Rb1 Rc7 31. Rb4 Rgc4 32. Rf6 a5 33. Rxc4
+Rxc4 34. Rf4 Rxc3 35. Rf5 Ra3 36. Rxa5 h6 37. Kh3 Ra2 38. g4 Ra3+ 39. Kh4 Kg7
+40. Ra8 Kf6 41. Ra7 Kg6 42. Ra5 f6 43. Ra7 Rc3 44. a5 Ra3 45. a6 f5 46. gxf5+
+Kxf5 47. Ra8 Kg6 48. Kg4 Ra4+ 49. Kf3 Kh5 50. Ke3 Kh4 1/2-1/2
+
+[Event "?"]
+[Site "New York"]
+[Date "????.??.??"]
+[Round "?"]
+[White "Diagram 39A"]
+[Black "?"]
+[Result "*"]
+[SetUp "1"]
+[FEN "6k1/8/5p2/6pR/8/6P1/r7/6K1 w - g6 0 47"]
+[PlyCount "0"]
+[SourceDate "2003.02.18"]
+
+ *
+
+[Event "USA-ch"]
+[Site "Pasadena"]
+[Date "1978.??.??"]
+[Round "8"]
+[White "Soltis, Andrew E"]
+[Black "Byrne, Robert E"]
+[Result "1/2-1/2"]
+[ECO "B51"]
+[WhiteElo "2460"]
+[BlackElo "2550"]
+[PlyCount "121"]
+[EventDate "1978.06.??"]
+[Source "ChessBase"]
+
+1. e4 c5 2. Nf3 d6 3. Bb5+ Nd7 4. d4 cxd4 5. Qxd4 Ngf6 6. Bg5 e6 7. c4 Be7 8.
+Nc3 O-O 9. O-O Qc7 10. Rfd1 Rd8 11. Rac1 a6 12. Ba4 b6 13. Bc2 Bb7 14. Bb1 Ne5
+15. Na4 Ned7 16. h3 Rab8 17. Qe3 Ba8 18. Bf4 Ne5 19. Bxe5 dxe5 20. Rxd8+ Bxd8
+21. c5 bxc5 22. Nxc5 Qd6 23. Qe2 Rc8 24. b4 a5 25. Rd1 Qb6 26. Qa6 Qxa6 27.
+Nxa6 axb4 28. Nxb4 Nxe4 29. Bxe4 Bxe4 30. Nxe5 Bb6 31. Kf1 f6 32. Ned3 e5 33.
+f3 Ba8 34. Ke2 e4 35. fxe4 Bxe4 36. Kf1 Rc4 37. a3 Rc3 38. Nf2 Bxf2 39. Kxf2
+Rxa3 40. Rd2 h5 41. h4 Ra4 42. Nd5 Bxd5 43. Rxd5 Rxh4 44. g3 Rh2+ 45. Kg1 Ra2
+46. Rxh5 g5 47. Rh3 Kf7 48. Rh7+ Ke6 49. Rb7 Ke5 50. Rb4 f5 51. Kf1 Kd5 52. Kg1
+Rd2 53. Ra4 Rb2 54. Kf1 Rc2 55. Kg1 Rc4 56. Ra8 Ke4 57. Rg8 g4 58. Rf8 Rc2 59.
+Rf7 Re2 60. Rf8 Rd2 61. Rf7 1/2-1/2
+
+[Event "?"]
+[Site "New York"]
+[Date "????.??.??"]
+[Round "?"]
+[White "Diagram 40A"]
+[Black "?"]
+[Result "*"]
+[SetUp "1"]
+[FEN "8/5p2/2r2kpp/R7/6PP/5P2/4P3/5K2 b - - 0 1"]
+[PlyCount "0"]
+[SourceDate "2003.02.18"]
+
+ *
+
+[Event "USA-ch"]
+[Site "Pasadena"]
+[Date "1978.??.??"]
+[Round "12"]
+[White "Lombardy, William James"]
+[Black "Zuckerman, Bernard"]
+[Result "1/2-1/2"]
+[ECO "E20"]
+[WhiteElo "2540"]
+[BlackElo "2475"]
+[PlyCount "130"]
+[EventDate "1978.06.??"]
+[Source "ChessBase"]
+
+1. d4 Nf6 2. c4 e6 3. Nc3 Bb4 4. Nf3 c5 5. g3 Ne4 6. Qd3 cxd4 7. Nxd4 Qa5 8.
+Nb3 Nxc3 9. Bd2 Ne4 10. Qxe4 Bxd2+ 11. Nxd2 O-O 12. Bg2 Rd8 13. Qf4 d5 14. cxd5
+exd5 15. O-O Nc6 16. Nb3 Qb6 17. Rfd1 Be6 18. Rd2 d4 19. Bxc6 Bxb3 20. Bxb7
+Qxb7 21. axb3 Qxb3 22. Rxd4 Qxb2 23. Rxa7 Rf8 24. Rxa8 Qb1+ 25. Kg2 Qb7+ 26. f3
+Qxa8 27. Rd7 Qe8 28. Qd2 h6 29. Kf2 Qe6 30. Kf1 Qf6 31. Qe3 Rb8 32. Qe4 Rc8 33.
+Re7 Qc6 34. Qxc6 Rxc6 35. Re5 g6 36. g4 Kg7 37. h4 Kf6 38. Ra5 Rc1+ 39. Kf2 Rh1
+40. Kg3 Re1 41. Ra2 Rg1+ 42. Kh2 Re1 43. f4 Kg7 44. Kg2 Kf6 45. Rb2 Kg7 46. h5
+gxh5 47. gxh5 Kf6 48. Kf2 Rh1 49. Rb5 Rh3 50. Re5 Ra3 51. e3 Ra1 52. Rb5 Rh1
+53. e4 Rh3 54. Kg2 Re3 55. Rb6+ Kg7 56. e5 Kh7 57. Rb7 Kg8 58. Rb8+ Kg7 59. Rb5
+Kh7 60. Ra5 Kg7 61. Ra1 Kf8 62. Rh1 f6 63. Rh3 Re1 64. Kf2 Ra1 65. e6 Ra2+
+1/2-1/2
+

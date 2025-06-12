@@ -1,8 +1,4 @@
-# V7P3R ChessBot - Streamlit Web Demo
-
-A simple web demo of the V7P3R ChessBot engine, allowing you to play against the AI or evaluate any chess position using a FEN string. This version is designed for easy sharing and does **not** require a Python environment for your friends to try it out (when deployed on Streamlit Cloud).
-
----
+# Viper Chess Engine - Product README
 
 ## Features (Streamlit App)
 
@@ -17,64 +13,78 @@ A simple web demo of the V7P3R ChessBot engine, allowing you to play against the
 
 ---
 
-## Quick Start (Local)
+## Quick Start
 
-1. **Install dependencies:**
+### Web Demo (Streamlit)
+
+1. Install dependencies:
     ```bash
     pip install -r requirements.txt
     ```
-
-2. **Run the Streamlit app:**
+2. Run the web app:
     ```bash
     streamlit run streamlit_app.py
     ```
 
----
+### Local Metrics Dashboard
 
-## How to Use
-
-- **Set Position:** Paste a FEN string and click "Set Position from FEN" to load any chess position.
-- **Play a Move:** Use the dropdown to select your move (in chess notation) and click "Play Move". The AI will respond automatically.
-- **Evaluate:** Click "Evaluate Position" to see the engine's evaluation of the current board.
-- **Configure AI:** Use the sidebar to change AI type and depth.
-- **Refresh Board:** If the board does not update after the AI moves, click "Evaluate Position" or interact with the board.
-
----
-
-## Deployment (Share with Friends)
-
-You can deploy this app for free using [Streamlit Cloud](https://streamlit.io/cloud):
-
-1. Push your code to GitHub.
-2. Go to [streamlit.io/cloud](https://streamlit.io/cloud) and sign in.
-3. Click "New app", select your repo, and deploy.
-4. Share the link!
+1. Install dependencies:
+    ```bash
+    pip install -r requirements.txt
+    ```
+2. Run the dashboard:
+    ```bash
+    python metrics/chess_metrics.py
+    ```
 
 ---
 
-## File Overview
+## Significant File Overview
 
-- `streamlit_app.py` — The Streamlit web app (all main features are here)
-- `evaluation_engine.py` — Chess engine logic and evaluation
-- `piece_square_tables.py` — Piece-square tables for evaluation
+- `chess_game.py` — Core chess game logic and rules
+- `viper_scoring_calculation.py` — AI scoring and evaluation logic
+- `chess_metrics.py` — Engine performance metrics dashboard
+- `metrics_store.py` — Metrics database and logic
+- `viper.py` — Core chess engine logic
+- `piece_square_tables.py` — Piece-square evaluation tables
+
 - `config.yaml` — Engine and AI configuration
+- `testing/` — Unit and integration tests for each module
+- `games/` — Saved games, configs, and logs (for local/dev use)
 
 ---
 
-## Limitations (Web Demo)
+## Testing
 
-- No Lichess integration or UCI protocol in this demo.
-- No Pygame GUI or advanced visualizations.
-- Only single-game, human-vs-AI play (no AI vs AI or puzzle mode).
-- Board may require manual refresh after AI moves (see sidebar instructions).
+- Each main `.py` file has a corresponding `[module]_testing.py` in `testing/`.
+- Run individual tests:
+    ```bash
+    python testing/metrics_store_testing.py
+    ```
+- Or run a suite (see `testing/launch_testing_suite.py` and `testing/testing.yaml`).
+
+---
+
+## Deployment
+
+- **Web:** Deploy `streamlit_app.py` to [Streamlit Cloud](https://streamlit.io/cloud).
+- **Local:** Run any module directly for advanced features and metrics.
+
+---
+
+## Limitations
+
+- No Lichess/UCI integration in the web demo.
+- Local metrics dashboard requires Python environment.
+- AI vs AI and distributed/cloud database support are in development.
 
 ---
 
 ## Example Usage
 
-- **Play a game:** Start from the default position and play as White or Black.
-- **Test a position:** Paste a FEN (e.g., from a puzzle or analysis) and see what the engine thinks.
-- **Experiment:** Try different AI types and depths to see how the engine responds.
+- Play a game or analyze a position in the web app.
+- Tune engine parameters and visualize results in the dashboard.
+- Run tests to verify engine and metrics correctness.
 
 ---
 

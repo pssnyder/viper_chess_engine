@@ -1,0 +1,37 @@
+[Event "AI vs. AI Game"]
+[Site "192.168.50.220"]
+[Date "2025.06.10"]
+[Round "#"]
+[White "AI: viper via random (Depth 4)"]
+[Black "AI: Viper via random (Depth 4)"]
+[Result "0-1"]
+[Rated "True"]
+
+1. d4 { Eval: 0.50 } 1... Nf6 { Eval: -1.50 } 2. Qd2 { Eval: 1.40 } 2... e6
+{ Eval: -1.00 } 3. Nh3 { Eval: 0.80 } 3... Ne4 { Eval: -1.00 } 4. g4
+{ Eval: 1.90 } 4... Rg8 { Eval: -1.90 } 5. Ng1 { Eval: 2.10 } 5... a5
+{ Eval: -1.20 } 6. Kd1 { Eval: 1.20 } 6... c6 { Eval: -0.60 } 7. d5
+{ Eval: 0.70 } 7... g6 { Eval: 0.10 } 8. b3 { Eval: 0.70 } 8... g5
+{ Eval: -0.60 } 9. a3 { Eval: 1.40 } 9... Ke7 { Eval: -1.40 } 10. d6+
+{ Eval: 1.60 } 10... Nxd6 { Eval: -2.70 } 11. Qxd6+ { Eval: -0.70 } 11... Ke8
+{ Eval: 0.70 } 12. Bd2 { Eval: -0.90 } 12... h5 { Eval: 1.80 } 13. h4
+{ Eval: -0.90 } 13... c5 { Eval: 1.10 } 14. Qe5 { Eval: -1.10 } 14... b5
+{ Eval: 2.00 } 15. Qf6 { Eval: -2.00 } 15... Ra6 { Eval: 2.10 } 16. Qf4
+{ Eval: -2.10 } 16... Qb6 { Eval: 2.00 } 17. Qe4 { Eval: -2.00 } 17... f6
+{ Eval: 2.60 } 18. Qg6+ { Eval: -2.50 } 18... Kd8 { Eval: 2.50 } 19. Qxg8
+{ Eval: -7.30 } 19... Kc7 { Eval: 7.10 } 20. Kc1 { Eval: -7.30 } 20... c4
+{ Eval: 7.50 } 21. Bxg5 { Eval: -8.60 } 21... Qe3+ { Eval: 8.50 } 22. Kb2
+{ Eval: -8.50 } 22... Ra7 { Eval: 8.30 } 23. a4 { Eval: -8.20 } 23... Kb6
+{ Eval: 8.20 } 24. gxh5 { Eval: -9.20 } 24... e5 { Eval: 9.30 } 25. Qf7
+{ Eval: -9.50 } 25... c3+ { Eval: 9.70 } 26. Ka2 { Eval: -9.90 } 26... bxa4
+{ Eval: 8.90 } 27. Qh7 { Eval: -8.70 } 27... Kb5 { Eval: 8.70 } 28. bxa4+
+{ Eval: -9.60 } 28... Ka6 { Eval: 9.40 } 29. Qf7 { Eval: -9.60 } 29... Qd3
+{ Eval: 9.60 } 30. Qxd7 { Eval: -11.60 } 30... Kb6 { Eval: 11.80 } 31. cxd3
+{ Eval: -20.50 } 31... Kc5 { Eval: 20.50 } 32. Qg4 { Eval: -20.50 } 32... Rg7
+{ Eval: 20.40 } 33. Qf3 { Eval: -20.50 } 33... Kb4 { Eval: 20.30 } 34. Bh3
+{ Eval: -20.30 } 34... Bd7 { Eval: 20.10 } 35. h6 { Eval: -20.20 } 35... Bf5
+{ Eval: 20.10 } 36. Bf1 { Eval: -20.10 } 36... Bh7 { Eval: 20.40 } 37. e4
+{ Eval: -19.90 } 37... Bg8# { Eval: 19.90 } 0-1
+
+
+0-1

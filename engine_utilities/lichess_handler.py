@@ -1,4 +1,4 @@
-# lichess_bot.py
+# lichess_handler.py
 # Lichess Bot Integration - Connects chess engine to Lichess via the Lichess Bot API
 # TODO: Needs testing and validation. I need to be able to toggle the bot on and off easily if I need to make a patch or its behaving not as expected. It would also be nice to have a separate webapp page for controlling the lichess connection and bot settings.
 

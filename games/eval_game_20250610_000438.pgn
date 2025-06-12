@@ -1,0 +1,38 @@
+[Event "AI vs. AI Game"]
+[Site "192.168.50.220"]
+[Date "2025.06.10"]
+[Round "#"]
+[White "AI: viper via random (Depth 4)"]
+[Black "AI: Viper via random (Depth 4)"]
+[Result "0-1"]
+[Rated "True"]
+
+1. e4 { Eval: 0.50 } 1... e5 { Eval: 0.00 } 2. f4 { Eval: 0.80 } 2... b5
+{ Eval: 0.10 } 3. a3 { Eval: 0.70 } 3... Qf6 { Eval: -0.90 } 4. b3
+{ Eval: 1.70 } 4... Qxf4 { Eval: -2.90 } 5. Ra2 { Eval: 2.80 } 5... h6
+{ Eval: -2.00 } 6. d3 { Eval: 2.40 } 6... g6 { Eval: -1.60 } 7. Nc3
+{ Eval: 0.60 } 7... c5 { Eval: 0.20 } 8. h3 { Eval: 0.60 } 8... Qf6
+{ Eval: -0.60 } 9. a4 { Eval: 0.70 } 9... Ba6 { Eval: -0.70 } 10. Bb2
+{ Eval: 0.50 } 10... Qc6 { Eval: -0.50 } 11. Nb1 { Eval: 1.50 } 11... Bb7
+{ Eval: -1.70 } 12. a5 { Eval: 1.80 } 12... Bg7 { Eval: -2.00 } 13. Qh5
+{ Eval: 2.00 } 13... Ke7 { Eval: -2.00 } 14. g3 { Eval: 2.80 } 14... g5
+{ Eval: -2.70 } 15. Ra1 { Eval: 2.80 } 15... f5 { Eval: -2.00 } 16. Qh4
+{ Eval: 2.00 } 16... Bc8 { Eval: -1.80 } 17. d4 { Eval: 1.90 } 17... Kf7
+{ Eval: -2.10 } 18. g4 { Eval: 2.20 } 18... Qf6 { Eval: -2.20 } 19. Kd2
+{ Eval: 2.20 } 19... d5 { Eval: -1.70 } 20. Kc3 { Eval: 1.50 } 20... cxd4+
+{ Eval: -3.20 } 21. Kb4 { Eval: 3.20 } 21... gxh4 { Eval: -12.00 } 22. Bc1
+{ Eval: 12.20 } 22... Ke8 { Eval: -12.00 } 23. Ra4 { Eval: 12.10 } 23... Qc6
+{ Eval: -12.10 } 24. Bd3 { Eval: 11.70 } 24... bxa4 { Eval: -16.50 } 25. Bf4
+{ Eval: 16.20 } 25... Ne7 { Eval: -17.00 } 26. Bc4 { Eval: 17.10 } 26... h5
+{ Eval: -17.00 } 27. Be2 { Eval: 17.10 } 27... Qd7 { Eval: -17.00 } 28. Bf3
+{ Eval: 16.90 } 28... fxg4 { Eval: -17.80 } 29. hxg4 { Eval: 16.90 } 29... Bb7
+{ Eval: -17.10 } 30. Kc5 { Eval: 16.90 } 30... Kf7 { Eval: -17.10 } 31. Nh3
+{ Eval: 16.90 } 31... Nec6 { Eval: -17.10 } 32. Na3 { Eval: 16.90 } 32... Na6+
+{ Eval: -17.10 } 33. Kb5 { Eval: 17.10 } 33... Rhg8 { Eval: -17.10 } 34. Rf1
+{ Eval: 17.10 } 34... Ke6 { Eval: -16.90 } 35. Rf2 { Eval: 16.70 } 35... Raf8
+{ Eval: -16.70 } 36. Nc4 { Eval: 15.80 } 36... Nab4 { Eval: -16.40 } 37. Na3
+{ Eval: 17.30 } 37... Ne7+ { Eval: -17.10 } 38. Kc5 { Eval: 17.10 } 38... Na6#
+{ Eval: -16.50 } 0-1
+
+
+0-1

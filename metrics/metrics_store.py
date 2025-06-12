@@ -495,7 +495,16 @@ class MetricsStore:
                         time_taken: float, pv_line: str):
         """
         Inserts a single move's detailed metrics into the move_metrics table.
+        Normalizes player_color to 'white' or 'black' for dashboard compatibility.
         """
+        # Normalize player_color
+        if player_color.lower() in ('w', 'white'):
+            player_color_db = 'white'
+        elif player_color.lower() in ('b', 'black'):
+            player_color_db = 'black'
+        else:
+            player_color_db = player_color  # fallback, but should not happen
+
         connection = self._get_connection()
         with connection:
             cursor = connection.cursor()
@@ -506,7 +515,7 @@ class MetricsStore:
                  evaluation, ai_type, depth, nodes_searched, time_taken, pv_line)
                 VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
                 ''', (
-                    game_id, move_number, player_color, move_uci, fen_before,
+                    game_id, move_number, player_color_db, move_uci, fen_before,
                     evaluation, ai_type, depth, nodes_searched, time_taken, pv_line
                 ))
                 connection.commit()
@@ -640,28 +649,27 @@ class MetricsStore:
     def get_side_performance_metrics(self, side):
         """
         Retrieve performance metrics for a specific side ('w' for white, 'b' for black).
+        Accepts both 'w'/'b' and 'white'/'black' for compatibility.
         """
-        if side not in ('w', 'b'):
-            raise ValueError("Invalid side. Use 'w' for white or 'b' for black.")
+        # Normalize side
+        if side.lower() in ('w', 'white'):
+            side_db = 'white'
+        elif side.lower() in ('b', 'black'):
+            side_db = 'black'
+        else:
+            raise ValueError("Invalid side. Use 'w'/'white' for white or 'b'/'black' for black.")
 
         connection = self._get_connection()
         metrics = []
         with connection:
             cursor = connection.cursor()
-            # This query now fetches from move_metrics directly, as this is where fine-grained metrics are
-            # We'll calculate averages/counts based on move_metrics, or other tables if specific
-            # "computed metrics" are to be stored in the `metrics` table.
-            # For simplicity, let's just get average evaluation, nodes, and time for moves from that side.
-            
-            # Example: Average evaluation per move for this side
             cursor.execute('''
             SELECT AVG(evaluation) AS avg_eval, COUNT(evaluation) AS count_eval,
                    AVG(nodes_searched) AS avg_nodes, COUNT(nodes_searched) AS count_nodes,
                    AVG(time_taken) AS avg_time, COUNT(time_taken) AS count_time
             FROM move_metrics
             WHERE player_color = ?
-            ''', (side,))
-            
+            ''', (side_db,))
             row = cursor.fetchone()
             if row:
                 avg_eval, count_eval, avg_nodes, count_nodes, avg_time, count_time = row
@@ -671,7 +679,6 @@ class MetricsStore:
                     metrics.append({'label': 'Average Nodes Searched', 'avg_value': avg_nodes, 'count': count_nodes})
                 if avg_time is not None:
                     metrics.append({'label': 'Average Time Taken (s)', 'avg_value': avg_time, 'count': count_time})
-        
         return metrics
     
     def get_errors_and_warnings(self, limit=100):
@@ -814,7 +821,47 @@ class MetricsStore:
             # This is a placeholder for move ingestion
             # ...
             connection.commit()
-# ...existing code...
+    
+    def migrate_player_color_normalization(self):
+        """
+        Update all move_metrics.player_color values to 'white' or 'black' if they are 'w' or 'b'.
+        """
+        connection = self._get_connection()
+        with connection:
+            cursor = connection.cursor()
+            # Update 'w' to 'white'
+            cursor.execute("UPDATE move_metrics SET player_color = 'white' WHERE player_color = 'w'")
+            # Update 'b' to 'black'
+            cursor.execute("UPDATE move_metrics SET player_color = 'black' WHERE player_color = 'b'")
+            connection.commit()
+            # Check for any non-normalized values
+            cursor.execute("SELECT DISTINCT player_color FROM move_metrics")
+            all_colors = [row[0] for row in cursor.fetchall()]
+            for color in all_colors:
+                if color not in ('white', 'black'):
+                    print(f"Warning: Found non-normalized player_color value in DB: {color}")
+
+    def reingest_all_games(self, games_dir="games"):
+        """
+        Rebuild the metrics database from all available PGN and YAML files.
+        """
+        print("Re-ingesting all games and configs from disk...")
+        self.rebuild_metrics_from_files(games_dir=games_dir)
+        self.migrate_player_color_normalization()
+        print("Re-ingestion and normalization complete.")
+
+    def test_player_color_normalization(self):
+        """
+        Test that all move_metrics.player_color values are normalized.
+        """
+        connection = self._get_connection()
+        with connection:
+            cursor = connection.cursor()
+            cursor.execute("SELECT DISTINCT player_color FROM move_metrics")
+            all_colors = [row[0] for row in cursor.fetchall()]
+            print(f"Unique player_color values in move_metrics: {all_colors}")
+            assert set(all_colors).issubset({'white', 'black'}), "Non-normalized player_color values found!"
+
 # Test code (if `if __name__ == "__main__":` block exists, add this inside it)
 if __name__ == "__main__":
     # Test `MetricsStore` enhancements
@@ -894,3 +941,9 @@ if __name__ == "__main__":
 
     store.close()
     print("--- MetricsStore Dashboard Integration Tests Complete ---")
+    # --- Additional migration and test for legacy data ---
+    print("\n--- Running migration and normalization for legacy data ---")
+    store = MetricsStore()
+    store.reingest_all_games(games_dir="games")
+    store.test_player_color_normalization()
+    print("--- Migration and normalization test complete ---")

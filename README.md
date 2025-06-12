@@ -1,5 +1,5 @@
-# V7P3R ChessBot - Streamlit Web Demo
-
+# Viper Chess Engine - Product README
+# TODO Update this README to reflect the current state of the production code options available 
 A simple web demo of the V7P3R ChessBot engine, allowing you to play against the AI or evaluate any chess position using a FEN string. This version is designed for easy sharing and does **not** require a Python environment for your friends to try it out (when deployed on Streamlit Cloud).
 
 ---

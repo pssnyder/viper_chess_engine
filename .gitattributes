@@ -1,1 +1,18 @@
+# Add .db database file to Git Large File Storage
 *.db filter=lfs diff=lfs merge=lfs -text
+
+# Mark Python files as Python for Linguist
+*.py linguist-language=Python
+
+# Exclude database, log, and PGN files from language stats
+*.db linguist-generated=true
+*.log linguist-generated=true
+*.pgn linguist-generated=true
+
+# (Optional) Exclude other non-source files from stats
+*.yaml linguist-generated=true
+*.yml linguist-generated=true
+*.txt linguist-generated=true
+
+# (Optional) Exclude Markdown docs from stats
+*.md linguist-generated=true

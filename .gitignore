@@ -11,6 +11,9 @@
 *.viper_chess_engine.*
 .viper_chess_engine_project_files/
 
+# Omit external engine files
+external_engines/
+
 # Directories to ignore
 evaluation/
 models/

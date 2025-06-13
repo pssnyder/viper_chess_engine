@@ -4,7 +4,7 @@
 This module implements the evaluation engine for the Viper chess AI.
 It provides various search algorithms, evaluation functions, and move ordering
 """
-# TODO: Refactor this module to use the new ruleset system and configuration management
+# TODO Package up my viper chess engine functionality separately and configure it to work like other chess engines i.e. stockfish, etc, with an API that can be called from a web app, but I would be the one with the keys so only my engines client simulator nodes could interact with it. this would also have the benifit that anyone who opened the webpage and played a game would be contributing game data to our database. Lets make sure the database is ready to handle high volumes of testing first
 
 from __future__ import annotations # Added for postponed evaluation of type annotations
 import chess

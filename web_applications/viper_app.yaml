@@ -1,1 +1,14 @@
 # TODO use for any settings required for the viper webapp
+
+ai:
+  allowed_depth: 4
+  quiescence: true
+  mode: human_vs_ai
+
+theme:
+  mode: dark
+
+streamlit:
+  title: "Viper Chess Engine Web App"
+  page_icon: "♟️"
+  layout: wide

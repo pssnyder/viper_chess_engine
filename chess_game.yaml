@@ -1,7 +1,6 @@
 # chess_game.yaml
 # Configuration for the automated game handler
 # This is where pygame chess game settings are configured, as well as the white and black engine paths to use for the game. Additional configurations for those engines will be in engine_utilities/external_engines/<engine_name>_handler.yaml
-# TODO: update to handle new configuration and engine functionality options
 
 # game_config settings
 game_config:
@@ -25,11 +24,11 @@ game_config:
 # Engine configurations
 # These configurations are for the AI engines used in the game, such as Viper and Stockfish.
 white_ai_config:
-  exclude_from_metrics: false   # TODO Implement flag to exclude this engines performance from metrics collection, useful for testing, non-competitive, or third party AIs who's performance you may not want to record for this set of games, should flag all outputs from this color and engine for this match date_timestamp as being excluded from metrics, these metrics should still be gathered as a fallback, and in the event I do want to use them so we just want to have a flag in the database for exclude from metrics. Then I can always toggle the flags per game record in the database if I want to see a game or vice versa.
-  engine: viper                 # Name of the engine being used (e.g., 'viper', 'stockfish'), this value is a direct reference to the engine configuration values below
+  exclude_from_metrics: false   # Excludes this engines performance from metrics parsing into the data layer of our database, data should still be stored in the database raw layer. This is useful for testing, non-competitive, or third party AIs who's performance you may not want to record for this set of games, should flag all outputs from this color and engine for this match date_timestamp as being excluded from metrics, these metrics should still be gathered as a fallback, and in the event I do want to use them so we just want to have a flag in the database for exclude from metrics. Then I can always toggle the flags per game record in the database if I want to see a game or vice versa.
+  engine: viper                 # Name of the engine being used (e.g., viper, stockfish, chatfish), this value is a direct reference to the engine configuration values below
 black_ai_config:
-  exclude_from_metrics: true    # does the same as above but for this engines performance as this color           
-  engine: viper_opponent             # sets this colors engine type, same as above, important note that if the engines are set the same then only whites metrics will be collected to prevent negation in win loss metrics
+  exclude_from_metrics: true    # does the same as above but for this engines performance as this color
+  engine: viper_opponent        # sets this colors engine type, same as above, important note that if the engines are set the same then only whites metrics will be collected to prevent negation in win loss metrics
 
 # Performance settings
 performance:

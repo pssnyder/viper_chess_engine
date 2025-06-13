@@ -1,7 +1,6 @@
 # chess_game.yaml
 # Configuration for the automated game handler
 # This is where pygame chess game settings are configured, as well as the white and black engine paths to use for the game. Additional configurations for those engines will be in engine_utilities/external_engines/<engine_name>_handler.yaml
-# TODO: update to handle new configuration and engine functionality options
 
 # game_config settings
 game_config:

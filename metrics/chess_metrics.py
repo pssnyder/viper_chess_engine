@@ -8,6 +8,7 @@ import plotly.graph_objs as go
 import pandas as pd
 import numpy as np
 from metrics_store import MetricsStore # Use the existing MetricsStore
+from metrics_backup import backup_metrics_db
 import threading
 import yaml
 import atexit
@@ -52,6 +53,38 @@ DARK_HIGHLIGHT = "#4A90E2"
 DARK_ERROR = "#FF5252"
 DARK_WARNING = "#FFB300"
 DARK_SUCCESS = "#00C853"
+
+# --- Metrics Dashboard Initialization: Backup, Cleanup, and Test Data ---
+def initialize_metrics_dashboard():
+    # 1. Backup the database
+    backup_path = backup_metrics_db()
+    print(f"Metrics DB backed up to: {backup_path}")
+    # 2. Clean up incomplete games (where result is not 1-0, 0-1, or 1/2-1/2)
+    connection = metrics_store._get_connection()
+    with connection:
+        cursor = connection.cursor()
+        cursor.execute("DELETE FROM game_results WHERE winner NOT IN ('1-0', '0-1', '1/2-1/2') OR winner IS NULL")
+        connection.commit()
+    # 3. Insert test records for white and black under a metrics-test engine name
+    test_game_id = f"metrics_test_{datetime.now().strftime('%Y%m%d_%H%M%S')}"
+    metrics_store.add_game_result(
+        game_id=test_game_id,
+        timestamp=datetime.now().isoformat(),
+        winner='1-0',
+        game_pgn="[Event 'Test']\n[Site 'Local']\n[Date '2025.06.12']\n[Round '-']\n[White 'metrics-test']\n[Black 'metrics-test']\n[Result '1-0']\n\n1. e4 e5 2. Nf3 Nc6 3. Bb5 a6 4. Ba4 Nf6 5. O-O Be7 6. Re1 b5 7. Bb3 d6 8. c3 O-O 9. h3 Nb8 10. d4 Nbd7 1-0",
+        white_player='metrics-test',
+        black_player='metrics-test',
+        game_length=10,
+        white_ai_config={'ai_type': 'metrics-test', 'exclude_from_metrics': False},
+        black_ai_config={'ai_type': 'metrics-test', 'exclude_from_metrics': False}
+    )
+    # Add a few test moves
+    metrics_store.add_move_metric(game_id=test_game_id, move_number=1, player_color='white', move_uci='e2e4', fen_before='rnbqkbnr/pppppppp/8/8/4P3/8/PPPP1PPP/RNBQKBNR b KQkq - 0 1', evaluation=0.1, ai_type='metrics-test', depth=1, nodes_searched=10, time_taken=0.01, pv_line='e2e4 e7e5')
+    metrics_store.add_move_metric(game_id=test_game_id, move_number=1, player_color='black', move_uci='e7e5', fen_before='rnbqkbnr/pppppppp/8/4p3/4P3/8/PPPP1PPP/RNBQKBNR w KQkq e6 0 2', evaluation=0.0, ai_type='metrics-test', depth=1, nodes_searched=10, time_taken=0.01, pv_line='e7e5 Nf3')
+    print("Test metrics data initialized.")
+
+# Call initialization at module load
+initialize_metrics_dashboard()
 
 # Dash app
 app = dash.Dash(__name__)

@@ -1,1 +1,13 @@
 *.db filter=lfs diff=lfs merge=lfs -text
+*.py linguist-language=Python
+*.yaml linguist-language=YAML
+*.yml linguist-language=YAML
+*.md linguist-documentation
+*.txt linguist-documentation
+*.pgn linguist-documentation
+*.csv linguist-documentation
+*.json linguist-documentation
+*.png linguist-documentation
+*.jpg linguist-documentation
+*.code-workspace linguist-documentation
+__pycache__/ linguist-generated

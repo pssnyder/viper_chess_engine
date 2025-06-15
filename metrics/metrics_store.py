@@ -817,9 +817,32 @@ class MetricsStore:
                 base, datetime.now().isoformat(), winner, pgn_text, white_engine, black_engine, 0, datetime.now().isoformat(),
                 white_engine_id, black_engine_id, white_engine, black_engine, white_engine_version, black_engine_version, int(white_exclude), int(black_exclude)
             ))
-            # TODO: Parse moves and logs for move_metrics (requires move parsing logic)
-            # This is a placeholder for move ingestion
-            # ...
+            # --- Begin move_metrics ingestion ---
+            pgn_io = io.StringIO(pgn_text)
+            game = chess.pgn.read_game(pgn_io)
+            if game is not None:
+                board = game.board()
+                move_number = 1
+                for node in game.mainline():
+                    move = node.move
+                    fen_before = board.fen()
+                    move_uci = move.uci()
+                    player_color = 'white' if board.turn else 'black'
+                    # Try to extract additional info from comments or logs (if available)
+                    # For now, just basic info
+                    cursor.execute('''INSERT INTO move_metrics (game_id, move_number, player_color, move_uci, fen_before, created_at)
+                        VALUES (?, ?, ?, ?, ?, ?)''', (
+                        base,
+                        move_number,
+                        player_color,
+                        move_uci,
+                        fen_before,
+                        datetime.now().isoformat()
+                    ))
+                    board.push(move)
+                    if not board.turn:
+                        move_number += 1
+            # --- End move_metrics ingestion ---
             connection.commit()
     
     def migrate_player_color_normalization(self):
